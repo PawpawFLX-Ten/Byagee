@@ -73,6 +73,7 @@ export interface GameStore {
   nextPropAt: number
   propSeq: number
   paused: boolean
+  pausedAt: number
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
@@ -168,6 +169,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   nextPropAt: CONFIG.props.spawnIntervalSec,
   propSeq: 0,
   paused: false,
+  pausedAt: 0,
   lang: 'zh',
 
   setLang: (lang) => {
@@ -263,7 +265,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setReduceNausea: (on) => set({ reduceNausea: on }),
 
-  togglePause: () => set((s) => ({ paused: !s.paused })),
+  togglePause: () => set((s) => {
+    if (!s.paused) {
+      return { paused: true, pausedAt: performance.now() }
+    }
+    const pauseDuration = performance.now() - (s.pausedAt || performance.now())
+    return { paused: false, startedAt: s.startedAt + pauseDuration, pausedAt: 0 }
+  }),
 
   useSkill: (skillId, now = performance.now()) => {
     const state = get()

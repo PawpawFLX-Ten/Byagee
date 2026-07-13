@@ -352,10 +352,7 @@ export function Door() {
           lineHeight={1.3}
           maxWidth={0.26}
         >
-          {lang === 'zh'
-            ? t('couplet_right').split('').join('\n')
-            : t('couplet_right').split(' ').join('\n')
-          }
+          {t('couplet_right').replace(/ /g, '').split('').join('\n')}
         </Text>
       </group>
 
@@ -374,10 +371,7 @@ export function Door() {
           lineHeight={1.3}
           maxWidth={0.26}
         >
-          {lang === 'zh'
-            ? t('couplet_left').split('').join('\n')
-            : t('couplet_left').split(' ').join('\n')
-          }
+          {t('couplet_left').replace(/ /g, '').split('').join('\n')}
         </Text>
       </group>
     </group>
@@ -488,7 +482,7 @@ export function Player() {
           ref.current.position.z,
           mx * speed * dt,
           mz * speed * dt,
-          CONFIG.tables,
+          isAirborne ? [] : CONFIG.tables,
           blockers,
         )
         ref.current.position.x = x

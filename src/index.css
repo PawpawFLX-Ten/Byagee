@@ -398,6 +398,25 @@ body,
   font-size: 26px;
   font-weight: 700;
   line-height: 1.25;
+  flex: 1;
+}
+
+.lang-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(40, 32, 24, 0.8);
+  color: #fff8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.lang-btn:hover {
+  background: rgba(60, 48, 36, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .donation-btn {

@@ -98,23 +98,21 @@ export function Briefing() {
     <div className="briefing">
       <div className="briefing-card">
         <div className="briefing-header">
+          <button
+            type="button"
+            className="lang-btn"
+            onClick={toggleLang}
+          >
+            {lang === 'zh' ? 'EN' : 'ZH'}
+          </button>
           <h1>{t('briefing_h1')}</h1>
-          <div className="briefing-header-actions">
-            <button
-              type="button"
-              className="lang-btn"
-              onClick={toggleLang}
-            >
-              {lang === 'zh' ? 'EN' : 'ZH'}
-            </button>
-            <button
-              type="button"
-              className="donation-btn"
-              onClick={() => setShowDonation(true)}
-            >
-              {t('briefing_donation')}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="donation-btn"
+            onClick={() => setShowDonation(true)}
+          >
+            {t('briefing_donation')}
+          </button>
         </div>
         <p className="lede">
           {t('briefing_lede')}
