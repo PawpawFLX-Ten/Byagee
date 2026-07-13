@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import type { Group, Mesh } from 'three'
 import { useGameStore } from '../game/store'
+import { t } from '../game/i18n'
 import type { NpcState, SkillId } from '../game/types'
 
 const COLORS = ['#e07070', '#70a070', '#7070c0']
@@ -40,6 +41,7 @@ function NpcMesh({
   const wave = useRef<Group>(null)
   const bodyColor = COLORS[npc.seatIndex % COLORS.length]
   const phase = useMemo(() => npc.seatIndex * 1.7, [npc.seatIndex])
+  const lang = useGameStore((s) => s.lang)
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime + phase
@@ -146,13 +148,13 @@ function NpcMesh({
   const faceLocked = npc.status === 'sealed' || npc.status === 'silenced'
   const quietLabel =
     npc.sealProp === 'tape'
-      ? '已封'
+      ? t('npc_sealedTape')
       : npc.sealProp === 'gag'
-        ? '塞住'
+        ? t('npc_sealedGag')
         : faceLocked
-          ? '安静'
+          ? t('npc_silenced')
           : npc.status === 'walking'
-            ? '觅食'
+            ? t('npc_walking')
             : null
 
   return (
@@ -264,7 +266,7 @@ function NpcMesh({
             outlineWidth={0.012}
             outlineColor="#400000"
           >
-            吧唧
+             {t('npc_smacking')}
           </Text>
         </Billboard>
       </group>

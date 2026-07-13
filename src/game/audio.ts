@@ -1,6 +1,7 @@
 import type { SkillId } from './types'
 import { distance3 } from './threat'
 import { CONFIG } from './config'
+import { t, getLang } from './i18n'
 
 /** Procedural SFX — no external audio assets. */
 
@@ -248,13 +249,13 @@ export function playSkill(skillId: SkillId) {
       burstNoise(0.06, 0.35, 2200)
       beep(320, 0.06, 'square', 0.16)
       beep(180, 0.1, 'triangle', 0.1)
-      playShoutVoice(CONFIG.slapShoutLine, 2.6)
+      playShoutVoice(t('slapShoutLine'), 2.6)
       break
     case 'tape':
       burstNoise(0.2, 0.22, 3200)
       beep(620, 0.14, 'sawtooth', 0.1, 140)
       beep(90, 0.08, 'sine', 0.12)
-      playShoutVoice(CONFIG.tapeShoutLine, 1.4)
+      playShoutVoice(t('tapeShoutLine'), 1.4)
       break
     case 'megaphone':
       beep(180, 0.12, 'sawtooth', 0.3)
@@ -267,42 +268,43 @@ export function playSkill(skillId: SkillId) {
       beep(100, 0.22, 'triangle', 0.22, 45)
       burstNoise(0.14, 0.2, 700)
       beep(60, 0.3, 'sine', 0.1)
-      playShoutVoice(CONFIG.gagShoutLine, 1.5)
+      playShoutVoice(t('gagShoutLine'), 1.5)
       break
     case 'poop':
       burstNoise(0.15, 0.25, 800)
       beep(200, 0.1, 'sawtooth', 0.18, 80)
       beep(120, 0.15, 'triangle', 0.12)
-      playShoutVoice(CONFIG.poopShoutLine, 2.0)
+      playShoutVoice(t('poopShoutLine'), 2.0)
       break
     case 'civility':
       beep(150, 0.2, 'sawtooth', 0.3)
       beep(100, 0.3, 'triangle', 0.2, 50)
       burstNoise(0.4, 0.25, 300)
-      playShoutVoice(CONFIG.civilityShoutLine, 1.5)
+      playShoutVoice(t('civilityShoutLine'), 1.5)
       break
   }
 }
 
 /** Browser TTS shout — prefer male zh voice, barked fast. */
-export function playShoutVoice(line = CONFIG.shoutLine, rate = 1.45) {
+export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
 
   const speak = () => {
     try {
       window.speechSynthesis.cancel()
       const u = new SpeechSynthesisUtterance(line)
-      u.lang = 'zh-CN'
+      const lang = getLang()
+      u.lang = lang === 'en' ? 'en-US' : 'zh-CN'
       u.rate = rate
       u.pitch = 0.65
       u.volume = 1
 
       const voices = window.speechSynthesis.getVoices()
-      const maleHint = /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i
+      const maleHint = lang === 'en' ? /male|david|alex|daniel|fred/i : /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i
       const femaleHint =
         /female|女|xiaoyi|xiaoxiao|tingting|yaoyao|huihui|tracy|jenny|zira/i
 
-      const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('zh'))
+      const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'en' ? 'en' : 'zh'))
       const male =
         zhVoices.find((v) => maleHint.test(v.name)) ??
         zhVoices.find((v) => !femaleHint.test(v.name)) ??

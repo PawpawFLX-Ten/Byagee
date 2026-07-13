@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
+import { setLang } from '../i18n'
 
 describe('round2 config', () => {
   it('has three tables and ten seats within door cap', () => {
+    setLang('zh')
     expect(CONFIG.tables).toHaveLength(3)
     expect(CONFIG.seatPositions).toHaveLength(10)
     expect(CONFIG.foodSpots.length).toBeGreaterThanOrEqual(10)

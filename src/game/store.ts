@@ -9,6 +9,7 @@ import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORM
 import { cycleTarget, tryUseSkill } from './skills'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
+import { t, setLang, type Lang } from './i18n'
 import type { DifficultyPhase, NpcState, PropState, SkillId } from './types'
 
 function emptyCooldowns(): Record<SkillId, number> {
@@ -72,6 +73,8 @@ export interface GameStore {
   nextPropAt: number
   propSeq: number
   paused: boolean
+  lang: Lang
+  setLang: (lang: Lang) => void
   start: (now?: number) => void
   restart: (now?: number) => void
   beginMission: (now?: number) => void
@@ -89,16 +92,23 @@ let npcSeq = 0
 let lastDoorEventAt = 0
 let nextBossAtElapsed = CONFIG.boss.intervalSec
 
-const FAIL_TEXT: Record<string, string> = {
-  cooldown: '技能冷却中',
-  too_far: '再靠近一点！',
-  no_target: '没有目标',
+function failText(reason: string): string {
+  switch (reason) {
+    case 'cooldown':
+      return t('toast_cooldown')
+    case 'too_far':
+      return t('toast_tooFar')
+    case 'no_target':
+      return t('toast_noTarget')
+    default:
+      return t('toast_fail')
+  }
 }
 
 function guideForElapsed(elapsed: number): string | null {
-  if (elapsed < 3.5) return '靠近绕桌觅食的吧唧者——文明需要距离。'
-  if (elapsed < 7) return '按 1：挥手拍玩具抽脸。短促有效。'
-  if (elapsed < 11) return '2 贴胶条 · 3 怒吼「闭嘴」· 4 塞嘴大招。'
+  if (elapsed < 3.5) return t('guide_1')
+  if (elapsed < 7) return t('guide_2')
+  if (elapsed < 11) return t('guide_3')
   return null
 }
 
@@ -158,6 +168,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   nextPropAt: CONFIG.props.spawnIntervalSec,
   propSeq: 0,
   paused: false,
+  lang: 'zh',
+
+  setLang: (lang) => {
+    setLang(lang)
+    set({ lang })
+  },
 
   start: (now = performance.now()) => {
     const npcs = createNpcs(now)
@@ -272,7 +288,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         lastSkillOk: false,
         toast: {
           id: fxSeq++,
-          text: FAIL_TEXT[preview.reason ?? ''] ?? '无法使用',
+          text: failText(preview.reason ?? ''),
           until: now + 900,
         },
       })
@@ -301,12 +317,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         id: fxSeq++,
         text:
           skillId === 'megaphone'
-            ? CONFIG.shoutLine
+            ? t('shoutLine')
             : skillId === 'poop'
-            ? CONFIG.poopShoutLine
+            ? t('poopShoutLine')
             : skillId === 'civility'
-            ? CONFIG.civilityShoutLine
-            : CONFIG.skills[skillId].displayName + '！',
+            ? t('civilityShoutLine')
+            : t(`skill_${skillId}`) + '！',
         until: now + Math.max(700, windup * 1000 + 200),
       },
       shoutBannerUntil:
@@ -452,7 +468,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (newLevel > level) {
       level = newLevel
       levelUpAt = now
-      toast = { id: fxSeq++, text: `升级！LV${level}`, until: now + 2000 }
+      toast = { id: fxSeq++, text: `${t('toast_levelUp_prefix')}LV${level}`, until: now + 2000 }
     }
 
     // Overflow heal at max level

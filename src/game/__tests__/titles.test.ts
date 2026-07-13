@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { titleForTime } from '../titles'
+import { setLang } from '../i18n'
 
 describe('titles', () => {
   it('returns title bands by survival time', () => {
+    setLang('zh')
     expect(titleForTime(0)).toBe('轻度洁癖')
     expect(titleForTime(29)).toBe('轻度洁癖')
     expect(titleForTime(30)).toBe('包间保安')

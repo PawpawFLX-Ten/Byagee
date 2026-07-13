@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import nipplejs from 'nipplejs'
 import { useInputStore } from '../game/inputStore'
 import { useGameStore } from '../game/store'
+import { t } from '../game/i18n'
 
 /** Detects touch device — component renders nothing on desktop. */
 function useIsTouch(): boolean {
@@ -21,6 +22,7 @@ export function TouchControls() {
   const cycle = useGameStore((s) => s.cycleTarget)
   const alive = useGameStore((s) => s.alive)
   const briefingDone = useGameStore((s) => s.briefingDone)
+  useGameStore((s) => s.lang) // re-render on language change
 
   useEffect(() => {
     if (!isTouch || !joystickZone.current) return
@@ -69,7 +71,7 @@ export function TouchControls() {
           }}
           disabled={!alive}
         >
-          跳
+          {t('touch_jump')}
         </button>
         <button
           className="touch-btn tab-btn"
@@ -79,7 +81,7 @@ export function TouchControls() {
           }}
           disabled={!alive}
         >
-          换
+          {t('touch_switch')}
         </button>
       </div>
     </div>

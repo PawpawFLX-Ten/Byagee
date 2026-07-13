@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { unlockAudio, setReduceNausea as applyNauseaAudio } from '../game/audio'
 import { CONFIG, SKILL_ORDER } from '../game/config'
 import { useGameStore } from '../game/store'
+import { t } from '../game/i18n'
 import { SkillIcon } from './SkillIcon'
 import type { SkillId } from '../game/types'
 import { titleForTime } from '../game/titles'
@@ -39,6 +40,7 @@ export function Hud() {
   const level = useGameStore((s) => s.level)
   const paused = useGameStore((s) => s.paused)
   const togglePause = useGameStore((s) => s.togglePause)
+  useGameStore((s) => s.lang) // re-render on language change
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -108,12 +110,12 @@ export function Hud() {
           type="button"
           className="pause-btn"
           onClick={() => togglePause()}
-          title="暂停 (Esc)"
+          title={t('hud_pauseTitle')}
         >
           {paused ? '▶' : '⏸'}
         </button>
         <div className="meter">
-          <span>HP</span>
+          <span>{t('hud_hp')}</span>
           <div className="bar">
             <div
               className="fill hp"
@@ -122,7 +124,7 @@ export function Hud() {
           </div>
         </div>
         <div className="meter">
-          <span>噪音</span>
+          <span>{t('hud_noise')}</span>
           <div className={`bar threat-${threatClass}`}>
             <div className="fill threat" style={{ width: `${threatPct}%` }} />
           </div>
@@ -140,7 +142,7 @@ export function Hud() {
         <div className="meta">
           <span>{formatTime(elapsedSec)}</span>
           <span className="phase">{phase}</span>
-          {selfNoise > 0 && <span className="self-noise">自噪音</span>}
+          {selfNoise > 0 && <span className="self-noise">{t('hud_selfNoise')}</span>}
           <span className="population">{population}/{CONFIG.door.maxNpcs}</span>
           {hasBoss && <span className="boss-cue">BOSS</span>}
         </div>
@@ -153,7 +155,7 @@ export function Hud() {
               applyNauseaAudio(e.target.checked)
             }}
           />
-          降恶心音
+           {t('hud_nauseaShort')}
         </label>
       </div>
 
@@ -187,7 +189,7 @@ export function Hud() {
       </div>
 
       <p className="hint">
-        WASD · 拖拽转镜 · Tab 换目标 · 1拍 2胶条 3吼 4塞嘴
+        {t('hud_hint')}
       </p>
 
       {edge !== null && (
@@ -209,7 +211,7 @@ export function Hud() {
       )}
 
       {showToast && (
-        <div className={`toast ${toast.text.startsWith('升级') ? 'levelup' : lastSkillOk ? 'ok' : 'fail'}`}>
+        <div className={`toast ${toast.text.startsWith(t('toast_levelUp_prefix')) ? 'levelup' : lastSkillOk ? 'ok' : 'fail'}`}>
           {toast.text}
         </div>
       )}
@@ -220,14 +222,14 @@ export function Hud() {
 
       {!alive && (
         <div className="death">
-          <h1>吧唧致死</h1>
+          <h1>{t('hud_deathTitle')}</h1>
           <p>
-            存活 <strong>{formatTime(elapsedSec)}</strong>
+            {t('hud_survived')} <strong>{formatTime(elapsedSec)}</strong>
           </p>
           <p className="title-badge">{titleForTime(elapsedSec)}</p>
-          <p className="restart">文明侠亦有殉职之日。按 R 再出警</p>
+          <p className="restart">{t('hud_deathRestart')}</p>
           <button type="button" onClick={() => restart()}>
-            重开
+            {t('hud_restart')}
           </button>
         </div>
       )}

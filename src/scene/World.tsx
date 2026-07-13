@@ -11,6 +11,7 @@ import {
 } from 'three'
 import { moveWithCollision, separateFromOthers } from '../game/collision'
 import { CONFIG } from '../game/config'
+import { t } from '../game/i18n'
 import { useGameStore } from '../game/store'
 import { useInputStore } from '../game/inputStore'
 import type { SkillId } from '../game/types'
@@ -99,16 +100,16 @@ export function WallOcclusionFader() {
   return null
 }
 
-const CALIGRAPHY_PIECES = [
-  { pos: [-4.7, 1.6, -1.5] as [number, number, number], rotY: Math.PI / 2, char: '静', label: 'calm' },
-  { pos: [-4.7, 1.6, 1.5] as [number, number, number], rotY: Math.PI / 2, char: '忍', label: 'endure' },
-  { pos: [4.7, 1.6, 0] as [number, number, number], rotY: -Math.PI / 2, char: '食不言', label: 'silence' },
-]
-
 export function WallArt() {
+  const lang = useGameStore((s) => s.lang)
+  const pieces = [
+    { pos: [-4.7, 1.6, -1.5] as [number, number, number], rotY: Math.PI / 2, char: t('wall_calm') },
+    { pos: [-4.7, 1.6, 1.5] as [number, number, number], rotY: Math.PI / 2, char: t('wall_endure') },
+    { pos: [4.7, 1.6, 0] as [number, number, number], rotY: -Math.PI / 2, char: t('wall_silence') },
+  ]
   return (
     <group>
-      {CALIGRAPHY_PIECES.map((piece, i) => (
+      {pieces.map((piece, i) => (
         <group key={i} position={piece.pos} rotation={[0, piece.rotY, 0]}>
           {/* Frame */}
           <mesh userData={{ fadeWall: true }} position={[0, 0, -0.02]}>
@@ -305,6 +306,7 @@ export function Tables() {
 }
 
 export function Door() {
+  useGameStore((s) => s.lang) // re-render on language change
   const p = CONFIG.door.position
   return (
     <group position={[p[0], 0, p[2]]}>
@@ -346,7 +348,7 @@ export function Door() {
           anchorY="middle"
           lineHeight={1.3}
         >
-          {'天道酬勤'.split('').join('\n')}
+          {t('couplet_right').split('').join('\n')}
         </Text>
       </group>
 
@@ -364,7 +366,7 @@ export function Door() {
           anchorY="middle"
           lineHeight={1.3}
         >
-          {'地道的您'.split('').join('\n')}
+          {t('couplet_left').split('').join('\n')}
         </Text>
       </group>
     </group>
@@ -416,6 +418,7 @@ export function Player() {
   const skillAction = useGameStore((s) => s.skillAction)
   const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
   const npcs = useGameStore((s) => s.npcs)
+  useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
   const wasSpace = useRef(false)
@@ -628,7 +631,7 @@ export function Player() {
             outlineColor="#200000"
             maxWidth={3}
           >
-            {CONFIG.shoutLine}
+            {t('shoutLine')}
           </Text>
         </Billboard>
       )}

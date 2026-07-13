@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import type { Group } from 'three'
 import { useGameStore } from '../game/store'
+import { t } from '../game/i18n'
 import type { PropState } from '../game/types'
 
 function HealProp() {
@@ -35,6 +36,7 @@ function HealProp() {
 }
 
 function SilenceProp() {
+  const lang = useGameStore((s) => s.lang)
   return (
     <group>
       {/* Bell body — sphere bottom */}
@@ -49,7 +51,7 @@ function SilenceProp() {
       </mesh>
       {/* "静" text above */}
       <Text position={[0, 0.35, 0]} fontSize={0.18} color="#6ec0ff" anchorX="center" anchorY="middle">
-        静
+         {t('silenceChar')}
       </Text>
       {/* Glow ring */}
       <Billboard position={[0, -0.3, 0]}>

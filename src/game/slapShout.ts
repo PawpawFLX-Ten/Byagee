@@ -1,5 +1,5 @@
-import { CONFIG } from './config'
+import { t } from './i18n'
 
 export function slapShoutLine(): string {
-  return CONFIG.slapShoutLine
+  return t('slapShoutLine')
 }

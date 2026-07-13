@@ -1,9 +1,10 @@
 import { CONFIG } from './config'
+import { t } from './i18n'
 
 export function titleForTime(elapsedSec: number): string {
-  let title = CONFIG.titles[0].title
+  let minTime = 0
   for (const row of CONFIG.titles) {
-    if (elapsedSec >= row.minTime) title = row.title
+    if (elapsedSec >= row.minTime) minTime = row.minTime
   }
-  return title
+  return t(`title_${minTime}`)
 }

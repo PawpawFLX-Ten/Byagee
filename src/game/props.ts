@@ -1,4 +1,5 @@
 import { CONFIG } from './config'
+import { t } from './i18n'
 import type { NpcState, PropState, PropType, TableDef } from './types'
 
 const ROOM_LIMIT = 4.35
@@ -101,7 +102,7 @@ export function applyPropEffect(
     return {
       npcs,
       hp: Math.min(maxHp, hp + CONFIG.props.healAmount),
-      toastText: `回血 +${CONFIG.props.healAmount}`,
+      toastText: `${t('prop_heal')}${CONFIG.props.healAmount}`,
     }
   }
 
@@ -121,7 +122,7 @@ export function applyPropEffect(
   return {
     npcs: nextNpcs,
     hp,
-    toastText: `全场静音 ${CONFIG.props.silenceSec}s`,
+    toastText: `${t('prop_silence_prefix')}${CONFIG.props.silenceSec}${t('prop_silence_suffix')}`,
   }
 }
 
