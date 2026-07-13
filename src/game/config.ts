@@ -1,0 +1,70 @@
+import type { GameConfig } from './types'
+
+export const CONFIG: GameConfig = {
+  maxHp: 100,
+  softThreat: 0.45,
+  hardThreat: 0.75,
+  softDrainPerSec: 8,
+  hardDrainPerSec: 28,
+  roomReverb: 1.35,
+  playerSpeed: 4.5,
+  skillRangeDefault: 2.2,
+  phases: { earlyEnd: 60, midEnd: 180 },
+  damageCoeff: { early: 1, mid: 1, late: 1.8 },
+  silenceScale: { early: 1, mid: 0.7, late: 0.5 },
+  maxOverlappingSmackers: { early: 1, mid: 2, late: 3 },
+  npcCount: 3,
+  seatPositions: [
+    [1.4, 0, 0.9],
+    [-1.4, 0, 0.9],
+    [0, 0, -1.3],
+  ],
+  skills: {
+    slap: {
+      id: 'slap',
+      displayName: '拍',
+      cooldown: 2,
+      range: 2.2,
+      silenceDuration: 1.2,
+      tags: ['instant'],
+      applyStatus: 'silenced',
+    },
+    tape: {
+      id: 'tape',
+      displayName: '胶条',
+      cooldown: 6,
+      range: 2.0,
+      silenceDuration: 5,
+      tags: ['duration'],
+      applyStatus: 'sealed',
+    },
+    megaphone: {
+      id: 'megaphone',
+      displayName: '喇叭',
+      cooldown: 10,
+      range: 4,
+      silenceDuration: 1.5,
+      tags: ['aoe', 'selfNoise'],
+      aoeRadius: 4,
+      selfNoise: 0.25,
+      applyStatus: 'silenced',
+    },
+    gag: {
+      id: 'gag',
+      displayName: '塞嘴',
+      cooldown: 14,
+      range: 2.0,
+      silenceDuration: 8,
+      tags: ['duration', 'ultimate'],
+      applyStatus: 'sealed',
+    },
+  },
+  titles: [
+    { minTime: 0, title: '轻度洁癖' },
+    { minTime: 30, title: '包间保安' },
+    { minTime: 90, title: '咀嚼克星' },
+    { minTime: 180, title: '食堂死神' },
+  ],
+}
+
+export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag'] as const
