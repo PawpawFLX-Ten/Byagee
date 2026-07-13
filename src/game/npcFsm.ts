@@ -2,7 +2,7 @@ import {
   knockbackFrom,
   moveWithCollision,
   separateFromOthers,
-  TABLE_HALF,
+  type TableCollider,
   type XZ,
 } from './collision'
 import { CONFIG } from './config'
@@ -121,7 +121,7 @@ export function tickNpcs(
       if (dist < 0.28) {
         if (smacking < maxSmack) {
           smacking += 1
-          const [x, z] = separateFromOthers(target[0], target[2], blockers)
+          const [x, z] = separateFromOthers(target[0], target[2], blockers, CONFIG.tables)
           return {
             ...next,
             status: 'smacking' as const,
@@ -157,6 +157,7 @@ export function tickNpcs(
         next.position[2],
         mx,
         mz,
+        CONFIG.tables,
         undefined,
         blockers,
       )
@@ -235,7 +236,7 @@ export function tickNpcs(
       .filter((_, j) => j !== i)
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     if (playerPos) blockers.push({ x: playerPos[0], z: playerPos[2] })
-    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers)
+    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, CONFIG.tables)
     if (x === npc.position[0] && z === npc.position[2]) return npc
     return { ...npc, position: [x, 0, z] as [number, number, number] }
   })
@@ -250,14 +251,31 @@ function perimeterSlide(
   step: number,
   seatIndex: number,
 ): [number, number] {
+  const table = nearestTable(x, z)
   const dir = seatIndex % 2 === 0 ? 1 : -1
-  const hx = TABLE_HALF.x + 0.55
-  const hz = TABLE_HALF.z + 0.55
-  // Prefer sliding along the nearest long edge
-  if (Math.abs(x) / hx > Math.abs(z) / hz) {
-    return [Math.sign(x || 1) * hx, z + dir * step]
+  const cx = table.position[0]
+  const cz = table.position[2]
+  const lx = x - cx
+  const lz = z - cz
+  const hx = table.half.x + 0.55
+  const hz = table.half.z + 0.55
+  if (Math.abs(lx) / hx > Math.abs(lz) / hz) {
+    return [cx + Math.sign(lx || 1) * hx, z + dir * step]
   }
-  return [x + dir * step, Math.sign(z || 1) * hz]
+  return [x + dir * step, cz + Math.sign(lz || 1) * hz]
+}
+
+function nearestTable(x: number, z: number): TableCollider {
+  let best = CONFIG.tables[0]
+  let bestD = Infinity
+  for (const t of CONFIG.tables) {
+    const d = Math.hypot(x - t.position[0], z - t.position[2])
+    if (d < bestD) {
+      bestD = d
+      best = t
+    }
+  }
+  return best
 }
 
 function pickFood(

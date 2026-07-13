@@ -280,6 +280,7 @@ export function Player() {
           ref.current.position.z,
           mx * speed * dt,
           mz * speed * dt,
+          CONFIG.tables,
           undefined,
           blockers,
         )
@@ -292,6 +293,7 @@ export function Player() {
           ref.current.position.x,
           ref.current.position.z,
           blockers,
+          CONFIG.tables,
         )
         ref.current.position.x = x
         ref.current.position.z = z

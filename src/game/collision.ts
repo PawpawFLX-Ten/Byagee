@@ -1,5 +1,7 @@
 /** Simple AABB / capsule collision for the dining room. */
 
+import { CONFIG } from './config'
+
 export const TABLE_HALF = { x: 1.7, z: 1.2 }
 export const TABLE_Y = 0.75
 export const ROOM_LIMIT = 4.35
@@ -7,24 +9,54 @@ export const CHAR_RADIUS = 0.34
 
 export type XZ = { x: number; z: number }
 
-/** Push a circle out of the table rectangle on XZ. */
-export function resolveTableCollision(
+export type TableCollider = {
+  shape: 'round' | 'rect' | 'oval'
+  position: [number, number, number]
+  half: { x: number; z: number }
+}
+
+export function resolveTableShapeCollision(
   x: number,
   z: number,
+  table: TableCollider,
   radius = CHAR_RADIUS,
 ): [number, number] {
-  const hx = TABLE_HALF.x + radius
-  const hz = TABLE_HALF.z + radius
-  if (Math.abs(x) <= hx && Math.abs(z) <= hz) {
-    const dx = hx - Math.abs(x)
-    const dz = hz - Math.abs(z)
-    if (dx < dz) {
-      x = Math.sign(x || 1) * hx
-    } else {
-      z = Math.sign(z || 1) * hz
+  const cx = table.position[0]
+  const cz = table.position[2]
+  const lx = x - cx
+  const lz = z - cz
+  if (table.shape === 'round') {
+    const r = Math.max(table.half.x, table.half.z) + radius
+    const d = Math.hypot(lx, lz)
+    if (d < r && d > 1e-6) {
+      return [cx + (lx / d) * r, cz + (lz / d) * r]
     }
+    if (d <= 1e-6) return [cx + r, cz]
+    return [x, z]
+  }
+  const hx = table.half.x + radius
+  const hz = table.half.z + radius
+  if (Math.abs(lx) <= hx && Math.abs(lz) <= hz) {
+    const dx = hx - Math.abs(lx)
+    const dz = hz - Math.abs(lz)
+    if (dx < dz) return [cx + Math.sign(lx || 1) * hx, z]
+    return [x, cz + Math.sign(lz || 1) * hz]
   }
   return [x, z]
+}
+
+export function resolveTablesCollision(
+  x: number,
+  z: number,
+  tables: TableCollider[],
+  radius = CHAR_RADIUS,
+): [number, number] {
+  let nx = x
+  let nz = z
+  for (const t of tables) {
+    ;[nx, nz] = resolveTableShapeCollision(nx, nz, t, radius)
+  }
+  return [nx, nz]
 }
 
 export function clampRoom(x: number, z: number): [number, number] {
@@ -39,6 +71,7 @@ export function separateFromOthers(
   x: number,
   z: number,
   others: XZ[],
+  tables: TableCollider[],
   radius = CHAR_RADIUS,
 ): [number, number] {
   let nx = x
@@ -59,7 +92,7 @@ export function separateFromOthers(
       nz += (dz / d) * push
     }
   }
-  ;[nx, nz] = resolveTableCollision(nx, nz, radius)
+  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
   return clampRoom(nx, nz)
 }
 
@@ -68,19 +101,20 @@ export function moveWithCollision(
   z: number,
   dx: number,
   dz: number,
+  tables: TableCollider[],
   radius = CHAR_RADIUS,
   others: XZ[] = [],
 ): [number, number] {
   let nx = x + dx
   let nz = z
-  ;[nx, nz] = resolveTableCollision(nx, nz, radius)
+  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
   ;[nx, nz] = clampRoom(nx, nz)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, radius)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius)
 
   nz = nz + dz
-  ;[nx, nz] = resolveTableCollision(nx, nz, radius)
+  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
   ;[nx, nz] = clampRoom(nx, nz)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, radius)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius)
   return [nx, nz]
 }
 
@@ -96,5 +130,13 @@ export function knockbackFrom(
   const len = Math.hypot(dx, dz) || 1
   dx = (dx / len) * strength
   dz = (dz / len) * strength
-  return moveWithCollision(to[0], to[2], dx, dz, CHAR_RADIUS, others)
+  return moveWithCollision(
+    to[0],
+    to[2],
+    dx,
+    dz,
+    CONFIG.tables,
+    CHAR_RADIUS,
+    others,
+  )
 }
