@@ -504,3 +504,260 @@ body,
   opacity: 0.65;
   text-align: center;
 }
+
+/* === Skill Icon Backgrounds (Q/E) === */
+
+.skill-icon-poop {
+  background: #8b6914;
+}
+
+.skill-icon-civility {
+  background: #ffd700;
+}
+
+/* === Donation === */
+
+.donation-trigger {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: #ffd700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.donation-trigger:hover {
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.donation-modal {
+  pointer-events: auto;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(12, 8, 6, 0.8);
+}
+
+.donation-card {
+  width: min(440px, 100%);
+  padding: 24px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #2a221c 0%, #1a1510 100%);
+  color: #fff8f0;
+  text-align: center;
+}
+
+.donation-card h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.donation-lede {
+  margin: 0 0 20px;
+  font-size: 13px;
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+.donation-link {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.donation-link.afdian {
+  background: #9468ff;
+  color: #fff;
+}
+
+.donation-link.kofi {
+  background: #ff5e5b;
+  color: #fff;
+}
+
+.donation-close {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: #fff8f0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* === Mobile Touch Controls === */
+
+.touch-controls {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .touch-controls {
+    display: block;
+  }
+}
+
+.joystick-zone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 45%;
+  height: 60%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-actions {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(30, 24, 18, 0.7);
+  color: #fff8f0;
+  font-size: 14px;
+  font-weight: 600;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  cursor: pointer;
+}
+
+.touch-btn:active {
+  background: rgba(60, 50, 40, 0.85);
+}
+
+.touch-btn:disabled {
+  opacity: 0.4;
+}
+
+/* === Mobile HUD Adaptation === */
+
+@media (hover: none) and (pointer: coarse) {
+  .top-bar {
+    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+    gap: 8px;
+  }
+
+  .meter {
+    min-width: 100px;
+  }
+
+  .meter span {
+    font-size: 10px;
+  }
+
+  .meta {
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .hud-nausea {
+    display: none;
+  }
+
+  .skills {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+
+  .skill {
+    min-width: 52px;
+    padding: 8px 6px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .skill kbd {
+    display: none;
+  }
+
+  .hint {
+    display: none;
+  }
+
+  .briefing-card {
+    max-height: 100vh;
+    padding: 16px;
+  }
+
+  .skill-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .briefing h1 {
+    font-size: 20px;
+  }
+
+  .briefing .lede {
+    font-size: 12px;
+  }
+}
+
+/* === Orientation Overlay === */
+
+.rotate-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  background: #1e1a16;
+  color: #fff8f0;
+  font-size: 18px;
+  text-align: center;
+  padding: 40px;
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  .rotate-overlay {
+    display: flex;
+  }
+}
+
+/* === Global touch prevention === */
+
+@media (hover: none) and (pointer: coarse) {
+  html, body {
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  canvas {
+    touch-action: none;
+  }
+}

@@ -102,6 +102,12 @@ export interface SkillDef {
 
 export type DifficultyPhase = 'early' | 'mid' | 'late'
 
+export interface DonationConfig {
+  afdianUrl: string
+  kofiUrl: string
+  label: string
+}
+
 export interface GameConfig {
   maxHp: number
   softThreat: number
@@ -135,4 +141,5 @@ export interface GameConfig {
   levelXpTable: number[]
   poopShoutLine: string
   civilityShoutLine: string
+  donation: DonationConfig
 }

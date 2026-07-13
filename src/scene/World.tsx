@@ -12,6 +12,7 @@ import {
 import { moveWithCollision, separateFromOthers } from '../game/collision'
 import { CONFIG } from '../game/config'
 import { useGameStore } from '../game/store'
+import { useInputStore } from '../game/inputStore'
 import type { SkillId } from '../game/types'
 
 const WALL_LAYER_NAME = 'fade-wall'
@@ -98,6 +99,44 @@ export function WallOcclusionFader() {
   return null
 }
 
+const CALIGRAPHY_PIECES = [
+  { pos: [-4.7, 1.6, -1.5] as [number, number, number], rotY: Math.PI / 2, char: '静', label: 'calm' },
+  { pos: [-4.7, 1.6, 1.5] as [number, number, number], rotY: Math.PI / 2, char: '忍', label: 'endure' },
+  { pos: [4.7, 1.6, 0] as [number, number, number], rotY: -Math.PI / 2, char: '食不言', label: 'silence' },
+]
+
+export function WallArt() {
+  return (
+    <group>
+      {CALIGRAPHY_PIECES.map((piece, i) => (
+        <group key={i} position={piece.pos} rotation={[0, piece.rotY, 0]}>
+          {/* Frame */}
+          <mesh userData={{ fadeWall: true }} position={[0, 0, -0.02]}>
+            <boxGeometry args={[0.9, 1.2, 0.04]} />
+            <meshStandardMaterial color="#3d2817" />
+          </mesh>
+          {/* Canvas backing */}
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[0.78, 1.08]} />
+            <meshStandardMaterial color="#efe6d8" />
+          </mesh>
+          {/* Calligraphy character(s) */}
+          <Text
+            position={[0, 0, 0.03]}
+            fontSize={piece.char.length > 1 ? 0.28 : 0.5}
+            color="#1a1510"
+            anchorX="center"
+            anchorY="middle"
+            maxWidth={0.7}
+          >
+            {piece.char}
+          </Text>
+        </group>
+      ))}
+    </group>
+  )
+}
+
 export function Room() {
   return (
     <group>
@@ -138,6 +177,7 @@ export function Room() {
           depthWrite={false}
         />
       </mesh>
+      <WallArt />
       <ambientLight intensity={0.65} />
       <hemisphereLight args={['#fff2e0', '#8a7a68', 0.45]} />
       <directionalLight
@@ -292,6 +332,41 @@ export function Door() {
         <sphereGeometry args={[0.06, 8, 8]} />
         <meshStandardMaterial color="#d4a017" metalness={0.6} roughness={0.3} />
       </mesh>
+      {/* Couplet — 上联 (right side, +X): 天道酬勤 */}
+      <group position={[0.82, 1.1, -0.35]}>
+        <mesh>
+          <planeGeometry args={[0.28, 1.8]} />
+          <meshStandardMaterial color="#c0392b" roughness={0.7} />
+        </mesh>
+        <Text
+          position={[0, 0, 0.01]}
+          fontSize={0.3}
+          color="#ffd700"
+          anchorX="center"
+          anchorY="middle"
+          lineHeight={1.3}
+        >
+          {'天道酬勤'.split('').join('\n')}
+        </Text>
+      </group>
+
+      {/* Couplet — 下联 (left side, -X): 地道的您 */}
+      <group position={[-0.82, 1.1, -0.35]}>
+        <mesh>
+          <planeGeometry args={[0.28, 1.8]} />
+          <meshStandardMaterial color="#c0392b" roughness={0.7} />
+        </mesh>
+        <Text
+          position={[0, 0, 0.01]}
+          fontSize={0.3}
+          color="#ffd700"
+          anchorX="center"
+          anchorY="middle"
+          lineHeight={1.3}
+        >
+          {'地道的您'.split('').join('\n')}
+        </Text>
+      </group>
     </group>
   )
 }
@@ -344,6 +419,8 @@ export function Player() {
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
   const wasSpace = useRef(false)
+  const touchMoveX = useInputStore((s) => s.moveX)
+  const touchMoveY = useInputStore((s) => s.moveY)
 
   useFrame((_, dt) => {
     if (!ref.current || !alive || !briefingDone) return
@@ -372,6 +449,12 @@ export function Player() {
       if (keys.has('KeyS') || keys.has('ArrowDown')) forwardInput -= 1
       if (keys.has('KeyD') || keys.has('ArrowRight')) strafeInput += 1
       if (keys.has('KeyA') || keys.has('ArrowLeft')) strafeInput -= 1
+
+      // Touch joystick — additive to keyboard, clamped to [-1, 1]
+      forwardInput += touchMoveY
+      strafeInput += touchMoveX
+      forwardInput = Math.max(-1, Math.min(1, forwardInput))
+      strafeInput = Math.max(-1, Math.min(1, strafeInput))
 
       if (forwardInput !== 0 || strafeInput !== 0) {
         camera.getWorldDirection(_forward)

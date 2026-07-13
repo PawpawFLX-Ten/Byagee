@@ -197,6 +197,11 @@ export const CONFIG: GameConfig = {
     { minTime: 90, title: '咀嚼克星' },
     { minTime: 180, title: '食堂死神' },
   ],
+  donation: {
+    afdianUrl: 'https://afdian.com/a/your-username',
+    kofiUrl: '',
+    label: '支持开发者',
+  },
 }
 
 export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag', 'poop', 'civility'] as const

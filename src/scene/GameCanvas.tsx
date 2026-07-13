@@ -91,6 +91,7 @@ export function GameCanvas() {
   return (
     <Canvas
       shadows
+      dpr={[1, 1.5]}
       camera={{ position: [5, 4.2, 6.5], fov: 48, near: 0.1, far: 80 }}
       style={{ width: '100%', height: '100%' }}
     >

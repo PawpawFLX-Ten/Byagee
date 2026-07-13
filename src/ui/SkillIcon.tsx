@@ -63,8 +63,39 @@ export function SkillIcon({
         </>
       )
       break
+    case 'poop':
+      // Poop swirl — classic shape
+      glyph = (
+        <>
+          {/* Swirl top */}
+          <path d="M12 4c0 2-2 2-2 4s2 2 2 4-2 2-2 4" opacity={0.7} />
+          {/* Main mound body */}
+          <path d="M7 16c0-2 1.5-3 3-3 .3-1.5 1.5-2.5 3-2.5s2.7 1 3 2.5c1.5 0 3 1 3 3 0 2-2 3.5-5 3.5s-5-1.5-5-3.5z" />
+          {/* Base shadow line */}
+          <path d="M6 19.5h12" opacity={0.3} />
+          {/* Small fly dots */}
+          <circle cx="7" cy="8" r="0.8" fill="currentColor" stroke="none" />
+          <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+        </>
+      )
+      break
+    case 'civility':
+      // Toilet plunger — handle + rubber cup
+      glyph = (
+        <>
+          {/* Wooden handle */}
+          <line x1="12" y1="3" x2="12" y2="14" />
+          {/* Handle grip rings */}
+          <line x1="10.5" y1="6" x2="13.5" y2="6" opacity={0.5} />
+          <line x1="10.5" y1="8" x2="13.5" y2="8" opacity={0.5} />
+          {/* Rubber cup — bell shape */}
+          <path d="M8 14c0 3 0 5 4 5s4-2 4-5c0-1-1-2-2-2h-4c-1 0-2 1-2 2z" />
+          {/* Cup bottom rim */}
+          <ellipse cx="12" cy="19" rx="4" ry="1" opacity={0.6} />
+        </>
+      )
+      break
     default:
-      // poop / civility — placeholder until visual agent adds icons
       glyph = <circle cx="12" cy="12" r="8" />
       break
   }

@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { unlockAudio } from '../game/audio'
 import { useGameStore } from '../game/store'
 import { SkillIcon } from './SkillIcon'
+import { DonationModal } from './DonationModal'
 
 const SKILLS = [
   {
@@ -64,6 +66,7 @@ export function Briefing() {
   const beginMission = useGameStore((s) => s.beginMission)
   const reduceNausea = useGameStore((s) => s.reduceNausea)
   const setReduceNausea = useGameStore((s) => s.setReduceNausea)
+  const [showDonation, setShowDonation] = useState(false)
 
   if (briefingDone) return null
 
@@ -114,6 +117,14 @@ export function Briefing() {
 
         <button
           type="button"
+          className="donation-trigger"
+          onClick={() => setShowDonation(true)}
+        >
+          ☕ 支持开发者
+        </button>
+
+        <button
+          type="button"
           className="briefing-go"
           onClick={() => {
             void unlockAudio()
@@ -125,6 +136,7 @@ export function Briefing() {
         <p className="briefing-foot">
           WASD 移动 · 空格跳跃跨人 · 拖拽转镜 · Tab 换目标 · 噪音越大掉血越狠
         </p>
+        {showDonation && <DonationModal onClose={() => setShowDonation(false)} />}
       </div>
     </div>
   )
