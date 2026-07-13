@@ -8,7 +8,12 @@ const baseNpc = (overrides: Partial<NpcState> = {}): NpcState => ({
   statusUntil: 99999,
   seatIndex: 0,
   position: [0, 0, 0],
+  facing: 0,
   baseLoudness: 0.5,
+  sealProp: null,
+  foodId: null,
+  wobbleUntil: 0,
+  stuckTicks: 0,
   ...overrides,
 })
 

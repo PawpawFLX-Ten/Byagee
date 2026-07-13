@@ -200,6 +200,24 @@ body,
   cursor: pointer;
 }
 
+.hud.danger::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 80px rgba(180, 20, 20, 0.45);
+  animation: danger-pulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes danger-pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .toast {
   position: absolute;
   top: 72px;
@@ -210,4 +228,226 @@ body,
   background: rgba(20, 16, 12, 0.7);
   color: #fff8f0;
   font-size: 14px;
+  animation: toast-in 0.15s ease-out;
+}
+
+.toast.ok {
+  background: rgba(40, 90, 50, 0.85);
+}
+
+.toast.fail {
+  background: rgba(110, 40, 30, 0.88);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.hud.threat-pulse .top-bar {
+  box-shadow: inset 0 0 40px rgba(226, 59, 59, 0.25);
+}
+
+.self-noise {
+  color: #ff8866;
+  font-size: 12px;
+}
+
+.hud-nausea {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toast.guide {
+  background: rgba(30, 40, 60, 0.82);
+  max-width: min(520px, 90vw);
+  text-align: center;
+}
+
+.skill-slap.ready {
+  border-color: rgba(255, 221, 102, 0.55);
+}
+.skill-tape.ready {
+  border-color: rgba(200, 200, 200, 0.55);
+}
+.skill-megaphone.ready {
+  border-color: rgba(255, 102, 68, 0.55);
+}
+.skill-gag.ready {
+  border-color: rgba(155, 107, 255, 0.55);
+}
+
+.briefing {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(12, 8, 6, 0.78);
+  overflow: auto;
+}
+
+.briefing-card {
+  width: min(560px, 100%);
+  padding: 28px 28px 22px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #2a221c 0%, #1a1510 100%);
+  color: #fff8f0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.briefing .eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  opacity: 0.65;
+  text-transform: uppercase;
+}
+
+.briefing h1 {
+  margin: 0 0 14px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.briefing .lede {
+  margin: 0 0 10px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.briefing h2 {
+  margin: 18px 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.skill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skill-list li {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.skill-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.skill-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  color: #1a1510;
+}
+
+.skill-icon-slap {
+  background: #ffdd66;
+}
+.skill-icon-tape {
+  background: #d8d8d8;
+}
+.skill-icon-megaphone {
+  background: #ff8a6a;
+}
+.skill-icon-gag {
+  background: #b894ff;
+}
+
+.skill .skill-icon-wrap {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+}
+
+.skill .skill-icon-wrap svg {
+  width: 18px;
+  height: 18px;
+}
+
+.skill-name kbd {
+  font-size: 11px;
+  opacity: 0.7;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.skill-list p {
+  margin: 0;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-list .pro {
+  color: #9ddeb0;
+}
+
+.skill-list .con {
+  color: #f0b090;
+}
+
+.nausea-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.briefing-go {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #f0c14a;
+  color: #1a1510;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.briefing-go:hover {
+  filter: brightness(1.05);
+}
+
+.briefing-foot {
+  margin: 12px 0 0;
+  font-size: 12px;
+  opacity: 0.65;
+  text-align: center;
 }

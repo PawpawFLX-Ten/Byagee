@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { unlockAudio, setReduceNausea as applyNauseaAudio } from '../game/audio'
 import { CONFIG, SKILL_ORDER } from '../game/config'
 import { useGameStore } from '../game/store'
+import { SkillIcon } from './SkillIcon'
 import type { SkillId } from '../game/types'
 import { titleForTime } from '../game/titles'
 
@@ -16,6 +18,7 @@ export function Hud() {
   const elapsedSec = useGameStore((s) => s.elapsedSec)
   const phase = useGameStore((s) => s.phase)
   const alive = useGameStore((s) => s.alive)
+  const briefingDone = useGameStore((s) => s.briefingDone)
   const cooldownReadyAt = useGameStore((s) => s.cooldownReadyAt)
   const playerPos = useGameStore((s) => s.playerPos)
   const npcs = useGameStore((s) => s.npcs)
@@ -23,9 +26,23 @@ export function Hud() {
   const useSkill = useGameStore((s) => s.useSkill)
   const cycle = useGameStore((s) => s.cycleTarget)
   const restart = useGameStore((s) => s.restart)
+  const toast = useGameStore((s) => s.toast)
+  const lastSkillOk = useGameStore((s) => s.lastSkillOk)
+  const guideTip = useGameStore((s) => s.guideTip)
+  const reduceNausea = useGameStore((s) => s.reduceNausea)
+  const setReduceNausea = useGameStore((s) => s.setReduceNausea)
+  const selfNoise = useGameStore((s) => s.selfNoise)
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 100)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      void unlockAudio()
+      if (!briefingDone) return
       if (e.code === 'Digit1' || e.code === 'Numpad1') useSkill('slap')
       if (e.code === 'Digit2' || e.code === 'Numpad2') useSkill('tape')
       if (e.code === 'Digit3' || e.code === 'Numpad3') useSkill('megaphone')
@@ -38,7 +55,18 @@ export function Hud() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [useSkill, cycle, restart, alive])
+  }, [useSkill, cycle, restart, alive, briefingDone])
+
+  // Must stay above any early return — hooks order cannot change after briefing.
+  const edge = useMemo(() => {
+    const target = npcs.find((n) => n.id === targetId)
+    if (!target || !alive) return null
+    const dx = target.position[0] - playerPos[0]
+    const dz = target.position[2] - playerPos[2]
+    return Math.atan2(dx, -dz)
+  }, [npcs, targetId, playerPos, alive])
+
+  if (!briefingDone) return null
 
   const threatPct = Math.min(100, (threat / 1.2) * 100)
   const threatClass =
@@ -48,19 +76,11 @@ export function Hud() {
         ? 'soft'
         : 'ok'
 
-  const edge = useMemo(() => {
-    const target = npcs.find((n) => n.id === targetId)
-    if (!target || !alive) return null
-    const dx = target.position[0] - playerPos[0]
-    const dz = target.position[2] - playerPos[2]
-    const ang = Math.atan2(dx, -dz)
-    return ang
-  }, [npcs, targetId, playerPos, alive])
-
   const now = performance.now()
+  const showToast = toast && now < toast.until
 
   return (
-    <div className="hud">
+    <div className={`hud ${threatClass === 'hard' ? 'danger' : ''}`}>
       <div className="top-bar">
         <div className="meter">
           <span>HP</span>
@@ -80,7 +100,19 @@ export function Hud() {
         <div className="meta">
           <span>{formatTime(elapsedSec)}</span>
           <span className="phase">{phase}</span>
+          {selfNoise > 0 && <span className="self-noise">自噪音</span>}
         </div>
+        <label className="hud-nausea">
+          <input
+            type="checkbox"
+            checked={reduceNausea}
+            onChange={(e) => {
+              setReduceNausea(e.target.checked)
+              applyNauseaAudio(e.target.checked)
+            }}
+          />
+          降恶心音
+        </label>
       </div>
 
       <div className="skills">
@@ -93,10 +125,16 @@ export function Hud() {
             <button
               key={id}
               type="button"
-              className={`skill ${ready ? 'ready' : 'cd'}`}
-              onClick={() => useSkill(id as SkillId)}
+              className={`skill ${ready ? 'ready' : 'cd'} skill-${id}`}
+              onClick={() => {
+                void unlockAudio()
+                useSkill(id as SkillId)
+              }}
               disabled={!alive}
             >
+              <span className={`skill-icon-wrap skill-icon-${id}`}>
+                <SkillIcon id={id as SkillId} />
+              </span>
               <kbd>{i + 1}</kbd>
               <span>{skill.displayName}</span>
               {!ready && <em>{left.toFixed(1)}s</em>}
@@ -106,7 +144,7 @@ export function Hud() {
       </div>
 
       <p className="hint">
-        WASD 移动 · 拖拽旋转镜头 · Tab 切换目标 · 1拍 2胶条 3喇叭 4塞嘴
+        WASD · 拖拽转镜 · Tab 换目标 · 1拍 2胶条 3吼 4塞嘴
       </p>
 
       {edge !== null && (
@@ -118,6 +156,14 @@ export function Hud() {
         </div>
       )}
 
+      {showToast && (
+        <div className={`toast ${lastSkillOk ? 'ok' : 'fail'}`}>{toast.text}</div>
+      )}
+
+      {!showToast && guideTip && alive && (
+        <div className="toast guide">{guideTip}</div>
+      )}
+
       {!alive && (
         <div className="death">
           <h1>吧唧致死</h1>
@@ -125,15 +171,11 @@ export function Hud() {
             存活 <strong>{formatTime(elapsedSec)}</strong>
           </p>
           <p className="title-badge">{titleForTime(elapsedSec)}</p>
-          <p className="restart">按 R 再来一局</p>
+          <p className="restart">文明侠亦有殉职之日。按 R 再出警</p>
           <button type="button" onClick={() => restart()}>
             重开
           </button>
         </div>
-      )}
-
-      {alive && elapsedSec < 2 && (
-        <div className="toast">制止吧唧嘴！噪音过高会掉血</div>
       )}
     </div>
   )

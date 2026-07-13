@@ -46,40 +46,96 @@ export function tryUseSkill(
   npcs: NpcState[]
   cooldownReadyAt: Record<SkillId, number>
   selfNoise: number
+  hitIds: string[]
   reason?: string
 } {
   const skill = CONFIG.skills[skillId]
   if (now < (cooldownReadyAt[skillId] ?? 0)) {
-    return { ok: false, npcs, cooldownReadyAt, selfNoise: 0, reason: 'cooldown' }
+    return {
+      ok: false,
+      npcs,
+      cooldownReadyAt,
+      selfNoise: 0,
+      hitIds: [],
+      reason: 'cooldown',
+    }
   }
 
   const duration = scaledSilence(skill.silenceDuration, elapsedSec)
   let next = [...npcs]
   const selfNoise = skill.selfNoise ?? 0
+  const hitIds: string[] = []
 
   if (skill.tags.includes('aoe') && skill.aoeRadius) {
     let hit = false
     next = next.map((npc) => {
       if (distance3(npc.position, playerPos) <= skill.aoeRadius!) {
         hit = true
-        return applySilence(npc, skill.applyStatus, duration, now)
+        hitIds.push(npc.id)
+        const others = npcs
+          .filter((n) => n.id !== npc.id)
+          .map((n) => ({ x: n.position[0], z: n.position[2] }))
+        return applySilence(
+          npc,
+          skill.applyStatus,
+          duration,
+          now,
+          null,
+          playerPos,
+          others,
+        )
       }
       return npc
     })
     if (!hit) {
-      return { ok: false, npcs, cooldownReadyAt, selfNoise: 0, reason: 'no_target' }
+      return {
+        ok: false,
+        npcs,
+        cooldownReadyAt,
+        selfNoise: 0,
+        hitIds: [],
+        reason: 'no_target',
+      }
     }
   } else {
     const target = pickTarget(npcs, playerPos, targetId)
     if (!target) {
-      return { ok: false, npcs, cooldownReadyAt, selfNoise: 0, reason: 'no_target' }
+      return {
+        ok: false,
+        npcs,
+        cooldownReadyAt,
+        selfNoise: 0,
+        hitIds: [],
+        reason: 'no_target',
+      }
     }
     if (distance3(target.position, playerPos) > skill.range) {
-      return { ok: false, npcs, cooldownReadyAt, selfNoise: 0, reason: 'too_far' }
+      return {
+        ok: false,
+        npcs,
+        cooldownReadyAt,
+        selfNoise: 0,
+        hitIds: [],
+        reason: 'too_far',
+      }
     }
+    const sealProp =
+      skillId === 'tape' ? 'tape' : skillId === 'gag' ? 'gag' : null
+    hitIds.push(target.id)
+    const others = npcs
+      .filter((n) => n.id !== target.id)
+      .map((n) => ({ x: n.position[0], z: n.position[2] }))
     next = next.map((n) =>
       n.id === target.id
-        ? applySilence(n, skill.applyStatus, duration, now)
+        ? applySilence(
+            n,
+            skill.applyStatus,
+            duration,
+            now,
+            sealProp,
+            playerPos,
+            others,
+          )
         : n,
     )
   }
@@ -92,5 +148,6 @@ export function tryUseSkill(
       [skillId]: now + skill.cooldown * 1000,
     },
     selfNoise,
+    hitIds,
   }
 }

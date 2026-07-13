@@ -1,6 +1,21 @@
-export type NpcStatus = 'idle' | 'smacking' | 'silenced' | 'sealed'
+export type NpcStatus =
+  | 'idle'
+  | 'walking'
+  | 'smacking'
+  | 'silenced'
+  | 'sealed'
 
 export type SkillId = 'tape' | 'slap' | 'megaphone' | 'gag'
+
+export type SealProp = 'tape' | 'gag' | null
+
+export interface FoodSpot {
+  id: string
+  /** On-table visual position */
+  plate: [number, number, number]
+  /** Floor approach point beside the table */
+  approach: [number, number, number]
+}
 
 export interface NpcState {
   id: string
@@ -8,7 +23,15 @@ export interface NpcState {
   statusUntil: number
   seatIndex: number
   position: [number, number, number]
+  /** Radians, Yaw */
+  facing: number
   baseLoudness: number
+  sealProp: SealProp
+  foodId: string | null
+  /** Head wobble after being hit */
+  wobbleUntil: number
+  /** Consecutive low-progress walk ticks — used to unstick jams */
+  stuckTicks: number
 }
 
 export interface SkillDef {
@@ -21,6 +44,7 @@ export interface SkillDef {
   aoeRadius?: number
   selfNoise?: number
   applyStatus: 'silenced' | 'sealed'
+  windup: number
 }
 
 export type DifficultyPhase = 'early' | 'mid' | 'late'
@@ -45,4 +69,7 @@ export interface GameConfig {
   titles: { minTime: number; title: string }[]
   npcCount: number
   seatPositions: [number, number, number][]
+  foodSpots: FoodSpot[]
+  npcWalkSpeed: number
+  shoutLine: string
 }

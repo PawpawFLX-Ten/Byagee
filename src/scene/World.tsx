@@ -1,7 +1,84 @@
-import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
-import type { Group } from 'three'
+import { useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { Billboard, Text } from '@react-three/drei'
+import {
+  DoubleSide,
+  type Group,
+  type Mesh,
+  type MeshStandardMaterial,
+  Raycaster,
+  Vector3,
+} from 'three'
+import { moveWithCollision, separateFromOthers } from '../game/collision'
+import { CONFIG } from '../game/config'
 import { useGameStore } from '../game/store'
+import type { SkillId } from '../game/types'
+
+const WALL_LAYER_NAME = 'fade-wall'
+
+function Wall({
+  position,
+  args,
+  color,
+}: {
+  position: [number, number, number]
+  args: [number, number, number]
+  color: string
+}) {
+  return (
+    <mesh position={position} userData={{ fadeWall: true }} name={WALL_LAYER_NAME}>
+      <boxGeometry args={args} />
+      <meshStandardMaterial
+        color={color}
+        transparent
+        opacity={1}
+        depthWrite
+        side={DoubleSide}
+      />
+    </mesh>
+  )
+}
+
+export function WallOcclusionFader() {
+  const { camera, scene } = useThree()
+  const playerPos = useGameStore((s) => s.playerPos)
+  const raycaster = useMemo(() => new Raycaster(), [])
+  const from = useMemo(() => new Vector3(), [])
+  const to = useMemo(() => new Vector3(), [])
+  const dir = useMemo(() => new Vector3(), [])
+  const faded = useRef(new Set<MeshStandardMaterial>())
+
+  useFrame(() => {
+    for (const mat of faded.current) {
+      mat.opacity = Math.min(1, mat.opacity + 0.08)
+      mat.depthWrite = mat.opacity > 0.9
+      if (mat.opacity >= 1) faded.current.delete(mat)
+    }
+
+    from.copy(camera.position)
+    to.set(playerPos[0], 1.2, playerPos[2])
+    dir.subVectors(to, from)
+    const dist = dir.length()
+    if (dist < 0.01) return
+    dir.multiplyScalar(1 / dist)
+    raycaster.set(from, dir)
+    raycaster.far = dist - 0.15
+
+    const hits = raycaster.intersectObjects(scene.children, true)
+    for (const hit of hits) {
+      if (!hit.object.userData.fadeWall) continue
+      const mesh = hit.object as Mesh
+      const mat = mesh.material as MeshStandardMaterial
+      if (!mat || Array.isArray(mat)) continue
+      mat.transparent = true
+      mat.opacity = Math.min(mat.opacity, 0.12)
+      mat.depthWrite = false
+      faded.current.add(mat)
+    }
+  })
+
+  return null
+}
 
 export function Room() {
   return (
@@ -10,40 +87,46 @@ export function Room() {
         <planeGeometry args={[10, 10]} />
         <meshStandardMaterial color="#c4b8a8" />
       </mesh>
-      <mesh position={[0, 1.5, -4.8]}>
-        <boxGeometry args={[10, 3, 0.2]} />
-        <meshStandardMaterial color="#8b7355" />
+      <Wall position={[0, 1.2, -4.8]} args={[10, 2.4, 0.18]} color="#8b7355" />
+      <Wall position={[0, 1.2, 4.8]} args={[10, 2.4, 0.18]} color="#8b7355" />
+      <Wall position={[-4.8, 1.2, 0]} args={[0.18, 2.4, 10]} color="#7a6548" />
+      <Wall position={[4.8, 1.2, 0]} args={[0.18, 2.4, 10]} color="#7a6548" />
+      <mesh position={[0, 2.45, 0]}>
+        <boxGeometry args={[9.6, 0.08, 9.6]} />
+        <meshStandardMaterial
+          color="#6e5a42"
+          transparent
+          opacity={0.35}
+          depthWrite={false}
+        />
       </mesh>
-      <mesh position={[0, 1.5, 4.8]}>
-        <boxGeometry args={[10, 3, 0.2]} />
-        <meshStandardMaterial color="#8b7355" />
-      </mesh>
-      <mesh position={[-4.8, 1.5, 0]}>
-        <boxGeometry args={[0.2, 3, 10]} />
-        <meshStandardMaterial color="#7a6548" />
-      </mesh>
-      <mesh position={[4.8, 1.5, 0]}>
-        <boxGeometry args={[0.2, 3, 10]} />
-        <meshStandardMaterial color="#7a6548" />
-      </mesh>
-      <mesh position={[0, 3.1, 0]}>
-        <boxGeometry args={[10, 0.15, 10]} />
-        <meshStandardMaterial color="#6e5a42" />
-      </mesh>
-      <ambientLight intensity={0.55} />
+      <ambientLight intensity={0.65} />
+      <hemisphereLight args={['#fff2e0', '#8a7a68', 0.45]} />
       <directionalLight
         castShadow
         position={[4, 8, 3]}
-        intensity={1.1}
+        intensity={1.05}
         shadow-mapSize={[1024, 1024]}
       />
     </group>
   )
 }
 
+const FOOD_COLORS = [
+  '#d4543c',
+  '#e8b84a',
+  '#6aaa5a',
+  '#c47a3a',
+  '#8b5a2b',
+  '#f0a0a8',
+  '#d4c45a',
+  '#6a8aaa',
+  '#c06040',
+]
+
 export function Table() {
   return (
-    <group position={[0, 0, 0]}>
+    <group>
       <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
         <boxGeometry args={[3.2, 0.12, 2.2]} />
         <meshStandardMaterial color="#5c3d2e" />
@@ -61,42 +144,191 @@ export function Table() {
           <meshStandardMaterial color="#3d2817" />
         </mesh>
       ))}
+
+      {CONFIG.foodSpots.map((food, i) => {
+        const kind = i % 4
+        return (
+          <group key={food.id} position={food.plate}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+              <circleGeometry args={[0.2, 16]} />
+              <meshStandardMaterial color="#efe6d8" />
+            </mesh>
+            {kind === 0 && (
+              <>
+                <mesh position={[0, 0.07, 0]} castShadow>
+                  <sphereGeometry args={[0.09, 10, 10]} />
+                  <meshStandardMaterial color={FOOD_COLORS[i % FOOD_COLORS.length]} />
+                </mesh>
+                <mesh position={[0.07, 0.05, 0.04]}>
+                  <sphereGeometry args={[0.045, 8, 8]} />
+                  <meshStandardMaterial color="#f0d090" />
+                </mesh>
+              </>
+            )}
+            {kind === 1 && (
+              <mesh position={[0, 0.05, 0]} castShadow rotation={[0.2, 0.4, 0]}>
+                <boxGeometry args={[0.16, 0.05, 0.1]} />
+                <meshStandardMaterial color={FOOD_COLORS[i % FOOD_COLORS.length]} />
+              </mesh>
+            )}
+            {kind === 2 && (
+              <>
+                <mesh position={[-0.05, 0.04, 0]}>
+                  <sphereGeometry args={[0.04, 8, 8]} />
+                  <meshStandardMaterial color="#6aaa5a" />
+                </mesh>
+                <mesh position={[0.05, 0.045, 0.02]}>
+                  <sphereGeometry args={[0.045, 8, 8]} />
+                  <meshStandardMaterial color="#d4543c" />
+                </mesh>
+                <mesh position={[0, 0.04, -0.05]}>
+                  <sphereGeometry args={[0.035, 8, 8]} />
+                  <meshStandardMaterial color="#e8b84a" />
+                </mesh>
+              </>
+            )}
+            {kind === 3 && (
+              <mesh position={[0, 0.06, 0]} castShadow>
+                <cylinderGeometry args={[0.07, 0.08, 0.08, 10]} />
+                <meshStandardMaterial color={FOOD_COLORS[i % FOOD_COLORS.length]} />
+              </mesh>
+            )}
+          </group>
+        )
+      })}
     </group>
   )
 }
 
 const keys = new Set<string>()
-
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e) => keys.add(e.code))
   window.addEventListener('keyup', (e) => keys.delete(e.code))
 }
 
+const _forward = new Vector3()
+const _right = new Vector3()
+const _up = new Vector3(0, 1, 0)
+
+function HandClapper({ swing }: { swing: number }) {
+  return (
+    <group
+      position={[0.35, 1.05, 0.25]}
+      rotation={[0.2, 0, -0.4 + swing]}
+    >
+      <mesh position={[0, 0.25, 0]}>
+        <boxGeometry args={[0.08, 0.55, 0.04]} />
+        <meshStandardMaterial color="#4ecf6a" />
+      </mesh>
+      {/* Three hand layers */}
+      {[0.02, 0, -0.02].map((z, i) => (
+        <mesh key={i} position={[0, 0.58, z]} rotation={[0, 0, 0]}>
+          <boxGeometry args={[0.28, 0.32, 0.03]} />
+          <meshStandardMaterial color={i === 1 ? '#ff6eb0' : '#ff8ec8'} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.55, 0.05]}>
+        <circleGeometry args={[0.06, 10]} />
+        <meshBasicMaterial color="#ffe566" />
+      </mesh>
+    </group>
+  )
+}
+
 export function Player() {
   const ref = useRef<Group>(null)
+  const arm = useRef<Group>(null)
+  const { camera } = useThree()
   const setPlayerPos = useGameStore((s) => s.setPlayerPos)
   const alive = useGameStore((s) => s.alive)
+  const briefingDone = useGameStore((s) => s.briefingDone)
+  const skillAction = useGameStore((s) => s.skillAction)
+  const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
+  const npcs = useGameStore((s) => s.npcs)
 
   useFrame((_, dt) => {
-    if (!ref.current || !alive) return
-    let x = 0
-    let z = 0
-    if (keys.has('KeyW') || keys.has('ArrowUp')) z -= 1
-    if (keys.has('KeyS') || keys.has('ArrowDown')) z += 1
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1
-    if (keys.has('KeyD') || keys.has('ArrowRight')) x += 1
-    if (x !== 0 || z !== 0) {
-      const len = Math.hypot(x, z)
-      x /= len
-      z /= len
-      const speed = 4.5
-      ref.current.position.x += x * speed * dt
-      ref.current.position.z += z * speed * dt
-      ref.current.position.x = Math.max(-4, Math.min(4, ref.current.position.x))
-      ref.current.position.z = Math.max(-4, Math.min(4, ref.current.position.z))
-      const yaw = Math.atan2(x, z)
-      ref.current.rotation.y = yaw
+    if (!ref.current || !alive || !briefingDone) return
+
+    const acting = skillAction !== null
+    const blockers = npcs.map((n) => ({
+      x: n.position[0],
+      z: n.position[2],
+    }))
+    if (!acting) {
+      let forwardInput = 0
+      let strafeInput = 0
+      if (keys.has('KeyW') || keys.has('ArrowUp')) forwardInput += 1
+      if (keys.has('KeyS') || keys.has('ArrowDown')) forwardInput -= 1
+      if (keys.has('KeyD') || keys.has('ArrowRight')) strafeInput += 1
+      if (keys.has('KeyA') || keys.has('ArrowLeft')) strafeInput -= 1
+
+      if (forwardInput !== 0 || strafeInput !== 0) {
+        camera.getWorldDirection(_forward)
+        _forward.y = 0
+        if (_forward.lengthSq() < 1e-6) _forward.set(0, 0, -1)
+        else _forward.normalize()
+        _right.crossVectors(_forward, _up).normalize()
+
+        let mx = _forward.x * forwardInput + _right.x * strafeInput
+        let mz = _forward.z * forwardInput + _right.z * strafeInput
+        const len = Math.hypot(mx, mz)
+        mx /= len
+        mz /= len
+        const speed = CONFIG.playerSpeed
+        const [x, z] = moveWithCollision(
+          ref.current.position.x,
+          ref.current.position.z,
+          mx * speed * dt,
+          mz * speed * dt,
+          undefined,
+          blockers,
+        )
+        ref.current.position.x = x
+        ref.current.position.z = z
+        ref.current.rotation.y = Math.atan2(mx, mz)
+      } else {
+        // Idle: still resolve overlap if NPCs walk into the player
+        const [x, z] = separateFromOthers(
+          ref.current.position.x,
+          ref.current.position.z,
+          blockers,
+        )
+        ref.current.position.x = x
+        ref.current.position.z = z
+      }
+    } else if (skillAction) {
+      if (skillAction.skillId !== 'megaphone') {
+        ref.current.rotation.y = skillAction.faceYaw
+      }
     }
+
+    // Arm / prop animation
+    if (arm.current) {
+      const now = performance.now()
+      if (skillAction) {
+        const skill = CONFIG.skills[skillAction.skillId]
+        const t =
+          1 - (skillAction.until - now) / (skill.windup * 1000)
+        const k = Math.max(0, Math.min(1, t))
+        if (skillAction.skillId === 'slap') {
+          arm.current.rotation.x = -0.2 - Math.sin(k * Math.PI) * 1.2
+          arm.current.rotation.z = -0.3 + k * 0.8
+        } else if (skillAction.skillId === 'tape') {
+          arm.current.rotation.x = -0.6 * k
+          arm.current.position.z = 0.15 * k
+        } else if (skillAction.skillId === 'gag') {
+          arm.current.rotation.x = -0.9 * k
+          arm.current.position.z = 0.25 * k
+        } else {
+          arm.current.rotation.x = -0.3
+        }
+      } else {
+        arm.current.rotation.x *= 0.8
+        arm.current.rotation.z *= 0.8
+        arm.current.position.z *= 0.8
+      }
+    }
+
     setPlayerPos([
       ref.current.position.x,
       ref.current.position.y,
@@ -104,16 +336,67 @@ export function Player() {
     ])
   })
 
+  const skillId: SkillId | null = skillAction?.skillId ?? null
+  const shouting = performance.now() < shoutBannerUntil
+
   return (
     <group ref={ref} position={[0, 0, 2.4]}>
-      <mesh position={[0, 0.55, 0]} castShadow>
-        <capsuleGeometry args={[0.28, 0.55, 4, 8]} />
+      <mesh position={[0, 0.5, 0]} castShadow>
+        <capsuleGeometry args={[0.28, 0.45, 4, 8]} />
         <meshStandardMaterial color="#3a6ea5" />
       </mesh>
-      <mesh position={[0, 1.25, 0]} castShadow>
-        <sphereGeometry args={[0.28, 12, 12]} />
+      <mesh position={[0, 1.28, 0]} castShadow>
+        <sphereGeometry args={[0.3, 16, 16]} />
         <meshStandardMaterial color="#f0d5b8" />
       </mesh>
+      <mesh position={[-0.1, 1.32, 0.24]}>
+        <sphereGeometry args={[0.045, 8, 8]} />
+        <meshStandardMaterial color="#1a1a1a" />
+      </mesh>
+      <mesh position={[0.1, 1.32, 0.24]}>
+        <sphereGeometry args={[0.045, 8, 8]} />
+        <meshStandardMaterial color="#1a1a1a" />
+      </mesh>
+
+      {/* Open mouth while shouting */}
+      {shouting && (
+        <mesh position={[0, 1.18, 0.28]}>
+          <boxGeometry args={[0.14, 0.12, 0.08]} />
+          <meshStandardMaterial color="#4a1010" />
+        </mesh>
+      )}
+
+      <group ref={arm}>
+        {skillId === 'slap' && <HandClapper swing={0.2} />}
+        {skillId === 'tape' && (
+          <mesh position={[0.4, 1.1, 0.3]} rotation={[0.5, 0, 0.4]}>
+            <boxGeometry args={[0.28, 0.08, 0.08]} />
+            <meshStandardMaterial color="#d8d8d8" />
+          </mesh>
+        )}
+        {skillId === 'gag' && (
+          <mesh position={[0.35, 1.15, 0.35]} rotation={[0.8, 0.2, 0]}>
+            <capsuleGeometry args={[0.06, 0.22, 4, 8]} />
+            <meshStandardMaterial color="#9b6bff" />
+          </mesh>
+        )}
+      </group>
+
+      {shouting && (
+        <Billboard position={[0, 2.1, 0]}>
+          <Text
+            fontSize={0.22}
+            color="#ff5533"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.015}
+            outlineColor="#200000"
+            maxWidth={3}
+          >
+            {CONFIG.shoutLine}
+          </Text>
+        </Billboard>
+      )}
     </group>
   )
 }

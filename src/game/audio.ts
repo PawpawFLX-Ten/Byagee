@@ -1,0 +1,370 @@
+import type { SkillId } from './types'
+import { distance3 } from './threat'
+
+/** Procedural SFX — no external audio assets. */
+
+let ctx: AudioContext | null = null
+let master: GainNode | null = null
+let chewBus: GainNode | null = null
+let chewNodes: Map<
+  string,
+  {
+    gain: GainNode
+    filter: BiquadFilterNode
+    stop: () => void
+  }
+> = new Map()
+let threatGain: GainNode | null = null
+let threatOsc: OscillatorNode | null = null
+let unlocked = false
+let reduceNausea = false
+
+function ac(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  if (!ctx) {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext
+    ctx = new Ctx()
+    master = ctx.createGain()
+    master.gain.value = 0.35
+    master.connect(ctx.destination)
+    chewBus = ctx.createGain()
+    chewBus.gain.value = 1
+    chewBus.connect(master)
+  }
+  return ctx
+}
+
+export async function unlockAudio(): Promise<void> {
+  const c = ac()
+  if (!c) return
+  if (c.state === 'suspended') await c.resume()
+  unlocked = true
+}
+
+function ensureUnlocked(): AudioContext | null {
+  const c = ac()
+  if (!c || !master || !unlocked) return null
+  if (c.state === 'suspended') void c.resume()
+  return c
+}
+
+export function setReduceNausea(on: boolean) {
+  reduceNausea = on
+  if (chewBus && ctx) {
+    // Soften overall wet bus when nausea reduction is on
+    chewBus.gain.linearRampToValueAtTime(
+      on ? 0.35 : 1,
+      ctx.currentTime + 0.08,
+    )
+  }
+}
+
+export function getReduceNausea() {
+  return reduceNausea
+}
+
+function noiseBuffer(c: AudioContext, seconds: number): AudioBuffer {
+  const rate = c.sampleRate
+  const len = Math.floor(rate * seconds)
+  const buf = c.createBuffer(1, len, rate)
+  const data = buf.getChannelData(0)
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
+  return buf
+}
+
+function beep(
+  freq: number,
+  dur: number,
+  type: OscillatorType = 'square',
+  gain = 0.2,
+  slideTo?: number,
+) {
+  const c = ensureUnlocked()
+  if (!c || !master) return
+  const t0 = c.currentTime
+  const osc = c.createOscillator()
+  const g = c.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t0)
+  if (slideTo !== undefined) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur)
+  }
+  g.gain.setValueAtTime(gain, t0)
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
+  osc.connect(g)
+  g.connect(master)
+  osc.start(t0)
+  osc.stop(t0 + dur + 0.02)
+}
+
+function burstNoise(dur: number, gain = 0.15, filterFreq = 1200) {
+  const c = ensureUnlocked()
+  if (!c || !master) return
+  const t0 = c.currentTime
+  const src = c.createBufferSource()
+  src.buffer = noiseBuffer(c, Math.max(dur, 0.05))
+  const filter = c.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = filterFreq
+  filter.Q.value = 0.8
+  const g = c.createGain()
+  g.gain.setValueAtTime(gain, t0)
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
+  src.connect(filter)
+  filter.connect(g)
+  g.connect(master)
+  src.start(t0)
+  src.stop(t0 + dur + 0.02)
+}
+
+/** Wet chewing click loop for one NPC. */
+export function startChew(npcId: string) {
+  if (chewNodes.has(npcId)) return
+  const c = ensureUnlocked()
+  if (!c || !master || !chewBus) return
+
+  const filter = c.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 1400
+  filter.Q.value = 0.7
+
+  const gain = c.createGain()
+  gain.gain.value = 0.01
+  filter.connect(gain)
+  gain.connect(chewBus)
+
+  let alive = true
+  let timer = 0
+
+  const tick = () => {
+    if (!alive || !ctx) return
+    const t0 = ctx.currentTime
+    const wet = reduceNausea ? 0.25 : 0.55
+    const tone = reduceNausea ? 0.08 : 0.28
+
+    const src = ctx.createBufferSource()
+    src.buffer = noiseBuffer(ctx, 0.08)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(wet, t0)
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.07)
+    src.connect(g)
+    g.connect(filter)
+
+    const osc = ctx.createOscillator()
+    const og = ctx.createGain()
+    osc.type = reduceNausea ? 'sine' : 'triangle'
+    osc.frequency.setValueAtTime(90 + Math.random() * 40, t0)
+    og.gain.setValueAtTime(tone, t0)
+    og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.06)
+    osc.connect(og)
+    og.connect(filter)
+    osc.start(t0)
+    osc.stop(t0 + 0.07)
+    src.start(t0)
+    src.stop(t0 + 0.08)
+
+    const gap = reduceNausea
+      ? 180 + Math.random() * 120
+      : 110 + Math.random() * 80
+    timer = window.setTimeout(tick, gap)
+  }
+
+  tick()
+  chewNodes.set(npcId, {
+    gain,
+    filter,
+    stop: () => {
+      alive = false
+      window.clearTimeout(timer)
+      try {
+        gain.disconnect()
+        filter.disconnect()
+      } catch {
+        /* ignore */
+      }
+    },
+  })
+}
+
+export function stopChew(npcId: string) {
+  const node = chewNodes.get(npcId)
+  if (!node) return
+  node.stop()
+  chewNodes.delete(npcId)
+}
+
+export function stopAllChews() {
+  for (const id of [...chewNodes.keys()]) stopChew(id)
+}
+
+export type ChewSource = {
+  id: string
+  position: [number, number, number]
+}
+
+/**
+ * Keep chew loops in sync and spatialize by distance.
+ * Near = bright/wet; far = muffled; many sources = louder wall.
+ */
+export function syncChews(
+  sources: ChewSource[],
+  playerPos: [number, number, number],
+) {
+  const ids = sources.map((s) => s.id)
+  const set = new Set(ids)
+  for (const id of [...chewNodes.keys()]) {
+    if (!set.has(id)) stopChew(id)
+  }
+  for (const id of ids) startChew(id)
+
+  const count = sources.length
+  const wallBoost = 1 + Math.max(0, count - 1) * 0.22
+
+  for (const src of sources) {
+    const node = chewNodes.get(src.id)
+    if (!node || !ctx) continue
+    const dist = distance3(src.position, playerPos)
+    // 0m → 1, ~6m → ~0.22
+    const atten = 1 / (1 + dist * 0.45)
+    const targetGain = Math.min(0.55, 0.1 + atten * 0.32) * wallBoost
+    const cutoff = reduceNausea
+      ? 400 + atten * 500
+      : 500 + atten * 1600
+    node.gain.gain.linearRampToValueAtTime(targetGain, ctx.currentTime + 0.05)
+    node.filter.frequency.linearRampToValueAtTime(
+      cutoff,
+      ctx.currentTime + 0.05,
+    )
+  }
+}
+
+export function playSkill(skillId: SkillId) {
+  switch (skillId) {
+    case 'slap':
+      burstNoise(0.06, 0.35, 2200)
+      beep(320, 0.06, 'square', 0.16)
+      beep(180, 0.1, 'triangle', 0.1)
+      break
+    case 'tape':
+      burstNoise(0.2, 0.22, 3200)
+      beep(620, 0.14, 'sawtooth', 0.1, 140)
+      beep(90, 0.08, 'sine', 0.12)
+      break
+    case 'megaphone':
+      beep(180, 0.12, 'sawtooth', 0.3)
+      beep(120, 0.22, 'sawtooth', 0.26, 55)
+      burstNoise(0.35, 0.28, 450)
+      beep(90, 0.4, 'triangle', 0.12)
+      playShoutVoice()
+      break
+    case 'gag':
+      beep(100, 0.22, 'triangle', 0.22, 45)
+      burstNoise(0.14, 0.2, 700)
+      beep(60, 0.3, 'sine', 0.1)
+      break
+  }
+}
+
+/** Browser TTS shout — prefer male zh voice, barked fast. */
+export function playShoutVoice(line = '都他妈把嘴闭上！') {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+
+  const speak = () => {
+    try {
+      window.speechSynthesis.cancel()
+      const u = new SpeechSynthesisUtterance(line)
+      u.lang = 'zh-CN'
+      u.rate = 1.45
+      u.pitch = 0.65
+      u.volume = 1
+
+      const voices = window.speechSynthesis.getVoices()
+      const maleHint = /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i
+      const femaleHint =
+        /female|女|xiaoyi|xiaoxiao|tingting|yaoyao|huihui|tracy|jenny|zira/i
+
+      const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('zh'))
+      const male =
+        zhVoices.find((v) => maleHint.test(v.name)) ??
+        zhVoices.find((v) => !femaleHint.test(v.name)) ??
+        zhVoices[0]
+
+      if (male) u.voice = male
+      window.speechSynthesis.speak(u)
+    } catch {
+      /* ignore missing TTS */
+    }
+  }
+
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length === 0) {
+    window.speechSynthesis.addEventListener('voiceschanged', speak, { once: true })
+    // Fallback if event never fires
+    window.setTimeout(speak, 250)
+  } else {
+    speak()
+  }
+}
+
+export function playFail() {
+  beep(120, 0.08, 'square', 0.08)
+}
+
+export function playDeath() {
+  stopAllChews()
+  setThreatLevel(0)
+  beep(200, 0.4, 'sawtooth', 0.2, 40)
+  burstNoise(0.35, 0.2, 400)
+}
+
+export function setThreatLevel(level: 0 | 1 | 2) {
+  const c = ensureUnlocked()
+  if (!c || !master) return
+
+  if (level === 0) {
+    if (threatOsc) {
+      try {
+        threatOsc.stop()
+      } catch {
+        /* ignore */
+      }
+      threatOsc = null
+    }
+    if (threatGain) {
+      try {
+        threatGain.disconnect()
+      } catch {
+        /* ignore */
+      }
+      threatGain = null
+    }
+    return
+  }
+
+  if (!threatGain) {
+    threatGain = c.createGain()
+    threatGain.gain.value = 0
+    threatGain.connect(master)
+    threatOsc = c.createOscillator()
+    threatOsc.type = 'sine'
+    threatOsc.frequency.value = 55
+    threatOsc.connect(threatGain)
+    threatOsc.start()
+  }
+
+  const target = level === 1 ? 0.04 : 0.09
+  threatGain.gain.linearRampToValueAtTime(target, c.currentTime + 0.15)
+  if (threatOsc) {
+    threatOsc.frequency.linearRampToValueAtTime(
+      level === 1 ? 55 : 72,
+      c.currentTime + 0.15,
+    )
+  }
+}
+
+export function isAudioUnlocked() {
+  return unlocked
+}
