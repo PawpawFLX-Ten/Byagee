@@ -158,7 +158,6 @@ export function tickNpcs(
         mx,
         mz,
         CONFIG.tables,
-        undefined,
         blockers,
       )
       const moved = Math.hypot(x - next.position[0], z - next.position[2])
@@ -336,7 +335,7 @@ export function applySilence(
 ): NpcState {
   let position = npc.position
   if (attackerPos) {
-    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, others)
+    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, CONFIG.tables, others)
     position = [x, 0, z]
   }
   return {

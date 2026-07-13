@@ -1,9 +1,5 @@
 /** Simple AABB / capsule collision for the dining room. */
 
-import { CONFIG } from './config'
-
-export const TABLE_HALF = { x: 1.7, z: 1.2 }
-export const TABLE_Y = 0.75
 export const ROOM_LIMIT = 4.35
 export const CHAR_RADIUS = 0.34
 
@@ -102,8 +98,8 @@ export function moveWithCollision(
   dx: number,
   dz: number,
   tables: TableCollider[],
-  radius = CHAR_RADIUS,
   others: XZ[] = [],
+  radius = CHAR_RADIUS,
 ): [number, number] {
   let nx = x + dx
   let nz = z
@@ -123,6 +119,7 @@ export function knockbackFrom(
   from: [number, number, number],
   to: [number, number, number],
   strength = 0.45,
+  tables: TableCollider[],
   others: XZ[] = [],
 ): [number, number] {
   let dx = to[0] - from[0]
@@ -130,13 +127,5 @@ export function knockbackFrom(
   const len = Math.hypot(dx, dz) || 1
   dx = (dx / len) * strength
   dz = (dz / len) * strength
-  return moveWithCollision(
-    to[0],
-    to[2],
-    dx,
-    dz,
-    CONFIG.tables,
-    CHAR_RADIUS,
-    others,
-  )
+  return moveWithCollision(to[0], to[2], dx, dz, tables, others)
 }

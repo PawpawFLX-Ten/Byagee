@@ -281,7 +281,6 @@ export function Player() {
           mx * speed * dt,
           mz * speed * dt,
           CONFIG.tables,
-          undefined,
           blockers,
         )
         ref.current.position.x = x
