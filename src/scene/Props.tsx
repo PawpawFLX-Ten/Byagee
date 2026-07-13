@@ -36,7 +36,7 @@ function HealProp() {
 }
 
 function SilenceProp() {
-  const lang = useGameStore((s) => s.lang)
+  useGameStore((s) => s.lang) // re-render on language change
   return (
     <group>
       {/* Bell body — sphere bottom */}

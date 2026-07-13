@@ -124,7 +124,10 @@ export function WallArt() {
           {/* Calligraphy character(s) */}
           <Text
             position={[0, 0, 0.03]}
-            fontSize={piece.char.length > 1 ? 0.28 : 0.5}
+            fontSize={lang === 'zh'
+              ? (piece.char.length > 1 ? 0.28 : 0.5)
+              : Math.max(0.14, 0.3 - piece.char.length * 0.02)
+            }
             color="#1a1510"
             anchorX="center"
             anchorY="middle"
@@ -306,7 +309,7 @@ export function Tables() {
 }
 
 export function Door() {
-  useGameStore((s) => s.lang) // re-render on language change
+  const lang = useGameStore((s) => s.lang)
   const p = CONFIG.door.position
   return (
     <group position={[p[0], 0, p[2]]}>
@@ -342,13 +345,17 @@ export function Door() {
         </mesh>
         <Text
           position={[0, 0, 0.01]}
-          fontSize={0.3}
+          fontSize={lang === 'zh' ? 0.3 : 0.1}
           color="#ffd700"
           anchorX="center"
           anchorY="middle"
           lineHeight={1.3}
+          maxWidth={0.26}
         >
-          {t('couplet_right').split('').join('\n')}
+          {lang === 'zh'
+            ? t('couplet_right').split('').join('\n')
+            : t('couplet_right').split(' ').join('\n')
+          }
         </Text>
       </group>
 
@@ -360,13 +367,17 @@ export function Door() {
         </mesh>
         <Text
           position={[0, 0, 0.01]}
-          fontSize={0.3}
+          fontSize={lang === 'zh' ? 0.3 : 0.1}
           color="#ffd700"
           anchorX="center"
           anchorY="middle"
           lineHeight={1.3}
+          maxWidth={0.26}
         >
-          {t('couplet_left').split('').join('\n')}
+          {lang === 'zh'
+            ? t('couplet_left').split('').join('\n')
+            : t('couplet_left').split(' ').join('\n')
+          }
         </Text>
       </group>
     </group>

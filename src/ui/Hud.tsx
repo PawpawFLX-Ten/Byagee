@@ -161,7 +161,6 @@ export function Hud() {
 
       <div className="skills">
         {SKILL_ORDER.map((id, i) => {
-          const skill = CONFIG.skills[id as SkillId]
           const readyAt = cooldownReadyAt[id as SkillId] ?? 0
           const left = Math.max(0, (readyAt - now) / 1000)
           const ready = left <= 0
@@ -181,7 +180,7 @@ export function Hud() {
                 <SkillIcon id={id as SkillId} />
               </span>
               <kbd>{SKILL_KEYS[i]}</kbd>
-              <span>{skill.displayName}</span>
+              <span>{t(`skill_${id}`)}</span>
               {locked ? <em>🔒LV{id === 'poop' ? 5 : 10}</em> : !ready && <em>{left.toFixed(1)}s</em>}
             </button>
           )

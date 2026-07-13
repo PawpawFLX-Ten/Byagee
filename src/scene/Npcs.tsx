@@ -41,7 +41,7 @@ function NpcMesh({
   const wave = useRef<Group>(null)
   const bodyColor = COLORS[npc.seatIndex % COLORS.length]
   const phase = useMemo(() => npc.seatIndex * 1.7, [npc.seatIndex])
-  const lang = useGameStore((s) => s.lang)
+  useGameStore((s) => s.lang) // re-render on language change
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime + phase
