@@ -23,6 +23,7 @@ export function SkillFx() {
   const levelRing = useRef<Mesh>(null)
   const hand = useRef<Group>(null)
   const cone = useRef<Mesh>(null)
+  const projectile = useRef<Group>(null)
 
   const targets = useMemo(() => {
     if (!hitFx) return []
@@ -79,10 +80,26 @@ export function SkillFx() {
       } else if (hand.current) {
         hand.current.visible = false
       }
+
+      // Gag projectile: flies from player to target in an arc
+      if (hitFx.skillId === 'gag' && projectile.current && targets[0]) {
+        projectile.current.visible = true
+        const hitFxDuration = 500
+        const progress = Math.max(0, Math.min(1, 1 - (hitFx.until - performance.now()) / hitFxDuration))
+        const tgt = targets[0].position
+        const px = hitFx.playerPos[0] + (tgt[0] - hitFx.playerPos[0]) * progress
+        const pz = hitFx.playerPos[2] + (tgt[2] - hitFx.playerPos[2]) * progress
+        const py = 1.0 + Math.sin(progress * Math.PI) * 0.8
+        projectile.current.position.set(px, py, pz)
+        projectile.current.scale.setScalar(0.7 + progress * 0.5)
+      } else if (projectile.current) {
+        projectile.current.visible = false
+      }
     } else {
       if (ring.current) ring.current.visible = false
       if (hand.current) hand.current.visible = false
       if (cone.current) cone.current.visible = false
+      if (projectile.current) projectile.current.visible = false
     }
 
     // Level-up golden ring
@@ -141,6 +158,13 @@ export function SkillFx() {
             <mesh>
               <boxGeometry args={[0.35, 0.12, 0.45]} />
               <meshBasicMaterial color={FX_COLOR.slap} />
+            </mesh>
+          </group>
+
+          <group ref={projectile} visible={false}>
+            <mesh>
+              <capsuleGeometry args={[0.08, 0.16, 4, 8]} />
+              <meshBasicMaterial color="#9b6bff" />
             </mesh>
           </group>
 

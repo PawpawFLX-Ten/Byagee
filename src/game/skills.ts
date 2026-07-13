@@ -37,6 +37,18 @@ export function cycleTarget(
   return ids[(idx + 1) % ids.length]
 }
 
+/** Pick the farthest smacking NPC from playerPos — used by gag auto-target. */
+function pickFarthestSmacker(
+  npcs: NpcState[],
+  playerPos: [number, number, number],
+): NpcState | null {
+  const smackers = npcs.filter((n) => n.status === 'smacking')
+  if (!smackers.length) return null
+  return [...smackers].sort(
+    (a, b) => distance3(b.position, playerPos) - distance3(a.position, playerPos),
+  )[0]
+}
+
 export function tryUseSkill(
   skillId: SkillId,
   npcs: NpcState[],
@@ -147,7 +159,10 @@ export function tryUseSkill(
       }
     }
   } else {
-    const target = pickTarget(npcs, playerPos, targetId)
+    // Gag auto-targets the farthest smacking NPC; others use nearest/preferred
+    const target = skillId === 'gag'
+      ? pickFarthestSmacker(npcs, playerPos)
+      : pickTarget(npcs, playerPos, targetId)
     if (!target) {
       return {
         ok: false,
@@ -158,7 +173,8 @@ export function tryUseSkill(
         reason: 'no_target',
       }
     }
-    if (distance3(target.position, playerPos) > effectiveRange) {
+    // Gag has no range limit; other skills check range
+    if (skillId !== 'gag' && distance3(target.position, playerPos) > effectiveRange) {
       return {
         ok: false,
         npcs,

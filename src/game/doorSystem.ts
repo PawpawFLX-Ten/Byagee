@@ -20,15 +20,22 @@ export function freeSeatIndexes(occupied: Set<number>): number[] {
   return all.filter((i) => !occupied.has(i))
 }
 
-export function pickExitCandidate(npcs: NpcState[]): NpcState | null {
+export function pickExitCandidate(npcs: NpcState[], now: number = 0): NpcState | null {
   const normals = npcs.filter((n) => n.role !== 'boss' && !n.exiting)
   const rank = (n: NpcState) => {
+    // Force-exit NPCs that have been in the room beyond idleExitSec
+    if (now > 0 && now - n.idleSince > CONFIG.door.idleExitSec * 1000) return -1
     if (n.status === 'sealed' || n.status === 'silenced') return 0
     if (n.status === 'idle') return 1
     if (n.status === 'walking') return 2
     return 3
   }
-  return [...normals].sort((a, b) => rank(a) - rank(b))[0] ?? null
+  return [...normals].sort((a, b) => {
+    const rankDiff = rank(a) - rank(b)
+    if (rankDiff !== 0) return rankDiff
+    // Same rank: oldest entry first (FIFO cycling — ensures no NPC stays forever)
+    return a.idleSince - b.idleSince
+  })[0] ?? null
 }
 
 export function planDoorAction(args: {
@@ -63,15 +70,15 @@ export function planDoorAction(args: {
     }
   }
 
-  const exit = pickExitCandidate(npcs)
+  const exit = pickExitCandidate(npcs, now)
   if (exit && npcs.length > 1) return { type: 'exit', npcId: exit.id }
   return null
 }
 
-export function planBossAdmission(npcs: NpcState[]): DoorAction | null {
+export function planBossAdmission(npcs: NpcState[], now: number = 0): DoorAction | null {
   if (npcs.some((n) => n.role === 'boss')) return null
   if (npcs.length < CONFIG.door.maxNpcs) return null
-  const victim = pickExitCandidate(npcs)
+  const victim = pickExitCandidate(npcs, now)
   return victim ? { type: 'evict', npcId: victim.id } : null
 }
 

@@ -37,6 +37,8 @@ export function Hud() {
   const selfNoise = useGameStore((s) => s.selfNoise)
   const xp = useGameStore((s) => s.xp)
   const level = useGameStore((s) => s.level)
+  const paused = useGameStore((s) => s.paused)
+  const togglePause = useGameStore((s) => s.togglePause)
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -59,10 +61,11 @@ export function Hud() {
         cycle()
       }
       if (e.code === 'KeyR' && !alive) restart()
+      if (e.code === 'Escape') togglePause()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [useSkill, cycle, restart, alive, briefingDone])
+  }, [useSkill, cycle, restart, alive, briefingDone, togglePause])
 
   // Must stay above any early return — hooks order cannot change after briefing.
   const edge = useMemo(() => {
@@ -101,6 +104,14 @@ export function Hud() {
   return (
     <div className={`hud ${threatClass === 'hard' ? 'danger' : ''}`}>
       <div className="top-bar">
+        <button
+          type="button"
+          className="pause-btn"
+          onClick={() => togglePause()}
+          title="暂停 (Esc)"
+        >
+          {paused ? '▶' : '⏸'}
+        </button>
         <div className="meter">
           <span>HP</span>
           <div className="bar">

@@ -71,6 +71,7 @@ export interface GameStore {
   props: PropState[]
   nextPropAt: number
   propSeq: number
+  paused: boolean
   start: (now?: number) => void
   restart: (now?: number) => void
   beginMission: (now?: number) => void
@@ -80,6 +81,7 @@ export interface GameStore {
   tick: (dt: number, now: number) => void
   clearToast: () => void
   setReduceNausea: (on: boolean) => void
+  togglePause: () => void
 }
 
 let fxSeq = 1
@@ -107,6 +109,17 @@ function faceYawToTarget(
   skillId: SkillId,
 ): number {
   if (skillId === 'megaphone' || skillId === 'poop' || skillId === 'civility') return 0
+  if (skillId === 'gag') {
+    // Gag auto-targets the farthest smacker — face that direction
+    const smackers = npcs.filter((n) => n.status === 'smacking')
+    if (!smackers.length) return 0
+    const farthest = [...smackers].sort(
+      (a, b) =>
+        Math.hypot(b.position[0] - playerPos[0], b.position[2] - playerPos[2]) -
+        Math.hypot(a.position[0] - playerPos[0], a.position[2] - playerPos[2]),
+    )[0]
+    return Math.atan2(farthest.position[0] - playerPos[0], farthest.position[2] - playerPos[2])
+  }
   const t =
     npcs.find((n) => n.id === targetId) ??
     npcs.find((n) => n.status === 'smacking') ??
@@ -144,6 +157,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   props: [],
   nextPropAt: CONFIG.props.spawnIntervalSec,
   propSeq: 0,
+  paused: false,
 
   start: (now = performance.now()) => {
     const npcs = createNpcs(now)
@@ -178,6 +192,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       props: [],
       nextPropAt: CONFIG.props.spawnIntervalSec,
       propSeq: 0,
+      paused: false,
     })
   },
 
@@ -213,6 +228,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       props: [],
       nextPropAt: CONFIG.props.spawnIntervalSec,
       propSeq: 0,
+      paused: false,
     })
   },
 
@@ -230,6 +246,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearToast: () => set({ toast: null }),
 
   setReduceNausea: (on) => set({ reduceNausea: on }),
+
+  togglePause: () => set((s) => ({ paused: !s.paused })),
 
   useSkill: (skillId, now = performance.now()) => {
     const state = get()
@@ -298,7 +316,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   tick: (dt, now) => {
     const state = get()
-    if (!state.briefingDone || !state.alive || !state.startedAt) return
+    if (!state.briefingDone || !state.alive || !state.startedAt || state.paused) return
 
     let npcs = state.npcs
     let cooldownReadyAt = state.cooldownReadyAt
@@ -374,7 +392,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
-    const threat = computeThreat(npcs, state.playerPos, selfNoise, now)
+    const threat = computeThreat(npcs, state.playerPos, selfNoise, now, elapsedSec)
 
     // Boss spawn every intervalSec (max 1 boss at a time)
     if (elapsedSec >= nextBossAtElapsed) {
@@ -382,9 +400,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!npcs.some((n) => n.role === 'boss')) {
         // If at cap, evict a non-critical NPC first
         if (npcs.length >= CONFIG.door.maxNpcs) {
-          const admission = planBossAdmission(npcs)
-          if (admission) {
-            npcs = applyDoorAction(npcs, admission, now, () => `npc-${++npcSeq}`)
+          const admission = planBossAdmission(npcs, now)
+          if (admission && admission.type === 'evict') {
+            // Directly remove the evicted NPC — boss needs the slot immediately
+            npcs = npcs.filter((n) => n.id !== admission.npcId)
           }
         }
         // Spawn boss into a free seat
@@ -392,7 +411,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const free = freeSeatIndexes(occupiedSeats)
         if (free.length && npcs.length < CONFIG.door.maxNpcs) {
           npcs = [...npcs, createBossNpc(free[0], now, elapsedSec, `boss-${++npcSeq}`)]
-          lastDoorEventAt = now
         }
       }
     }

@@ -15,16 +15,32 @@ export function distanceAttenuation(dist: number): number {
   return 1 / (1 + dist * 0.35)
 }
 
+/**
+ * Dynamic smack damage delay — shrinks linearly with each boss era.
+ * Era 0 (before first boss):  initialSec (3.0s)
+ * Era 1 (after first boss):  initialSec - decayPerEra (2.5s)
+ * Era N:                      max(minSec, initialSec - decayPerEra * N)
+ */
+export function smackDamageDelayFor(elapsedSec: number): number {
+  const era = Math.floor(elapsedSec / CONFIG.boss.intervalSec)
+  return Math.max(
+    CONFIG.smackDelay.minSec,
+    CONFIG.smackDelay.initialSec - CONFIG.smackDelay.decayPerEra * era,
+  )
+}
+
 export function computeThreat(
   npcs: NpcState[],
   playerPos: [number, number, number],
   extraNoise = 0,
   now = 0,
+  elapsedSec = 0,
 ): number {
   let sum = 0
+  const delaySec = smackDamageDelayFor(elapsedSec)
   for (const npc of npcs) {
     if (npc.status !== 'smacking') continue
-    if (now > 0 && npc.smackingSince > 0 && now - npc.smackingSince < CONFIG.smackDamageDelaySec * 1000) continue
+    if (now > 0 && npc.smackingSince > 0 && now - npc.smackingSince < delaySec * 1000) continue
     const d = distance3(npc.position, playerPos)
     const effectiveLoudness = Math.max(0.05, npc.baseLoudness - npc.noiseReduction)
     sum += effectiveLoudness * distanceAttenuation(d)

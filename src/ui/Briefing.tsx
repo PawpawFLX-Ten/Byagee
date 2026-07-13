@@ -37,7 +37,7 @@ const SKILLS = [
     id: 'gag' as const,
     name: '塞嘴',
     unlock: '初始',
-    pro: '道具塞入嘴里，超长安静',
+    pro: '智能寻址最远嘴巴。入口柔，胰腺瘘',
     con: '冷却漫长，莫当普通拍子用',
     perks: '9级起 Boss双倍伤害 · 普通双倍封印',
   },
@@ -73,10 +73,18 @@ export function Briefing() {
   return (
     <div className="briefing">
       <div className="briefing-card">
-        <p className="eyebrow">包间静音署 · 特派公文</p>
-        <h1>你是行侠仗义的文明侠</h1>
+        <div className="briefing-header">
+          <h1>你是行侠仗义的文明侠</h1>
+          <button
+            type="button"
+            className="donation-btn"
+            onClick={() => setShowDonation(true)}
+          >
+            ☕ 赞助作者
+          </button>
+        </div>
         <p className="lede">
-          吧唧嘴是对公共秩序的无情亵渎，是对人类的终极犯罪。你将在餐桌维护正义，用无情铁手告诉每一个人：吃饭时，把嘴闭上！
+          吧唧嘴亵渎了公共秩序，是对人类的终极犯罪。你将在食堂维护正义，用无情铁手让每个人吃饭闭嘴！
         </p>
 
         <h2>执法工具（请务必读完再丢人）</h2>
@@ -100,12 +108,6 @@ export function Briefing() {
           ))}
         </ul>
 
-        <h2>等级制度</h2>
-        <p className="lede">
-          制裁吧唧者积累经验值，升级提升能力：每级冷却-3%、范围+2%。
-          满级后溢出经验自动回血。技能随等级解锁额外效果——详见上方各技能说明。
-        </p>
-
         <label className="nausea-toggle">
           <input
             type="checkbox"
@@ -114,14 +116,6 @@ export function Briefing() {
           />
           降低恶心音效（吧唧更闷、更礼貌）
         </label>
-
-        <button
-          type="button"
-          className="donation-trigger"
-          onClick={() => setShowDonation(true)}
-        >
-          ☕ 支持开发者
-        </button>
 
         <button
           type="button"

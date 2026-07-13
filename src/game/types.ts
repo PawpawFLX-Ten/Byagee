@@ -137,7 +137,11 @@ export interface GameConfig {
   softDrainPerSec: number
   hardDrainPerSec: number
   roomReverb: number
-  smackDamageDelaySec: number
+  smackDelay: {
+    initialSec: number
+    decayPerEra: number
+    minSec: number
+  }
   playerSpeed: number
   skillRangeDefault: number
   phases: {

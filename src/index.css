@@ -40,6 +40,28 @@ body,
   color: #fff8f0;
 }
 
+.pause-btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: rgba(30, 24, 18, 0.75);
+  color: #fff8f0;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.pause-btn:hover {
+  background: rgba(50, 40, 30, 0.85);
+}
+
 .meter {
   display: flex;
   align-items: center;
@@ -349,44 +371,61 @@ body,
   justify-content: center;
   padding: 24px;
   background: rgba(12, 8, 6, 0.78);
-  overflow: auto;
+  overflow: hidden;
 }
 
 .briefing-card {
   width: min(720px, 100%);
-  max-height: 100vh;
-  padding: 22px 24px 18px;
+  max-height: 100%;
+  padding: 28px 28px 20px;
   border-radius: 14px;
   background: linear-gradient(160deg, #2a221c 0%, #1a1510 100%);
   color: #fff8f0;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  overflow: auto;
+  overflow: hidden;
 }
 
-.briefing .eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  opacity: 0.65;
-  text-transform: uppercase;
-}
-
-.briefing h1 {
+.briefing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 10px;
-  font-size: 24px;
+}
+
+.briefing-header h1 {
+  margin: 0;
+  font-size: 26px;
   font-weight: 700;
   line-height: 1.25;
 }
 
+.donation-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 8px;
+  background: rgba(255, 215, 0, 0.12);
+  color: #ffd700;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.donation-btn:hover {
+  background: rgba(255, 215, 0, 0.2);
+}
+
 .briefing .lede {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 14px;
   opacity: 0.9;
 }
 
 .briefing h2 {
   margin: 14px 0 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   opacity: 0.95;
 }
@@ -425,7 +464,8 @@ body,
 }
 
 .skill-icon-slap {
-  background: #ffdd66;
+  background: #1a3a6c;
+  color: #fff8f0;
 }
 .skill-icon-tape {
   background: #d8d8d8;
@@ -521,7 +561,8 @@ body,
 /* === Skill Icon Backgrounds (Q/E) === */
 
 .skill-icon-poop {
-  background: #8b6914;
+  background: #1a4d2e;
+  color: #fff8f0;
 }
 
 .skill-icon-civility {
@@ -578,6 +619,11 @@ body,
   font-size: 13px;
   opacity: 0.85;
   line-height: 1.5;
+}
+
+.donation-lede p {
+  margin: 0 0 10px;
+  text-align: justify;
 }
 
 .donation-link {
@@ -719,16 +765,16 @@ body,
   }
 
   .briefing-card {
-    max-height: 100vh;
+    max-height: 100%;
     padding: 16px;
   }
 
   .skill-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
   }
 
-  .briefing h1 {
+  .briefing-header h1 {
     font-size: 20px;
   }
 

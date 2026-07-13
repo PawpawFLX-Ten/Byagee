@@ -7,7 +7,11 @@ export const CONFIG: GameConfig = {
   softDrainPerSec: 8,
   hardDrainPerSec: 28,
   roomReverb: 1.35,
-  smackDamageDelaySec: 1.5,
+  smackDelay: {
+    initialSec: 3.0,
+    decayPerEra: 0.5,
+    minSec: 1.5,
+  },
   playerSpeed: 4.5,
   skillRangeDefault: 2.2,
   phases: { earlyEnd: 60, midEnd: 180 },
@@ -198,7 +202,7 @@ export const CONFIG: GameConfig = {
     { minTime: 180, title: '食堂死神' },
   ],
   donation: {
-    afdianUrl: 'https://afdian.com/a/your-username',
+    afdianUrl: 'https://ifdian.net/a/patatamaster',
     kofiUrl: '',
     label: '支持开发者',
   },
