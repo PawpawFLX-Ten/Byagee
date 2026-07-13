@@ -4,11 +4,12 @@ import { createBossNpc, tickBossRage } from './bossModules'
 import { getPhase } from './difficulty'
 import { applyDoorAction, freeSeatIndexes, planBossAdmission, planDoorAction } from './doorSystem'
 import { createNpcs, tickNpcs } from './npcFsm'
+import { shouldSpawnProp, sampleFloorPosition, pickPropType, checkPickup, applyPropEffect, createProp } from './props'
 import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORMAL, XP_PER_SKILL_HIT_BOSS, XP_PER_SURVIVAL_SEC, cdMultiplier } from './progression'
 import { cycleTarget, tryUseSkill } from './skills'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
-import type { DifficultyPhase, NpcState, SkillId } from './types'
+import type { DifficultyPhase, NpcState, PropState, SkillId } from './types'
 
 function emptyCooldowns(): Record<SkillId, number> {
   return {
@@ -67,6 +68,9 @@ export interface GameStore {
   level: number
   plungerUntil: number
   levelUpAt: number
+  props: PropState[]
+  nextPropAt: number
+  propSeq: number
   start: (now?: number) => void
   restart: (now?: number) => void
   beginMission: (now?: number) => void
@@ -137,6 +141,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   level: 1,
   plungerUntil: 0,
   levelUpAt: 0,
+  props: [],
+  nextPropAt: CONFIG.props.spawnIntervalSec,
+  propSeq: 0,
 
   start: (now = performance.now()) => {
     const npcs = createNpcs(now)
@@ -168,6 +175,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       level: 1,
       plungerUntil: 0,
       levelUpAt: 0,
+      props: [],
+      nextPropAt: CONFIG.props.spawnIntervalSec,
+      propSeq: 0,
     })
   },
 
@@ -200,6 +210,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       level: 1,
       plungerUntil: 0,
       levelUpAt: 0,
+      props: [],
+      nextPropAt: CONFIG.props.spawnIntervalSec,
+      propSeq: 0,
     })
   },
 
@@ -298,6 +311,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let plungerUntil = state.plungerUntil
     let healFromSkill = 0
     let levelUpAt = state.levelUpAt
+    let props = state.props
+    let nextPropAt = state.nextPropAt
+    let propSeq = state.propSeq
 
     // Resolve windup → apply skill with knockback
     if (skillAction && now >= skillAction.until) {
@@ -429,6 +445,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hp = Math.min(CONFIG.maxHp, hp + healPerSec * dt)
     }
 
+    // --- Prop spawn ---
+    if (shouldSpawnProp({ elapsedSec, nextPropAt, existingProps: props, alive: hp > 0 })) {
+      const type = pickPropType(hp, CONFIG.maxHp)
+      const pos = sampleFloorPosition(CONFIG.tables, CONFIG.door.position)
+      const id = `prop-${propSeq + 1}`
+      const prop = createProp(type, pos, now, id)
+      props = [...props, prop]
+      nextPropAt += CONFIG.props.spawnIntervalSec
+      propSeq += 1
+    }
+
+    // --- Prop pickup ---
+    const pickedUp = checkPickup(props, state.playerPos, CONFIG.props.pickupRadius)
+    if (pickedUp) {
+      const effect = applyPropEffect(pickedUp, npcs, hp, CONFIG.maxHp, now)
+      npcs = effect.npcs
+      hp = effect.hp
+      toast = { id: fxSeq++, text: effect.toastText, until: now + 2000 }
+      props = props.map((p) => (p.id === pickedUp.id ? { ...p, fadingSince: now } : p))
+    }
+
+    // --- Remove fully faded props ---
+    const fadeDuration = 300 // ms
+    props = props.filter((p) => p.fadingSince === null || now - p.fadingSince < fadeDuration)
+
     const alive = hp > 0
 
     let targetId = state.targetId
@@ -461,6 +502,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       level,
       plungerUntil,
       levelUpAt,
+      props,
+      nextPropAt,
+      propSeq,
     })
   },
 }))
