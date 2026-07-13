@@ -438,8 +438,8 @@ export function Player() {
     const isSpace = keys.has('Space')
     if (isSpace && !wasSpace.current && !acting) {
       if (now >= jumpCooldownUntil.current) {
-        jumpUntil.current = now + 500
-        jumpCooldownUntil.current = now + 800
+        jumpUntil.current = now + 650
+        jumpCooldownUntil.current = now + 900
       }
     }
     wasSpace.current = isSpace
@@ -548,8 +548,8 @@ export function Player() {
 
     // Jump arc animation
     if (isAirborne) {
-      const jumpProgress = 1 - (jumpUntil.current - now) / 500
-      ref.current.position.y = Math.sin(jumpProgress * Math.PI) * 0.8
+      const jumpProgress = 1 - (jumpUntil.current - now) / 650
+      ref.current.position.y = Math.sin(jumpProgress * Math.PI) * 1.1
     } else if (ref.current.position.y !== 0) {
       ref.current.position.y = 0
     }
