@@ -1,10 +1,10 @@
 # Civic Man Round 7 — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** Completed. All tasks implemented and verified.
 
-**Goal:** English localization — i18n dictionary, language switcher, TTS engine switch, all strings translated.
+**Goal:** English + Dutch localization — i18n dictionary, language switcher, TTS engine switch, all strings translated.
 
-**Architecture:** `i18n.ts` with flat `{ zh: {...}, en: {...} }` dictionary + `t(key)` helper. Store holds `lang: 'zh' | 'en'`. All hardcoded strings replaced with `t()` calls. TTS reads `lang` to set `u.lang` and voice search.
+**Architecture:** `i18n.ts` with flat `{ zh: {...}, en: {...}, nl: {...} }` dictionary + `t(key)` helper. Store holds `lang: Lang`. All hardcoded strings replaced with `t()` calls. TTS reads `getLang()` to set `u.lang` and voice search. Dutch uses English TTS voice.
 
 **Tech Stack:** Vite, React 19, TypeScript, R3F, drei, Zustand, Vitest
 
@@ -69,50 +69,9 @@ src/game/__tests__/configRound2.test.ts # language-aware
 **Files:**
 - Create: `src/game/i18n.ts`
 
-- [ ] **Step 1: Create dictionary structure**
+- [x] **Step 1: Create dictionary structure** — `zh` + `en` + `nl` dictionaries with ~100 keys each
 
-```ts
-export type Lang = 'zh' | 'en'
-
-export const DICT: Record<Lang, Record<string, string>> = {
-  zh: {
-    // Shout lines
-    shoutLine: '都他妈把嘴闭上！',
-    slapShoutLine: '操你妈',
-    tapeShoutLine: '给老子闭嘴！',
-    gagShoutLine: '吃屎吧你！',
-    poopShoutLine: '请您吃顿好的 哈哈！',
-    civilityShoutLine: '素质，注意你丫的素质！',
-    // Skill names
-    skill_slap: '抽脸',
-    skill_tape: '胶条',
-    skill_megaphone: '吼',
-    skill_gag: '塞嘴',
-    skill_poop: '泼屎',
-    skill_civility: '素质',
-    // ... all keys from spec
-  },
-  en: {
-    shoutLine: "Shut the phooken' mouths!",
-    slapShoutLine: 'Phook you!',
-    tapeShoutLine: 'Weeeeave yer leeeeeeeeeeeeps',
-    gagShoutLine: 'Eat this sheeeiiiit',
-    poopShoutLine: 'Have fun, boy!',
-    civilityShoutLine: 'May byageee be with you',
-    // ... all keys — TBD by user
-  },
-}
-
-let currentLang: Lang = 'zh'
-
-export function setLang(lang: Lang) { currentLang = lang }
-export function getLang(): Lang { return currentLang }
-export function t(key: string): string { return DICT[currentLang][key] ?? key }
-```
-
-- [ ] **Step 2: Wire into store**
-
-Add `lang: Lang` and `setLang` to GameStore. On `setLang`, call `i18n.setLang(lang)`.
+- [x] **Step 2: Wire into store** — `lang: Lang`, `setLang()` calls `i18n.setLang()` + `set({ lang })`
 
 ---
 
@@ -121,33 +80,17 @@ Add `lang: Lang` and `setLang` to GameStore. On `setLang`, call `i18n.setLang(la
 **Files:**
 - Modify: `src/game/audio.ts`
 
-- [ ] **Step 1: Read lang in playShoutVoice**
-
-```ts
-import { getLang } from './i18n'
-
-export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
-  const lang = getLang()
-  u.lang = lang === 'en' ? 'en-US' : 'zh-CN'
-  const prefix = lang === 'en' ? 'en' : 'zh'
-  const langVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(prefix))
-  const maleHint = lang === 'en'
-    ? /male|david|alex|daniel|fred/i
-    : /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i
-  // ... rest of voice selection
-}
-```
+- [x] **Step 1: Read lang in playShoutVoice** — `getLang()` → `u.lang` (`zh`→`zh-CN`, `en`/`nl`→`en-US`), voice search, maleHint per language
 
 ---
 
 ### Task 3: Config shout lines → t()
 
 **Files:**
-- Modify: `src/game/config.ts`
-- Modify: `src/game/audio.ts` (callers)
+- Modify: `src/game/audio.ts` (callers), `src/game/slapShout.ts`
 
-- [ ] Replace `CONFIG.slapShoutLine` etc. with `t('slapShoutLine')` at all call sites
-- [ ] Remove shout line fields from config (or keep as fallback)
+- [x] Replace `CONFIG.slapShoutLine` etc. with `t('slapShoutLine')` at all call sites
+- [x] Config fields kept as Chinese fallback (not removed)
 
 ---
 
@@ -156,19 +99,20 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
 **Files:**
 - Modify: `src/ui/Briefing.tsx`
 
-- [ ] Replace SKILLS array text with `t()` calls
-- [ ] Replace h1, lede, h2, button labels, hint, nausea label
-- [ ] Add language switcher button (ZH/EN toggle)
+- [x] SKILLS array moved into `getSkills()` function using `t()` calls
+- [x] Replace h1, lede, h2, button labels, hint, nausea label
+- [x] Language switcher: cycling button (ZH→EN→NL→ZH), styled `.lang-btn` in header far-left
 
 ---
 
 ### Task 5: HUD strings → t()
 
 **Files:**
-- Modify: `src/ui/Hud.tsx`
+- Modify: `src/ui/Hud.tsx`, `src/game/store.ts`
 
-- [ ] Replace meter labels, death screen, toast texts, hint
-- [ ] Replace FAIL_TEXT in store.ts with t() calls
+- [x] Replace meter labels, death screen, toast texts, hint
+- [x] FAIL_TEXT → `failText()` function using `t()`
+- [x] Skill names: `CONFIG.skills[id].displayName` → `t('skill_${id}')`
 
 ---
 
@@ -177,47 +121,74 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
 **Files:**
 - Modify: `src/ui/DonationModal.tsx`
 
-- [ ] Replace title, three paragraphs, link text, close button
+- [x] Replace title, three paragraphs, link text, close button
 
 ---
 
 ### Task 7: Game logic strings → t()
 
 **Files:**
-- Modify: `src/game/props.ts` (toast text)
-- Modify: `src/game/store.ts` (guideForElapsed, FAIL_TEXT, toast texts)
-- Modify: `src/game/config.ts` (titles array → t() or lang-conditional)
+- Modify: `src/game/props.ts`, `src/game/store.ts`, `src/game/titles.ts`
+
+- [x] `props.ts`: heal/silence toast → `t()`
+- [x] `store.ts`: `guideForElapsed` → `t()`, toast level-up → `t()`, skill toast → `t()`
+- [x] `titles.ts`: `titleForTime` → `t()` with config minTime thresholds
 
 ---
 
 ### Task 8: Scene 3D text → t()
 
 **Files:**
-- Modify: `src/scene/Props.tsx` (静 → t('silenceChar'))
-- Modify: `src/scene/World.tsx` (wall art, couplet)
-- Modify: `src/scene/Npcs.tsx` (吧唧 → t())
-- Modify: `src/App.tsx` (rotate overlay)
+- Modify: `src/scene/Props.tsx`, `src/scene/World.tsx`, `src/scene/Npcs.tsx`, `src/App.tsx`
+
+- [x] `Props.tsx`: 静 → `t('silenceChar')`
+- [x] `World.tsx`: wall art (静/忍/食不言), couplet (天道酬勤/地道的您), shout banner → `t()`
+- [x] `World.tsx`: language-aware `fontSize` for wall art (EN scales down for longer latin)
+- [x] `World.tsx`: couplet EN per-character vertical (spaces removed, `split('').join('\n')`)
+- [x] `Npcs.tsx`: status labels → `t()`
+- [x] `App.tsx`: rotate overlay → `t()`
+- [x] `TouchControls.tsx`: 跳/换 → `t()`
 
 ---
 
 ### Task 9: Update tests
 
 **Files:**
-- Modify: `src/game/__tests__/titles.test.ts`
-- Modify: `src/game/__tests__/slapShout.test.ts`
-- Modify: `src/game/__tests__/configRound2.test.ts`
+- Modify: `src/game/__tests__/titles.test.ts`, `slapShout.test.ts`, `configRound2.test.ts`
 
-- [ ] Tests use `t()` with explicit lang, or test both languages
+- [x] `setLang('zh')` added before assertions in all 3 test files
 
 ---
 
-### Task 10: Final verification
+### Task 10: Dutch (NL) localization
 
-- [ ] `npx tsc --noEmit` — zero errors
-- [ ] `npm test -- --run` — all pass
-- [ ] `npm run build` — success
-- [ ] Manual: switch language, verify all text + TTS changes
-- [ ] Manual: 吧唧嘴 → "Byageee Mouth" consistent everywhere
+**Files:**
+- Modify: `src/game/i18n.ts`, `src/game/audio.ts`, `src/ui/Briefing.tsx`
+
+- [x] `Lang` type extended: `'zh' | 'en' | 'nl'`
+- [x] Full `nl` dictionary (~100 keys) — all text translated to Dutch
+- [x] TTS: `nl` uses English voice (`lang === 'zh' ? 'zh-CN' : 'en-US'`)
+- [x] Toggle cycles: ZH→EN→NL→ZH (button shows next language code)
+
+---
+
+### Task 11: Post-implementation fixes
+
+- [x] Wall art font sizing: EN dynamic `fontSize` scaling
+- [x] Couplet EN: per-character vertical (not per-word)
+- [x] HUD skill names: `t('skill_${id}')` instead of `CONFIG.skills[id].displayName`
+- [x] Pause time jump: `pausedAt` tracking + `startedAt` shift on unpause
+- [x] Jump over tables: skip table collision when airborne
+- [x] Jump parameters: 500→650ms duration, 0.8→1.1 height, 800→900ms cooldown
+
+---
+
+### Task 12: Final verification
+
+- [x] `npx tsc --noEmit` — zero errors
+- [x] `npm test -- --run` — 59/59 passed
+- [x] `npm run build` — success
+- [x] Manual: ZH/EN/NL all switch correctly, TTS speaks EN voice for EN+NL
 
 ---
 
@@ -225,28 +196,16 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
 
 | Spec criterion | Task |
 |----------------|------|
-| i18n dictionary + t() helper | 1 |
-| lang field in store + switcher | 1 |
-| TTS switches u.lang + voice search | 2 |
+| i18n dictionary + t() helper (zh/en/nl) | 1, 10 |
+| lang field in store + cycling switcher | 1, 4 |
+| TTS switches u.lang + voice search (nl→en) | 2, 10 |
 | Shout lines use confirmed English | 3 |
 | Briefing all strings + switcher | 4 |
-| HUD all strings | 5 |
+| HUD all strings + skill names | 5 |
 | Donation modal all strings | 6 |
-| Game logic strings (props, store, config) | 7 |
-| 3D scene text | 8 |
+| Game logic strings (props, store, titles) | 7 |
+| 3D scene text + font sizing | 8 |
 | Tests language-aware | 9 |
-| tsc + tests + build | 10 |
-
----
-
-## Risk Notes
-
-1. **TTS voice availability:** English male voices vary by browser/OS. The fallback should pick any English voice if no male match is found.
-
-2. **3D text fonts:** drei `<Text>` uses default fonts that may not render Chinese. Currently working for 静 — English equivalent ("Shh" or similar) should work fine.
-
-3. **String interpolation:** Some strings have dynamic values (e.g., `回血 +${n}`, `升级！LV${n}`). The `t()` function should support simple `{n}` placeholder substitution.
-
-4. **Test breakage:** 3 tests assert Chinese strings directly. These must be updated to either test `t()` with `lang='zh'` or test both languages.
-
-5. **Pending translations:** Skill names, descriptions, UI text, titles, and scene text still need English translations from the user. Implementation is blocked until these are provided.
+| Dutch translations | 10 |
+| Post-fix: pause, jump, wall art | 11 |
+| tsc + tests + build | 12 |

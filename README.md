@@ -59,3 +59,15 @@ npm run build
 - **门禁修复**：Boss 满员时正确驱逐并入场；Boss 生成不再冻结普通门禁；实现 idleExitSec — NPC 入场超时后强制优先退出，FIFO 循环确保被击败的 Boss 最终离开。
 - **塞嘴重做**：自动锁定最远吧唧者，无射程限制，紫色胶囊弹道飞行动画。
 - **暂停系统**：HP 左侧 ⏸/▶ 按钮，Esc 切换，tick 早退冻结游戏状态。
+
+## Round 7
+
+- **i18n 国际化**：`src/game/i18n.ts` 扁平字典 + `t(key)` 函数，~100 个 key 三语翻译（中/英/荷）。
+- **语言切换器**：开屏标题栏左侧循环按钮 ZH→EN→NL→ZH，非下拉菜单。
+- **TTS 语音**：中文用 zh-CN voice，英文和荷兰语共用 en-US voice（荷兰语不另配 TTS）。
+- **全量文案翻译**：技能名/描述、开屏、HUD、赞助弹窗、引导提示、道具 toast、称号、NPC 标签、3D 场景文字（墙画/门联/静音符）全部 `t()` 化。
+- **墙画/门联英文**：静→Shhh / 忍→Bear It / 食不言→No Smack；天道酬勤→Chew Quiet / 地道的您→Or Else。英文逐字母竖排。
+- **荷兰语**：喊话（Hou je fucking bekken dicht!）、技能（Klap/Plakband/Schreeuw/Mondprop/Strontgolf/Beschaafd）、墙画（Sjh/Volhard/Geen Smak）、门联（Kauw Stil/Of Anders）。
+- **暂停时间修复**：`pausedAt` 追踪 + `startedAt` 偏移，恢复后游戏时间不跳跃。
+- **跳跃翻桌**：空中跳过桌面碰撞；跳跃参数调整为 650ms/1.1 高度（可翻越全部桌子）。
+- **吧唧嘴 → Byageee Mouth**：全语言统一。

@@ -1,16 +1,16 @@
 # Civic Man — Round 7 Design Spec
 
 **Date:** 2026-07-13  
-**Status:** Draft  
-**Goal:** English localization of all user-facing text and TTS voice lines. Add a `lang` field to the store with a language switcher. All strings extracted into an i18n dictionary.
+**Status:** Completed  
+**Goal:** English and Dutch localization of all user-facing text and TTS voice lines. Add a `lang` field to the store with a cycling language switcher (ZH→EN→NL→ZH). All strings extracted into an i18n dictionary.
 
-**Approach:** Lightweight `src/game/i18n.ts` with a flat key→value dictionary per language. A `t(key)` helper reads `lang` from the store. TTS engine switches `u.lang` and voice search based on language. 3D text in scene uses `t()` for conditional rendering.
+**Approach:** Lightweight `src/game/i18n.ts` with a flat key→value dictionary per language (`zh`, `en`, `nl`). A `t(key)` helper reads `currentLang` from the module. TTS engine uses English voice for both `en` and `nl` (Dutch TTS not configured per user request). 3D text in scene uses `t()` for conditional rendering. Language switcher is a cycling button (not a dropdown).
 
 ---
 
 ## One-liner
 
-将全游戏中文文案和 TTS 语音切换为英文版，新增语言切换器。吧唧嘴 → "Byageee Mouth"，喊话台词全部替换为英文俚语版。
+将全游戏中文文案和 TTS 语音切换为英文版和荷兰语版，新增三语循环切换器（ZH→EN→NL）。吧唧嘴 → "Byageee Mouth"，喊话台词替换为英文俚语版。荷兰语 TTS 沿用英语 voice。
 
 ---
 
@@ -19,8 +19,8 @@
 | Keep | Change |
 |------|--------|
 | All Round 6 features (UI polish, bug fixes, gag rework, pause) | All hardcoded strings → `t()` dictionary lookups |
-| TTS engine (browser SpeechSynthesis) | `u.lang` + voice search switches `zh-CN` → `en-US` |
-| Skill names / descriptions / shout lines | Translated to English |
+| TTS engine (browser SpeechSynthesis) | `u.lang` switches `zh-CN` → `en-US` (nl uses en voice) |
+| Skill names / descriptions / shout lines | Translated to English + Dutch |
 | 3D text (静, wall art, couplet) | Conditional rendering per language |
 
 ---
@@ -200,19 +200,20 @@
 ## Architecture
 
 ```
-src/game/i18n.ts              # NEW — flat dictionary { zh: {...}, en: {...} } + t(key, lang)
-src/game/store.ts             # +lang: 'zh' | 'en', +setLang()
-src/game/config.ts            # shout lines → t() references
-src/game/audio.ts             # playShoutVoice reads lang → u.lang + voice search
+src/game/i18n.ts              # NEW — flat dictionary { zh, en, nl } + t(key) + setLang/getLang
+src/game/store.ts             # +lang: Lang, +setLang(), +pausedAt for pause time fix
+src/game/audio.ts             # playShoutVoice reads getLang() → u.lang + voice search (nl→en voice)
 src/game/props.ts             # toast text → t()
-src/ui/Briefing.tsx           # all strings → t()
-src/ui/Hud.tsx                # all strings → t()
+src/game/titles.ts            # titleForTime → t() with config minTime thresholds
+src/game/slapShout.ts         # slapShoutLine → t()
+src/ui/Briefing.tsx           # all strings → t(), cycling language switcher (ZH→EN→NL)
+src/ui/Hud.tsx                # all strings → t(), skill names via t('skill_${id}')
 src/ui/DonationModal.tsx      # all strings → t()
 src/scene/Props.tsx           # 静 → t('silenceChar')
-src/scene/World.tsx           # wall art / couplet → t()
-src/scene/Npcs.tsx            # 吧唧 → t()
+src/scene/World.tsx           # wall art / couplet → t(), language-aware fontSize
+src/scene/Npcs.tsx            # status labels → t()
 src/App.tsx                   # rotate overlay → t()
-src/ui/TouchControls.tsx      # any Chinese → t()
+src/ui/TouchControls.tsx      # 跳/换 → t()
 ```
 
 ---
@@ -223,35 +224,61 @@ src/ui/TouchControls.tsx      # any Chinese → t()
 // Before:
 u.lang = 'zh-CN'
 const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('zh'))
-const maleHint = /male|男|kangkang|yunyang|.../i
 
 // After:
-const lang = useGameStore.getState().lang  // 'zh' | 'en'
-u.lang = lang === 'en' ? 'en-US' : 'zh-CN'
-const langVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'en' ? 'en' : 'zh'))
-const maleHint = lang === 'en'
-  ? /male|david|alex|daniel|fred/i
-  : /male|男|kangkang|yunyang|.../i
+const lang = getLang()  // 'zh' | 'en' | 'nl'
+u.lang = lang === 'zh' ? 'zh-CN' : 'en-US'  // nl uses English voice
+const langVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'zh' ? 'zh' : 'en'))
+const maleHint = lang === 'zh'
+  ? /male|男|kangkang|yunyang|.../i
+  : /male|david|alex|daniel|fred/i
 ```
+
+Dutch text is spoken with an English TTS voice (user decision: "语音不改了").
+
+---
+
+## Language Switcher
+
+Cycling button in briefing header (far left, styled `.lang-btn`):
+- ZH mode → button shows "EN" → click switches to EN
+- EN mode → button shows "NL" → click switches to NL
+- NL mode → button shows "ZH" → click switches to ZH
+
+Not a dropdown. One click = one language advance.
+
+---
+
+## Post-Implementation Fixes
+
+After initial i18n rollout, the following issues were identified and fixed:
+
+1. **Wall art font sizing**: EN text (Shhh/Bear It/No Smack) longer than CJK chars → language-aware `fontSize` with dynamic scaling for latin text
+2. **Door couplet EN**: Originally word-split (Chew\nQuiet), changed to per-character vertical (C/h/e/w/Q/u/i/e/t) matching the CJK couplet style
+3. **HUD skill names**: `CONFIG.skills[id].displayName` (still Chinese) → `t('skill_${id}')` 
+4. **Pause time jump**: `pausedAt` tracking + `startedAt` shift on unpause (elapsedSec no longer includes paused time)
+5. **Jump over tables**: Airborne skips table collision (`isAirborne ? [] : CONFIG.tables`)
+6. **Jump parameters**: Duration 500→650ms, height 0.8→1.1, cooldown 800→900ms (can clear all tables)
 
 ---
 
 ## Success Criteria
 
-1. Language switcher (ZH/EN) accessible from briefing or HUD
-2. All user-facing text switches language instantly
-3. TTS uses English voice and pronunciation for shout lines
-4. 3D text in scene renders language-appropriate characters
-5. 吧唧嘴 → "Byageee Mouth" consistently across all text
-6. All 6 shout lines use confirmed English translations
-7. Tests updated to be language-aware
-8. `npm test` passes; `npm run build` succeeds; tsc clean
+1. ✅ Language switcher (ZH/EN/NL cycle) in briefing header
+2. ✅ All user-facing text switches language instantly
+3. ✅ TTS uses English voice for EN and NL, Chinese voice for ZH
+4. ✅ 3D text in scene renders language-appropriate characters
+5. ✅ 吧唧嘴 → "Byageee Mouth" consistently across all text
+6. ✅ All 6 shout lines use confirmed English translations
+7. ✅ Dutch translations for all ~100 keys
+8. ✅ Tests updated to be language-aware (setLang('zh') before assertions)
+9. ✅ `npm test` passes (59/59); `npm run build` succeeds; tsc clean
 
 ---
 
 ## Out of Scope
 
-- Third language support
+- Dutch TTS voice (uses English voice per user decision)
 - Pre-recorded audio files (TTS only)
 - RTL language support
 - Dynamic font loading per language
