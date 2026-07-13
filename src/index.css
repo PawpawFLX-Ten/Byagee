@@ -169,6 +169,19 @@ body,
   pointer-events: none;
 }
 
+.prop-cue {
+  color: #ffd700;
+  font-size: 22px;
+  transform-origin: 0 100px;
+  opacity: 0.8;
+  animation: prop-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes prop-pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
 .death {
   pointer-events: auto;
   position: absolute;

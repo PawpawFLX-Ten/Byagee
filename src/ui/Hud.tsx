@@ -73,6 +73,16 @@ export function Hud() {
     return Math.atan2(dx, -dz)
   }, [npcs, targetId, playerPos, alive])
 
+  const props = useGameStore((s) => s.props)
+
+  const propEdge = useMemo(() => {
+    const prop = props.find((p) => p.fadingSince === null)
+    if (!prop) return null
+    const dx = prop.position[0] - playerPos[0]
+    const dz = prop.position[2] - playerPos[2]
+    return Math.atan2(dx, -dz)
+  }, [props, playerPos])
+
   if (!briefingDone) return null
 
   const threatPct = Math.min(100, (threat / 1.2) * 100)
@@ -175,6 +185,15 @@ export function Hud() {
           style={{ transform: `translate(-50%, -50%) rotate(${edge}rad)` }}
         >
           ▲
+        </div>
+      )}
+
+      {propEdge !== null && (
+        <div
+          className="edge-cue prop-cue"
+          style={{ transform: `translate(-50%, -50%) rotate(${propEdge}rad)` }}
+        >
+          ✦
         </div>
       )}
 
