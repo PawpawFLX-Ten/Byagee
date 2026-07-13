@@ -5,7 +5,7 @@ export type NpcStatus =
   | 'silenced'
   | 'sealed'
 
-export type SkillId = 'tape' | 'slap' | 'megaphone' | 'gag'
+export type SkillId = 'tape' | 'slap' | 'megaphone' | 'gag' | 'poop' | 'civility'
 
 export type SealProp = 'tape' | 'gag' | null
 
@@ -83,6 +83,7 @@ export interface NpcState {
   exiting: boolean
   idleSince: number
   smackingSince: number
+  noiseReduction: number
 }
 
 export interface SkillDef {
@@ -93,6 +94,7 @@ export interface SkillDef {
   silenceDuration: number
   tags: string[]
   aoeRadius?: number
+  coneAngle?: number
   selfNoise?: number
   applyStatus: 'silenced' | 'sealed'
   windup: number
@@ -130,4 +132,7 @@ export interface GameConfig {
   slapShoutLine: string
   tapeShoutLine: string
   gagShoutLine: string
+  levelXpTable: number[]
+  poopShoutLine: string
+  civilityShoutLine: string
 }

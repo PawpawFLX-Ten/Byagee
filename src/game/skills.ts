@@ -1,6 +1,7 @@
 import { CONFIG } from './config'
 import { scaledSilence } from './difficulty'
 import { resolveBossHit } from './bossModules'
+import { cdMultiplier, rangeMultiplier } from './progression'
 import { distance3 } from './threat'
 import type { NpcState, SkillId } from './types'
 
@@ -44,6 +45,7 @@ export function tryUseSkill(
   now: number,
   elapsedSec: number,
   cooldownReadyAt: Record<SkillId, number>,
+  level: number,
 ): {
   ok: boolean
   npcs: NpcState[]
@@ -53,6 +55,8 @@ export function tryUseSkill(
   reason?: string
 } {
   const skill = CONFIG.skills[skillId]
+  const effectiveRange = skill.range * rangeMultiplier(level)
+  const effectiveCd = skill.cooldown * cdMultiplier(level)
   if (now < (cooldownReadyAt[skillId] ?? 0)) {
     return {
       ok: false,
@@ -65,11 +69,52 @@ export function tryUseSkill(
   }
 
   const duration = scaledSilence(skill.silenceDuration, elapsedSec)
+  const hitPower = skillId === 'gag' && level >= 9 ? 2 : 1
+  const effectiveDuration = skillId === 'gag' && level >= 9 ? duration * 2 : duration
   let next = [...npcs]
   const selfNoise = skill.selfNoise ?? 0
   const hitIds: string[] = []
 
-  if (skill.tags.includes('aoe') && skill.aoeRadius) {
+  if (skill.tags.includes('cone') && skill.coneAngle) {
+    let hit = false
+    next = next.map((npc) => {
+      const d = distance3(npc.position, playerPos)
+      if (d > effectiveRange) return npc
+      hit = true
+      hitIds.push(npc.id)
+      const others = npcs.filter((n) => n.id !== npc.id).map((n) => ({ x: n.position[0], z: n.position[2] }))
+      return resolveBossHit(npc, skill.applyStatus, effectiveDuration, now, null, playerPos, others, hitPower).npc
+    })
+    if (!hit) {
+      return {
+        ok: false,
+        npcs,
+        cooldownReadyAt,
+        selfNoise: 0,
+        hitIds: [],
+        reason: 'no_target',
+      }
+    }
+  } else if (skill.tags.includes('global')) {
+    let hit = false
+    next = next.map((npc) => {
+      if (npc.status === 'walking') return npc
+      hit = true
+      hitIds.push(npc.id)
+      const others = npcs.filter((n) => n.id !== npc.id).map((n) => ({ x: n.position[0], z: n.position[2] }))
+      return resolveBossHit(npc, skill.applyStatus, effectiveDuration, now, null, playerPos, others, hitPower).npc
+    })
+    if (!hit) {
+      return {
+        ok: false,
+        npcs,
+        cooldownReadyAt,
+        selfNoise: 0,
+        hitIds: [],
+        reason: 'no_target',
+      }
+    }
+  } else if (skill.tags.includes('aoe') && skill.aoeRadius) {
     let hit = false
     next = next.map((npc) => {
       if (distance3(npc.position, playerPos) <= skill.aoeRadius!) {
@@ -81,11 +126,12 @@ export function tryUseSkill(
         return resolveBossHit(
           npc,
           skill.applyStatus,
-          duration,
+          effectiveDuration,
           now,
           null,
           playerPos,
           others,
+          hitPower,
         ).npc
       }
       return npc
@@ -112,7 +158,7 @@ export function tryUseSkill(
         reason: 'no_target',
       }
     }
-    if (distance3(target.position, playerPos) > skill.range) {
+    if (distance3(target.position, playerPos) > effectiveRange) {
       return {
         ok: false,
         npcs,
@@ -133,14 +179,22 @@ export function tryUseSkill(
         ? resolveBossHit(
             n,
             skill.applyStatus,
-            duration,
+            effectiveDuration,
             now,
             sealProp,
             playerPos,
             others,
+            hitPower,
           ).npc
         : n,
     )
+  }
+
+  // Tape: apply noise reduction to hit NPCs (Level 3+ perk)
+  if (skillId === 'tape' && level >= 3) {
+    const reduction = level >= 7 ? 0.25 : 0.15
+    const hitSet = new Set(hitIds)
+    next = next.map((n) => (hitSet.has(n.id) ? { ...n, noiseReduction: reduction } : n))
   }
 
   return {
@@ -148,7 +202,7 @@ export function tryUseSkill(
     npcs: next,
     cooldownReadyAt: {
       ...cooldownReadyAt,
-      [skillId]: now + skill.cooldown * 1000,
+      [skillId]: now + effectiveCd * 1000,
     },
     selfNoise,
     hitIds,

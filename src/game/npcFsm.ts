@@ -1,6 +1,7 @@
 import {
   knockbackFrom,
   moveWithCollision,
+  resolveTablesCollision,
   separateFromOthers,
   type TableCollider,
   type XZ,
@@ -9,7 +10,12 @@ import { CONFIG } from './config'
 import { getPhase } from './difficulty'
 import type { DifficultyPhase, FoodSpot, NpcState, SealProp } from './types'
 
-const STUCK_TICKS_BEFORE_REROUTE = 40
+const STUCK_TICKS_BEFORE_REROUTE = 25
+
+function foodIndexInConfig(foodId: string): number {
+  const idx = CONFIG.foodSpots.findIndex((f) => f.id === foodId)
+  return idx >= 0 ? idx : 0
+}
 
 function facingToward(
   from: [number, number, number],
@@ -25,8 +31,8 @@ function othersXZ(npcs: NpcState[], selfId: string): XZ[] {
 }
 
 /** Nudge approach sideways so agents don't share the exact same slot. */
-function approachFor(food: FoodSpot, seatIndex: number): [number, number, number] {
-  const spread = ((seatIndex % 3) - 1) * 0.55
+function approachFor(food: FoodSpot, foodIdx: number): [number, number, number] {
+  const spread = ((foodIdx % 3) - 1) * 0.55
   // Offset along the table edge tangent (perpendicular to radial direction)
   const ax = food.approach[0]
   const az = food.approach[2]
@@ -34,6 +40,46 @@ function approachFor(food: FoodSpot, seatIndex: number): [number, number, number
   const tx = -az / len
   const tz = ax / len
   return [ax + tx * spread, 0, az + tz * spread]
+}
+
+/** Look ahead in the movement direction; if a table blocks the path, steer around it. */
+function steeredDirection(
+  fromX: number,
+  fromZ: number,
+  toX: number,
+  toZ: number,
+  tables: TableCollider[],
+): [number, number] {
+  const dx = toX - fromX
+  const dz = toZ - fromZ
+  const dist = Math.hypot(dx, dz)
+  if (dist < 0.01) return [0, 0]
+  const dirX = dx / dist
+  const dirZ = dz / dist
+
+  // Probe ahead for table collisions
+  const lookAhead = Math.min(dist, 1.5)
+  const probeX = fromX + dirX * lookAhead
+  const probeZ = fromZ + dirZ * lookAhead
+  const [resolvedX, resolvedZ] = resolveTablesCollision(probeX, probeZ, tables)
+
+  if (resolvedX === probeX && resolvedZ === probeZ) {
+    return [dirX, dirZ] // path is clear, go straight
+  }
+
+  // Path is blocked — steer toward the collision resolution direction
+  const deflectX = resolvedX - probeX
+  const deflectZ = resolvedZ - probeZ
+  const deflectLen = Math.hypot(deflectX, deflectZ)
+  if (deflectLen < 0.01) return [dirX, dirZ]
+
+  // Blend: 60% original direction + 40% deflection (around table edge)
+  const blend = 0.6
+  let steerX = dirX * blend + (deflectX / deflectLen) * (1 - blend)
+  let steerZ = dirZ * blend + (deflectZ / deflectLen) * (1 - blend)
+  const steerLen = Math.hypot(steerX, steerZ)
+  if (steerLen < 0.001) return [dirX, dirZ]
+  return [steerX / steerLen, steerZ / steerLen]
 }
 
 export function createNpcs(now: number): NpcState[] {
@@ -63,6 +109,7 @@ export function createNpcs(now: number): NpcState[] {
       exiting: false,
       idleSince: now,
       smackingSince: 0,
+      noiseReduction: 0,
     }
   })
 }
@@ -102,8 +149,13 @@ export function tickNpcs(
         return next
       }
       const step = CONFIG.npcWalkSpeed * dt
-      const mx = (tx / dist) * Math.min(step, dist)
-      const mz = (tz / dist) * Math.min(step, dist)
+      const [dirX, dirZ] = steeredDirection(
+        next.position[0], next.position[2],
+        door[0], door[2],
+        CONFIG.tables,
+      )
+      const mx = dirX * Math.min(step, dist)
+      const mz = dirZ * Math.min(step, dist)
       const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, CONFIG.tables, blockers)
       return { ...next, position: [x, 0, z] as [number, number, number] }
     }
@@ -131,11 +183,9 @@ export function tickNpcs(
         }
       }
 
-      const target = approachFor(food, next.seatIndex)
-      const tx = target[0] - next.position[0]
-      const tz = target[2] - next.position[2]
-      const dist = Math.hypot(tx, tz)
-      next.facing = Math.atan2(tx, tz)
+      const target = approachFor(food, foodIndexInConfig(food.id))
+      const dist = Math.hypot(target[0] - next.position[0], target[2] - next.position[2])
+      next.facing = Math.atan2(target[0] - next.position[0], target[2] - next.position[2])
 
       if (dist < 0.28) {
         if (smacking < maxSmack) {
@@ -161,8 +211,13 @@ export function tickNpcs(
       }
 
       const step = CONFIG.npcWalkSpeed * dt
-      let mx = (tx / dist) * Math.min(step, dist)
-      let mz = (tz / dist) * Math.min(step, dist)
+      const [dirX, dirZ] = steeredDirection(
+        next.position[0], next.position[2],
+        target[0], target[2],
+        CONFIG.tables,
+      )
+      let mx = dirX * Math.min(step, dist)
+      let mz = dirZ * Math.min(step, dist)
 
       // If blocked, slide along table perimeter instead of pushing into the jam
       if (next.stuckTicks > 12) {
@@ -189,7 +244,7 @@ export function tickNpcs(
         claimed.delete(next.foodId)
         const alt = pickFood(npcs, next.id, claimed, next.foodId)
         claimed.add(alt.id)
-        const altApproach = approachFor(alt, next.seatIndex)
+        const altApproach = approachFor(alt, foodIndexInConfig(alt.id))
         return {
           ...next,
           foodId: alt.id,
@@ -228,6 +283,7 @@ export function tickNpcs(
         foodId: null,
         stuckTicks: 0,
         smackingSince: 0,
+        noiseReduction: 0,
       }
     }
 
@@ -242,7 +298,7 @@ export function tickNpcs(
         status: 'walking' as const,
         statusUntil: now + 9000,
         foodId: food.id,
-        facing: facingToward(next.position, approachFor(food, next.seatIndex)),
+        facing: facingToward(next.position, approachFor(food, foodIndexInConfig(food.id))),
         stuckTicks: 0,
       }
     }
@@ -319,7 +375,7 @@ function pickFood(
 
   // Prefer nearest uncrowded approach
   const scored = choices.map((f) => {
-    const ap = approachFor(f, self?.seatIndex ?? 0)
+    const ap = approachFor(f, foodIndexInConfig(f.id))
     const dist = self
       ? Math.hypot(ap[0] - self.position[0], ap[2] - self.position[2])
       : 0
@@ -327,7 +383,13 @@ function pickFood(
       if (n.id === selfId) return acc
       return acc + (Math.hypot(n.position[0] - ap[0], n.position[2] - ap[2]) < 1.2 ? 1 : 0)
     }, 0)
-    return { f, score: dist + crowd * 2.5 }
+    // Count how many NPCs are already at the same table as this food spot
+    const tableCrowd = npcs.reduce((acc, n) => {
+      if (n.id === selfId) return acc
+      const foodTableDist = Math.hypot(n.position[0] - f.approach[0], n.position[2] - f.approach[2])
+      return acc + (foodTableDist < 2.5 ? 1 : 0)
+    }, 0)
+    return { f, score: dist + crowd * 3.0 + tableCrowd * 2.0 + Math.random() * 0.4 }
   })
   scored.sort((a, b) => a.score - b.score)
   return scored[0].f
@@ -372,5 +434,6 @@ export function applySilence(
       ? facingToward(npc.position, attackerPos)
       : npc.facing,
     smackingSince: 0,
+    noiseReduction: 0,
   }
 }

@@ -26,13 +26,20 @@ export function computeThreat(
     if (npc.status !== 'smacking') continue
     if (now > 0 && npc.smackingSince > 0 && now - npc.smackingSince < CONFIG.smackDamageDelaySec * 1000) continue
     const d = distance3(npc.position, playerPos)
-    sum += npc.baseLoudness * distanceAttenuation(d)
+    const effectiveLoudness = Math.max(0.05, npc.baseLoudness - npc.noiseReduction)
+    sum += effectiveLoudness * distanceAttenuation(d)
   }
   return Math.min(1.5, (sum + extraNoise) * CONFIG.roomReverb)
 }
 
 export function hpDrainPerSec(threat: number, damageCoeff: number): number {
-  if (threat >= CONFIG.hardThreat) return CONFIG.hardDrainPerSec * damageCoeff
-  if (threat >= CONFIG.softThreat) return CONFIG.softDrainPerSec * damageCoeff
-  return 0
+  if (threat < CONFIG.softThreat) return 0
+  if (threat <= CONFIG.hardThreat) {
+    const t = (threat - CONFIG.softThreat) / (CONFIG.hardThreat - CONFIG.softThreat)
+    return (CONFIG.softDrainPerSec + t * (CONFIG.hardDrainPerSec - CONFIG.softDrainPerSec)) * damageCoeff
+  }
+  // Above hardThreat: continue scaling with same slope
+  const excess = threat - CONFIG.hardThreat
+  const slope = (CONFIG.hardDrainPerSec - CONFIG.softDrainPerSec) / (CONFIG.hardThreat - CONFIG.softThreat)
+  return (CONFIG.hardDrainPerSec + excess * slope) * damageCoeff
 }

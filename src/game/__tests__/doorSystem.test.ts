@@ -25,6 +25,7 @@ function stubNpc(partial: Partial<NpcState> & { id: string }): NpcState {
     exiting: false,
     idleSince: 0,
     smackingSince: 0,
+    noiseReduction: 0,
     ...partial,
   }
 }

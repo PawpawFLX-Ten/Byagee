@@ -269,6 +269,18 @@ export function playSkill(skillId: SkillId) {
       beep(60, 0.3, 'sine', 0.1)
       playShoutVoice(CONFIG.gagShoutLine, 1.5)
       break
+    case 'poop':
+      burstNoise(0.15, 0.25, 800)
+      beep(200, 0.1, 'sawtooth', 0.18, 80)
+      beep(120, 0.15, 'triangle', 0.12)
+      playShoutVoice(CONFIG.poopShoutLine, 2.0)
+      break
+    case 'civility':
+      beep(150, 0.2, 'sawtooth', 0.3)
+      beep(100, 0.3, 'triangle', 0.2, 50)
+      burstNoise(0.4, 0.25, 300)
+      playShoutVoice(CONFIG.civilityShoutLine, 1.5)
+      break
   }
 }
 

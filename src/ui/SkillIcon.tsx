@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { SkillId } from '../game/types'
 
 const svgProps = {
   width: 22,
@@ -17,7 +18,7 @@ export function SkillIcon({
   id,
   className,
 }: {
-  id: 'slap' | 'tape' | 'megaphone' | 'gag'
+  id: SkillId
   className?: string
 }) {
   let glyph: ReactNode
@@ -61,6 +62,10 @@ export function SkillIcon({
           <path d="M12 4.2c.7-.9 1.9-1.2 2.6-.4" opacity={0.35} />
         </>
       )
+      break
+    default:
+      // poop / civility — placeholder until visual agent adds icons
+      glyph = <circle cx="12" cy="12" r="8" />
       break
   }
 

@@ -4,6 +4,7 @@ import { createBossNpc, tickBossRage } from './bossModules'
 import { getPhase } from './difficulty'
 import { applyDoorAction, freeSeatIndexes, planBossAdmission, planDoorAction } from './doorSystem'
 import { createNpcs, tickNpcs } from './npcFsm'
+import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORMAL, XP_PER_SKILL_HIT_BOSS, XP_PER_SURVIVAL_SEC, cdMultiplier } from './progression'
 import { cycleTarget, tryUseSkill } from './skills'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
@@ -15,6 +16,8 @@ function emptyCooldowns(): Record<SkillId, number> {
     tape: 0,
     megaphone: 0,
     gag: 0,
+    poop: 0,
+    civility: 0,
   }
 }
 
@@ -60,6 +63,10 @@ export interface GameStore {
   guideTip: string | null
   skillAction: SkillAction | null
   shoutBannerUntil: number
+  xp: number
+  level: number
+  plungerUntil: number
+  levelUpAt: number
   start: (now?: number) => void
   restart: (now?: number) => void
   beginMission: (now?: number) => void
@@ -95,7 +102,7 @@ function faceYawToTarget(
   targetId: string | null,
   skillId: SkillId,
 ): number {
-  if (skillId === 'megaphone') return 0 // Player mesh handles facing separately
+  if (skillId === 'megaphone' || skillId === 'poop' || skillId === 'civility') return 0
   const t =
     npcs.find((n) => n.id === targetId) ??
     npcs.find((n) => n.status === 'smacking') ??
@@ -126,6 +133,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   guideTip: null,
   skillAction: null,
   shoutBannerUntil: 0,
+  xp: 0,
+  level: 1,
+  plungerUntil: 0,
+  levelUpAt: 0,
 
   start: (now = performance.now()) => {
     const npcs = createNpcs(now)
@@ -153,6 +164,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       guideTip: null,
       skillAction: null,
       shoutBannerUntil: 0,
+      xp: 0,
+      level: 1,
+      plungerUntil: 0,
+      levelUpAt: 0,
     })
   },
 
@@ -181,6 +196,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       guideTip: guideForElapsed(0),
       skillAction: null,
       shoutBannerUntil: 0,
+      xp: 0,
+      level: 1,
+      plungerUntil: 0,
+      levelUpAt: 0,
     })
   },
 
@@ -202,6 +221,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   useSkill: (skillId, now = performance.now()) => {
     const state = get()
     if (!state.alive || !state.briefingDone) return
+    if (skillId === 'poop' && !isQUnlocked(state.level)) return
+    if (skillId === 'civility' && !isEUnlocked(state.level)) return
     if (state.skillAction) return
 
     // Pre-check without applying — lock windup then apply at end
@@ -213,6 +234,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       now,
       state.elapsedSec,
       state.cooldownReadyAt,
+      state.level,
     )
     if (!preview.ok) {
       set({
@@ -241,7 +263,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // Reserve cooldown at windup start so spam is blocked
       cooldownReadyAt: {
         ...state.cooldownReadyAt,
-        [skillId]: now + CONFIG.skills[skillId].cooldown * 1000,
+        [skillId]: now + CONFIG.skills[skillId].cooldown * cdMultiplier(state.level) * 1000,
       },
       lastSkillOk: true,
       toast: {
@@ -249,6 +271,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         text:
           skillId === 'megaphone'
             ? CONFIG.shoutLine
+            : skillId === 'poop'
+            ? CONFIG.poopShoutLine
+            : skillId === 'civility'
+            ? CONFIG.civilityShoutLine
             : CONFIG.skills[skillId].displayName + '！',
         until: now + Math.max(700, windup * 1000 + 200),
       },
@@ -268,6 +294,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let hitFx = state.hitFx && now > state.hitFx.until ? null : state.hitFx
     let skillAction = state.skillAction
     let toast = state.toast && now > state.toast.until ? null : state.toast
+    let newXp = state.xp
+    let plungerUntil = state.plungerUntil
+    let healFromSkill = 0
+    let levelUpAt = state.levelUpAt
 
     // Resolve windup → apply skill with knockback
     if (skillAction && now >= skillAction.until) {
@@ -281,8 +311,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         now,
         state.elapsedSec,
         cds,
+        state.level,
       )
       if (result.ok) {
+        // Check if any hit NPC was smacking BEFORE the skill applied
+        const resolvedSmacker = result.hitIds.some((id) =>
+          npcs.find((n) => n.id === id)?.status === 'smacking',
+        )
         npcs = result.npcs
         // Keep original reserved cooldown, don't reset from tryUseSkill
         selfNoise = result.selfNoise
@@ -294,6 +329,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
           skillId: skillAction.skillId,
           until: now + (skillAction.skillId === 'megaphone' ? 800 : 500),
           playerPos: state.playerPos,
+        }
+        // Award XP for skill hits
+        const xpGained = result.hitIds.reduce((sum, id) => {
+          const npc = npcs.find((n) => n.id === id)
+          const isBoss = npc?.role === 'boss'
+          return sum + (isBoss ? XP_PER_SKILL_HIT_BOSS : XP_PER_SKILL_HIT_NORMAL)
+        }, 0)
+        newXp += xpGained
+        // Civility sets plungerUntil
+        if (skillAction.skillId === 'civility') {
+          plungerUntil = now + CONFIG.skills.civility.silenceDuration * 1000
+        }
+        // HP heal from slap (Level 2+) and megaphone (Level 4+)
+        if (resolvedSmacker) {
+          if (skillAction.skillId === 'slap') {
+            healFromSkill = state.level >= 6 ? 4 : state.level >= 2 ? 2 : 0
+          } else if (skillAction.skillId === 'megaphone') {
+            healFromSkill = state.level >= 8 ? 4 : state.level >= 4 ? 2 : 0
+          }
         }
       }
       skillAction = null
@@ -350,7 +404,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const drain = hpDrainPerSec(threat, CONFIG.damageCoeff[phase])
-    const hp = Math.max(0, state.hp - drain * dt)
+    let hp = Math.max(0, state.hp - drain * dt)
+    if (healFromSkill > 0) {
+      hp = Math.min(CONFIG.maxHp, hp + healFromSkill)
+    }
+
+    // Survival XP (1 per second)
+    newXp += XP_PER_SURVIVAL_SEC * dt
+
+    // Level up check
+    let level = state.level
+    const newLevel = levelForXp(newXp)
+    if (newLevel > level) {
+      level = newLevel
+      levelUpAt = now
+      toast = { id: fxSeq++, text: `升级！LV${level}`, until: now + 2000 }
+    }
+
+    // Overflow heal at max level
+    if (isMaxLevel(level)) {
+      const maxXp = CONFIG.levelXpTable[CONFIG.levelXpTable.length - 1]
+      const overflow = Math.max(0, newXp - maxXp)
+      const healPerSec = overflow > 0 ? Math.min(2, overflow / 50) : 0
+      hp = Math.min(CONFIG.maxHp, hp + healPerSec * dt)
+    }
+
     const alive = hp > 0
 
     let targetId = state.targetId
@@ -379,6 +457,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       guideTip: guideForElapsed(elapsedSec),
       shoutBannerUntil:
         now > state.shoutBannerUntil ? 0 : state.shoutBannerUntil,
+      xp: newXp,
+      level,
+      plungerUntil,
+      levelUpAt,
     })
   },
 }))

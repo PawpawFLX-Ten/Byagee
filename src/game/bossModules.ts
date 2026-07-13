@@ -50,6 +50,7 @@ export function createBossNpc(
     exiting: false,
     idleSince: now,
     smackingSince: 0,
+    noiseReduction: 0,
   }
 }
 
@@ -61,6 +62,7 @@ export function resolveBossHit(
   sealProp: SealProp,
   attackerPos?: [number, number, number],
   others: { x: number; z: number }[] = [],
+  hitPower: number = 1,
 ): { npc: NpcState; demoted: boolean } {
   if (npc.role !== 'boss') {
     return {
@@ -73,7 +75,7 @@ export function resolveBossHit(
   let duration = durationSec
 
   if (next.bossModules.a && next.mouthHp > 0) {
-    next.mouthHp = Math.max(0, next.mouthHp - 1)
+    next.mouthHp = Math.max(0, next.mouthHp - hitPower)
   }
 
   if (next.bossModules.b) {

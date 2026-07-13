@@ -25,6 +25,7 @@ const baseNpc = (overrides: Partial<NpcState> = {}): NpcState => ({
   exiting: false,
   idleSince: 0,
   smackingSince: 0,
+  noiseReduction: 0,
   ...overrides,
 })
 
@@ -44,8 +45,8 @@ describe('threat', () => {
 
   it('drains HP only above soft/hard thresholds', () => {
     expect(hpDrainPerSec(0.2, 1)).toBe(0)
-    expect(hpDrainPerSec(0.5, 1)).toBe(8)
-    expect(hpDrainPerSec(0.9, 1)).toBe(28)
-    expect(hpDrainPerSec(0.9, 2)).toBe(56)
+    expect(hpDrainPerSec(0.5, 1)).toBeCloseTo(11.333, 1)
+    expect(hpDrainPerSec(0.9, 1)).toBeCloseTo(38, 1)
+    expect(hpDrainPerSec(0.9, 2)).toBeCloseTo(76, 1)
   })
 })

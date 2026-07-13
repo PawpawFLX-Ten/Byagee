@@ -101,6 +101,7 @@ export function createNormalFromDoor(seatIndex: number, now: number, id: string)
     exiting: false,
     idleSince: now,
     smackingSince: 0,
+    noiseReduction: 0,
   }
 }
 

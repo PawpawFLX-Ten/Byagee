@@ -32,6 +32,7 @@ function boss(partial: Partial<NpcState> = {}): NpcState {
     exiting: false,
     idleSince: 0,
     smackingSince: 0,
+    noiseReduction: 0,
     ...partial,
   }
 }

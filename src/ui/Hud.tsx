@@ -5,6 +5,7 @@ import { useGameStore } from '../game/store'
 import { SkillIcon } from './SkillIcon'
 import type { SkillId } from '../game/types'
 import { titleForTime } from '../game/titles'
+import { xpForNextLevel, MAX_LEVEL, isQUnlocked, isEUnlocked } from '../game/progression'
 
 function formatTime(sec: number): string {
   const m = Math.floor(sec / 60)
@@ -34,6 +35,8 @@ export function Hud() {
   const reduceNausea = useGameStore((s) => s.reduceNausea)
   const setReduceNausea = useGameStore((s) => s.setReduceNausea)
   const selfNoise = useGameStore((s) => s.selfNoise)
+  const xp = useGameStore((s) => s.xp)
+  const level = useGameStore((s) => s.level)
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -49,6 +52,8 @@ export function Hud() {
       if (e.code === 'Digit2' || e.code === 'Numpad2') useSkill('tape')
       if (e.code === 'Digit3' || e.code === 'Numpad3') useSkill('megaphone')
       if (e.code === 'Digit4' || e.code === 'Numpad4') useSkill('gag')
+      if (e.code === 'KeyQ') useSkill('poop')
+      if (e.code === 'KeyE') useSkill('civility')
       if (e.code === 'Tab') {
         e.preventDefault()
         cycle()
@@ -81,6 +86,8 @@ export function Hud() {
   const now = performance.now()
   const showToast = toast && now < toast.until
 
+  const SKILL_KEYS = ['1', '2', '3', '4', 'Q', 'E'] as const
+
   return (
     <div className={`hud ${threatClass === 'hard' ? 'danger' : ''}`}>
       <div className="top-bar">
@@ -97,6 +104,16 @@ export function Hud() {
           <span>噪音</span>
           <div className={`bar threat-${threatClass}`}>
             <div className="fill threat" style={{ width: `${threatPct}%` }} />
+          </div>
+        </div>
+        <div className="meter">
+          <span>LV{level}</span>
+          <div className="bar">
+            {level < MAX_LEVEL ? (
+              <div className="fill xp" style={{ width: `${Math.min(100, (xp / (xpForNextLevel(level) ?? 1)) * 100)}%` }} />
+            ) : (
+              <div className="fill xp" style={{ width: '100%' }} />
+            )}
           </div>
         </div>
         <div className="meta">
@@ -125,23 +142,24 @@ export function Hud() {
           const readyAt = cooldownReadyAt[id as SkillId] ?? 0
           const left = Math.max(0, (readyAt - now) / 1000)
           const ready = left <= 0
+          const locked = (id === 'poop' && !isQUnlocked(level)) || (id === 'civility' && !isEUnlocked(level))
           return (
             <button
               key={id}
               type="button"
-              className={`skill ${ready ? 'ready' : 'cd'} skill-${id}`}
+              className={`skill ${ready ? 'ready' : 'cd'} skill-${id}${locked ? ' locked' : ''}`}
               onClick={() => {
                 void unlockAudio()
                 useSkill(id as SkillId)
               }}
-              disabled={!alive}
+              disabled={!alive || locked}
             >
               <span className={`skill-icon-wrap skill-icon-${id}`}>
                 <SkillIcon id={id as SkillId} />
               </span>
-              <kbd>{i + 1}</kbd>
+              <kbd>{SKILL_KEYS[i]}</kbd>
               <span>{skill.displayName}</span>
-              {!ready && <em>{left.toFixed(1)}s</em>}
+              {locked ? <em>🔒LV{id === 'poop' ? 5 : 10}</em> : !ready && <em>{left.toFixed(1)}s</em>}
             </button>
           )
         })}
@@ -161,7 +179,9 @@ export function Hud() {
       )}
 
       {showToast && (
-        <div className={`toast ${lastSkillOk ? 'ok' : 'fail'}`}>{toast.text}</div>
+        <div className={`toast ${toast.text.startsWith('升级') ? 'levelup' : lastSkillOk ? 'ok' : 'fail'}`}>
+          {toast.text}
+        </div>
       )}
 
       {!showToast && guideTip && alive && (

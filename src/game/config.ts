@@ -20,6 +20,9 @@ export const CONFIG: GameConfig = {
   slapShoutLine: '操你妈',
   tapeShoutLine: '给老子闭嘴！',
   gagShoutLine: '吃屎吧你！',
+  poopShoutLine: '请您吃顿好的 哈哈！',
+  civilityShoutLine: '素质，注意你丫的素质！',
+  levelXpTable: [80, 200, 380, 620, 920, 1280, 1700, 2180, 2720],
   tables: [
     { id: 't-round', shape: 'round', position: [-2.2, 0, -1.2], half: { x: 1.0, z: 1.0 }, topY: 0.75 },
     { id: 't-rect', shape: 'rect', position: [2.4, 0, -1.0], half: { x: 1.2, z: 0.7 }, topY: 0.75 },
@@ -124,7 +127,7 @@ export const CONFIG: GameConfig = {
   skills: {
     slap: {
       id: 'slap',
-      displayName: '拍',
+      displayName: '抽脸',
       cooldown: 1.3,
       range: 2.4,
       silenceDuration: 1.2,
@@ -164,6 +167,29 @@ export const CONFIG: GameConfig = {
       applyStatus: 'sealed',
       windup: 0.45,
     },
+    poop: {
+      id: 'poop',
+      displayName: '泼屎',
+      cooldown: 8,
+      range: 5,
+      silenceDuration: 2,
+      tags: ['cone'],
+      coneAngle: 120,
+      applyStatus: 'silenced',
+      windup: 0.15,
+      selfNoise: 0.1,
+    },
+    civility: {
+      id: 'civility',
+      displayName: '素质',
+      cooldown: 30,
+      range: 99,
+      silenceDuration: 3,
+      tags: ['global'],
+      applyStatus: 'silenced',
+      windup: 0.5,
+      selfNoise: 0.4,
+    },
   },
   titles: [
     { minTime: 0, title: '轻度洁癖' },
@@ -173,4 +199,4 @@ export const CONFIG: GameConfig = {
   ],
 }
 
-export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag'] as const
+export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag', 'poop', 'civility'] as const

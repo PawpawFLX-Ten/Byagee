@@ -12,6 +12,8 @@ const HIT_COLOR: Record<SkillId, string> = {
   tape: '#e8e8e8',
   megaphone: '#ff6644',
   gag: '#9b6bff',
+  poop: '#8b5e3c',
+  civility: '#44ccff',
 }
 
 function NpcMesh({

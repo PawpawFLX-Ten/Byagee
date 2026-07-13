@@ -8,6 +8,8 @@ const cds = (): Record<SkillId, number> => ({
   tape: 0,
   megaphone: 0,
   gag: 0,
+  poop: 0,
+  civility: 0,
 })
 
 describe('skills', () => {
@@ -23,6 +25,7 @@ describe('skills', () => {
       1000,
       5,
       cds(),
+      1,
     )
     expect(result.ok).toBe(true)
     expect(result.npcs[0].status).toBe('silenced')
@@ -38,6 +41,7 @@ describe('skills', () => {
       1000,
       5,
       cds(),
+      1,
     )
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('too_far')
@@ -53,6 +57,7 @@ describe('skills', () => {
       1000,
       5,
       cds(),
+      1,
     )
     const second = tryUseSkill(
       'slap',
@@ -62,6 +67,7 @@ describe('skills', () => {
       1100,
       5,
       first.cooldownReadyAt,
+      1,
     )
     expect(second.ok).toBe(false)
     expect(second.reason).toBe('cooldown')

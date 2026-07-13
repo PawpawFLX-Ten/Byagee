@@ -434,6 +434,16 @@ export function Player() {
         } else if (skillAction.skillId === 'gag') {
           arm.current.rotation.x = -0.9 * k
           arm.current.position.z = 0.25 * k
+        } else if (skillAction.skillId === 'poop') {
+          // 泼屎: wind back then throw forward
+          arm.current.rotation.x = -0.3 - Math.sin(k * Math.PI) * 1.8
+          arm.current.rotation.z = -0.2
+          arm.current.rotation.y = 0
+        } else if (skillAction.skillId === 'civility') {
+          // 素质: both arms raised up
+          arm.current.rotation.x = -2.2 * k
+          arm.current.rotation.z = -0.2
+          arm.current.rotation.y = 0
         } else {
           arm.current.rotation.x = -0.3
         }
@@ -503,6 +513,24 @@ export function Player() {
             <capsuleGeometry args={[0.06, 0.22, 4, 8]} />
             <meshStandardMaterial color="#9b6bff" />
           </mesh>
+        )}
+        {skillId === 'poop' && (
+          <mesh position={[0.35, 1.1, 0.35]} rotation={[0.5, 0, 0.4]}>
+            <sphereGeometry args={[0.12, 8, 8]} />
+            <meshStandardMaterial color="#6b4a2b" />
+          </mesh>
+        )}
+        {skillId === 'civility' && (
+          <group position={[0, 0, 0]}>
+            <mesh position={[0.4, 1.3, 0.2]} rotation={[0, 0, -0.3]}>
+              <capsuleGeometry args={[0.06, 0.35, 4, 8]} />
+              <meshStandardMaterial color="#ffd700" />
+            </mesh>
+            <mesh position={[-0.4, 1.3, 0.2]} rotation={[0, 0, 0.3]}>
+              <capsuleGeometry args={[0.06, 0.35, 4, 8]} />
+              <meshStandardMaterial color="#ffd700" />
+            </mesh>
+          </group>
         )}
       </group>
 
