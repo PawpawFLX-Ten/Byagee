@@ -19,7 +19,7 @@ describe('npcFsm', () => {
         ? {
             ...n,
             status: 'walking' as const,
-            position: [2.1, 0, 0.55] as [number, number, number],
+            position: [-2.1, 0, -2.5] as [number, number, number],
             foodId: 'food-0',
             statusUntil: 99999,
           }

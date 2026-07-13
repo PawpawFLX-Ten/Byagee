@@ -17,6 +17,46 @@ export interface FoodSpot {
   approach: [number, number, number]
 }
 
+export type NpcRole = 'normal' | 'boss'
+
+export type TableShape = 'round' | 'rect' | 'oval'
+
+export interface TableDef {
+  id: string
+  shape: TableShape
+  /** Center XZ */
+  position: [number, number, number]
+  /** For round: radius on XZ. For rect/oval: half extents x,z */
+  half: { x: number; z: number }
+  /** Visual Y top of tabletop */
+  topY: number
+}
+
+export interface DoorConfig {
+  position: [number, number, number]
+  maxNpcs: number
+  startNpcCount: number
+  timedIntervalSec: number
+  threatEnterBiasAbove: number
+  threatExitBiasBelow: number
+  idleExitSec: number
+  plugins: {
+    timedUnlockSec: number
+    threatUnlockSec: number
+    seatUnlockSec: number
+  }
+}
+
+export interface BossConfig {
+  intervalSec: number
+  scale: number
+  baseLoudness: number
+  rageRadius: number
+  resistanceWindowSec: number
+  mouthHpByEra: [number, number, number] // early/mid/late boss windows
+  moduleUnlockSec: { a: number; b: number; c: number }
+}
+
 export interface NpcState {
   id: string
   status: NpcStatus
@@ -32,6 +72,16 @@ export interface NpcState {
   wobbleUntil: number
   /** Consecutive low-progress walk ticks — used to unstick jams */
   stuckTicks: number
+  role: NpcRole
+  scale: number
+  mouthHp: number
+  mouthHpMax: number
+  bossModules: { a: boolean; b: boolean; c: boolean }
+  comboHits: number
+  lastHitAt: number
+  raging: boolean
+  exiting: boolean
+  idleSince: number
 }
 
 export interface SkillDef {
@@ -72,4 +122,8 @@ export interface GameConfig {
   foodSpots: FoodSpot[]
   npcWalkSpeed: number
   shoutLine: string
+  tables: TableDef[]
+  door: DoorConfig
+  boss: BossConfig
+  slapShoutLine: string
 }

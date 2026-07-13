@@ -14,6 +14,16 @@ const baseNpc = (overrides: Partial<NpcState> = {}): NpcState => ({
   foodId: null,
   wobbleUntil: 0,
   stuckTicks: 0,
+  role: 'normal',
+  scale: 1,
+  mouthHp: 0,
+  mouthHpMax: 0,
+  bossModules: { a: false, b: false, c: false },
+  comboHits: 0,
+  lastHitAt: 0,
+  raging: false,
+  exiting: false,
+  idleSince: 0,
   ...overrides,
 })
 

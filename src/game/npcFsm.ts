@@ -52,6 +52,16 @@ export function createNpcs(now: number): NpcState[] {
       foodId: i === 0 ? food.id : null,
       wobbleUntil: 0,
       stuckTicks: 0,
+      role: 'normal',
+      scale: 1,
+      mouthHp: 0,
+      mouthHpMax: 0,
+      bossModules: { a: false, b: false, c: false },
+      comboHits: 0,
+      lastHitAt: 0,
+      raging: false,
+      exiting: false,
+      idleSince: now,
     }
   })
 }
