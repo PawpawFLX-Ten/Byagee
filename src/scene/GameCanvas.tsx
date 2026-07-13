@@ -5,6 +5,7 @@ import { Vector3 } from 'three'
 import { useGameStore } from '../game/store'
 import { AudioDirector } from './AudioDirector'
 import { Npcs } from './Npcs'
+import { Props } from './Props'
 import { SkillFx } from './SkillFx'
 import { Player, Room, Tables, Door, WallOcclusionFader } from './World'
 
@@ -106,6 +107,7 @@ export function GameCanvas() {
       <Tables />
       <Player />
       <Npcs />
+      <Props />
       <SkillFx />
     </Canvas>
   )
