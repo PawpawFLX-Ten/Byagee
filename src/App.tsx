@@ -6,7 +6,7 @@ import { useGameStore } from './game/store'
 import { t } from './game/i18n'
 
 export default function App() {
-  const lang = useGameStore((s) => s.lang)
+  useGameStore((s) => s.lang) // re-render on language change
   return (
     <div className="app">
       <GameCanvas />

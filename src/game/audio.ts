@@ -1,6 +1,5 @@
 import type { SkillId } from './types'
 import { distance3 } from './threat'
-import { CONFIG } from './config'
 import { t, getLang } from './i18n'
 
 /** Procedural SFX — no external audio assets. */

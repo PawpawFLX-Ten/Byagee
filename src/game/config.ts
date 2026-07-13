@@ -203,7 +203,7 @@ export const CONFIG: GameConfig = {
   ],
   donation: {
     afdianUrl: 'https://ifdian.net/a/patatamaster',
-    kofiUrl: '',
+    kofiUrl: 'https://ko-fi.com/F7U4234I2W',
     label: '支持开发者',
   },
   props: {

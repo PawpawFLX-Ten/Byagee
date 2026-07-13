@@ -2,6 +2,10 @@
 
 网页版第三人称无尽生存小品：在包间里制止 CPU 角色吧唧嘴，噪音过高会掉血。
 
+## 赞助 Sponsor
+
+[爱发电 Afdian](https://ifdian.net/a/patatamaster) · [Ko-fi](https://ko-fi.com/F7U4234I2W)
+
 ## 运行
 
 ```bash
