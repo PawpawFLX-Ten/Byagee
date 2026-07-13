@@ -25,7 +25,7 @@ export function TouchControls() {
   useGameStore((s) => s.lang) // re-render on language change
 
   useEffect(() => {
-    if (!isTouch || !joystickZone.current) return
+    if (!isTouch || !briefingDone || !joystickZone.current) return
 
     const manager = nipplejs.create({
       zone: joystickZone.current,
@@ -48,7 +48,7 @@ export function TouchControls() {
       manager.destroy()
       managerRef.current = null
     }
-  }, [isTouch, setMove, reset])
+  }, [isTouch, briefingDone, setMove, reset])
 
   if (!isTouch || !briefingDone) return null
 

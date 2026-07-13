@@ -75,3 +75,12 @@ npm run build
 - **暂停时间修复**：`pausedAt` 追踪 + `startedAt` 偏移，恢复后游戏时间不跳跃。
 - **跳跃翻桌**：空中跳过桌面碰撞；跳跃参数调整为 650ms/1.1 高度（可翻越全部桌子）。
 - **吧唧嘴 → Byageee Mouth**：全语言统一。
+
+## Round 8
+
+- **手机开屏修复**：`briefing-card` 从 `overflow: hidden` 改为 `overflow-y: auto`，内容溢出时可滚动，「出警」按钮不再被裁剪不可达。移动端 padding/字号全面压缩（h1 20→18px、lede 12→11px、技能描述 12→11px、间距收紧），减少滚动需求。
+- **赞助弹窗溢出修复**：`donation-card` 加 `max-height: 100%` + `overflow-y: auto`，移动端三段文案 + 二维码不再被裁剪。
+- **死亡画面安全**：`justify-content: safe center` + `overflow-y: auto`，窄屏横屏下 h1/称号溢出时顶部不被截断。
+- **摇杆移动修复**：`TouchControls` 的 `useEffect` 依赖数组缺少 `briefingDone`，导致 briefing 结束后摇杆永不初始化。加入 `briefingDone` 依赖 + effect 内守卫，修复移动端无法移动的致命 bug。
+- **技能卡移动端重做**：6 个方形带文字按钮（底部居中横排）→ 6 个圆形纯图标按钮（底部右侧 2×3 网格），54px 直径，冷却/锁定为右下角徽章。隐藏 `kbd` 和技能名文字，减少视觉杂乱。
+- **触摸操作按钮重排**：跳跃/切换从右侧底部纵向堆叠 → 移到技能网格正上方横向排列，所有操作按钮集中在右下角，右拇指自然覆盖。

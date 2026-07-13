@@ -180,7 +180,7 @@ export function Hud() {
                 <SkillIcon id={id as SkillId} />
               </span>
               <kbd>{SKILL_KEYS[i]}</kbd>
-              <span>{t(`skill_${id}`)}</span>
+              <span className="skill-label">{t(`skill_${id}`)}</span>
               {locked ? <em>🔒LV{id === 'poop' ? 5 : 10}</em> : !ready && <em>{left.toFixed(1)}s</em>}
             </button>
           )
