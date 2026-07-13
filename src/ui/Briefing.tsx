@@ -90,7 +90,7 @@ export function Briefing() {
   const skills = getSkills()
 
   const toggleLang = () => {
-    const next: Lang = lang === 'zh' ? 'en' : 'zh'
+    const next: Lang = lang === 'zh' ? 'en' : lang === 'en' ? 'nl' : 'zh'
     setLang(next)
   }
 
@@ -103,7 +103,7 @@ export function Briefing() {
             className="lang-btn"
             onClick={toggleLang}
           >
-            {lang === 'zh' ? 'EN' : 'ZH'}
+            {lang === 'zh' ? 'EN' : lang === 'en' ? 'NL' : 'ZH'}
           </button>
           <h1>{t('briefing_h1')}</h1>
           <button

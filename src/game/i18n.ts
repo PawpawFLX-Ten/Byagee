@@ -1,4 +1,4 @@
-export type Lang = 'zh' | 'en'
+export type Lang = 'zh' | 'en' | 'nl'
 
 let currentLang: Lang = 'zh'
 
@@ -259,6 +259,131 @@ const DICT: Record<Lang, Record<string, string>> = {
 
     // === Donation label (config) ===
     donation_label: 'Sponsor the Phookn Author',
+  },
+
+  nl: {
+    // === Shout lines (TTS uses EN voice — text only) ===
+    shoutLine: 'Hou je fucking bekken dicht!',
+    slapShoutLine: 'Flikker op!',
+    tapeShoutLine: 'Sluuuuuit je muuuuuuul',
+    gagShoutLine: 'Eet dit stront',
+    poopShoutLine: 'Eet smakelijk, jongen!',
+    civilityShoutLine: 'Moge byageee met je zijn',
+
+    // === Skill display names ===
+    skill_slap: 'Klap',
+    skill_tape: 'Plakband',
+    skill_megaphone: 'Schreeuw',
+    skill_gag: 'Mondprop',
+    skill_poop: 'Strontgolf',
+    skill_civility: 'Beschaafd',
+
+    // === Skill unlock labels ===
+    unlock_default: 'Standaard',
+    unlock_lv5: 'Lv 5 Ontgrendel',
+    unlock_lv10: 'Lv10 Ontgrendel',
+
+    // === Skill descriptions ===
+    slap_pro: 'Los het probleem direct op',
+    slap_con: 'Te kort',
+    slap_perks: 'Lv2 herstel 2 HP · Lv6 herstel 4 HP',
+    tape_pro: 'Lange mond-plakband, goede prijs-prestatie',
+    tape_con: 'Dichtbij komen of vertraagd worden',
+    tape_perks: 'Lv3 · Lv7 Geluidsdemping',
+    megaphone_pro: 'Demp de omgeving met menselijke stem',
+    megaphone_con: 'Zelf de stilte schenden',
+    megaphone_perks: 'Lv4 herstel 2 HP · Lv8 herstel 4 HP',
+    gag_pro: 'Vergrendel de verste mond met AI-Aangedreven Dildo',
+    gag_con: 'Jaar lange CD. Gebruik niet als normale klap',
+    gag_perks: 'Lv9 Boss schade verdubbeld',
+    poop_pro: 'Gooi waar je droom reikt',
+    poop_con: 'Alles wordt oneetbaar - maar maakt dat uit?',
+    poop_perks: 'Veel plezier!',
+    civility_pro: "Bedek ieders gezicht met de ultieme beschaving. Extreem cool en zacht",
+    civility_con: "Hoewel het je omgeving veilig stelt, geneest het niet - net als zorgverzekering",
+    civility_perks: 'Blijf cool, man!',
+
+    // === Pro/Con prefixes ===
+    pro_prefix: 'Voor: ',
+    con_prefix: 'Tegen: ',
+
+    // === Briefing UI ===
+    briefing_h1: 'Jij bent de rechtvaardigste CivicMan',
+    briefing_donation: '☕ Steun de Phookn Auteur',
+    briefing_lede: 'Byageee Mouth schendt de culturele diversiteit en is de ultieme misdaad tegen de mensheid. Je gaat ieders lippen sluiten terwijl ze kauwen en de ultieme rechtvaardigheid handhaven!',
+    briefing_tools: 'Gereedschap - Schaam je niet na het lezen',
+    briefing_nausea: 'Koptelefoon zodat je Byageee niet hoort',
+    briefing_go: 'Yo yo yo!',
+    briefing_foot: 'WASD bewegen · Spatie voor Sprong · Sleep voor camera · Tab voor Richting · Hoe luider, hoe destructiever deze eetzaal is',
+
+    // === HUD ===
+    hud_hp: 'HP',
+    hud_noise: 'Geluid',
+    hud_selfNoise: 'EigenGeluid',
+    hud_pauseTitle: 'Pauze (Esc)',
+    hud_nauseaShort: 'Minder Misselijk',
+    hud_hint: 'WASD · Sleep · Tab voor Richting · 1 Klap · 2 Plak · 3 Schreeuw · 4 Dildo',
+    hud_survived: 'Overleefd',
+    hud_deathTitle: 'Byagee Dood',
+    hud_deathRestart: 'Beschaving kan falen. Druk R om te reïncarneren.',
+    hud_restart: 'Reïncarneer',
+
+    // === Toast ===
+    toast_cooldown: 'Opwarmen is Afkoelen',
+    toast_tooFar: 'Kom fucking dichterbij!',
+    toast_noTarget: 'Doel verloren',
+    toast_fail: 'Niet beschikbaar',
+    toast_levelUp_prefix: 'Level-UP!',
+
+    // === Donation modal ===
+    donation_title: '☕ Byagee Mijn Portemonnee',
+    donation_p1: 'Dit werk schond een culturele conventie in de breedste antropologische zin',
+    donation_p2: 'Als je je geschonden voelt, sluit je mond tijdens het kauwen en accepteer mijn onbeduidende excuses',
+    donation_p3: 'Als je een cent wilt missen, zweer je plechtig dat je je lippen sluit tijdens het kauwen en de auteur steunt in zijn Onmogelijke Missie om een huis te kopen.',
+    donation_afdian: 'Afdian Steun (WeChat/Alipay)',
+    donation_kofi: 'Ko-fi (PayPal / Creditcard)',
+    donation_close: 'Sluit de F...',
+
+    // === Guide tips ===
+    guide_1: 'Nader de Byageee Mouth-ers die om de tafels cirkelen — beschaving heeft afstand nodig.',
+    guide_2: 'Druk 1: Klap speelgoed in het gezicht. Snel en effectief.',
+    guide_3: '2 Plak · 3 Schreeuw «Bek dicht» · 4 Mondprop ultieme.',
+
+    // === Prop toast ===
+    prop_heal: 'HP +',
+    prop_silence_prefix: 'Globaal Dempen ',
+    prop_silence_suffix: 's en de Eerste Amendement is Kritisch geschonden!',
+
+    // === Titles ===
+    title_0: 'Kleinzerig',
+    title_30: 'Tafel Krijger',
+    title_90: 'Byagee Jager',
+    title_180: 'Dood van Kauwen',
+
+    // === NPC labels ===
+    npc_sealedTape: 'Verzegeld',
+    npc_sealedGag: 'Gepropt',
+    npc_silenced: 'Stil',
+    npc_walking: 'Hongerig',
+    npc_smacking: 'Byagee',
+
+    // === Scene 3D text ===
+    silenceChar: 'Sjjjjj',
+    wall_calm: 'Sjh',
+    wall_endure: 'Volhard',
+    wall_silence: 'Geen Smak',
+    couplet_right: 'Kauw Stil',
+    couplet_left: 'Of Anders',
+
+    // === Touch controls ===
+    touch_jump: 'Sprong',
+    touch_switch: 'Wissel',
+
+    // === App ===
+    rotateOverlay: 'Draai je telefoon',
+
+    // === Donation label (config) ===
+    donation_label: 'Steun de Phookn Auteur',
   },
 }
 

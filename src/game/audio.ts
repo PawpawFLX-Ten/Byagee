@@ -294,17 +294,17 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
       window.speechSynthesis.cancel()
       const u = new SpeechSynthesisUtterance(line)
       const lang = getLang()
-      u.lang = lang === 'en' ? 'en-US' : 'zh-CN'
+      u.lang = lang === 'zh' ? 'zh-CN' : 'en-US'
       u.rate = rate
       u.pitch = 0.65
       u.volume = 1
 
       const voices = window.speechSynthesis.getVoices()
-      const maleHint = lang === 'en' ? /male|david|alex|daniel|fred/i : /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i
+      const maleHint = lang === 'zh' ? /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i : /male|david|alex|daniel|fred/i
       const femaleHint =
         /female|女|xiaoyi|xiaoxiao|tingting|yaoyao|huihui|tracy|jenny|zira/i
 
-      const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'en' ? 'en' : 'zh'))
+      const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'zh' ? 'zh' : 'en'))
       const male =
         zhVoices.find((v) => maleHint.test(v.name)) ??
         zhVoices.find((v) => !femaleHint.test(v.name)) ??
