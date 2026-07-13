@@ -679,6 +679,15 @@ body,
   cursor: pointer;
 }
 
+.donation-qr {
+  display: block;
+  margin: 12px auto 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 /* === Mobile Touch Controls === */
 
 .touch-controls {

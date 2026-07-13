@@ -1,5 +1,6 @@
 import { CONFIG } from '../game/config'
 import { t } from '../game/i18n'
+import kofiQR from '../../Sponsorshit/Kofi QRCode.png'
 
 export function DonationModal({ onClose }: { onClose: () => void }) {
   const { afdianUrl, kofiUrl } = CONFIG.donation
@@ -24,14 +25,17 @@ export function DonationModal({ onClose }: { onClose: () => void }) {
         </a>
 
         {kofiUrl && (
-          <a
-            className="donation-link kofi"
-            href={kofiUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t('donation_kofi')}
-          </a>
+          <>
+            <a
+              className="donation-link kofi"
+              href={kofiUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('donation_kofi')}
+            </a>
+            <img src={kofiQR} alt="Ko-fi QR" className="donation-qr" />
+          </>
         )}
 
         <button type="button" className="donation-close" onClick={onClose}>
