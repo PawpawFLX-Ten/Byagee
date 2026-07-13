@@ -108,6 +108,28 @@ export interface DonationConfig {
   label: string
 }
 
+export type PropType = 'heal' | 'silence'
+
+export interface PropState {
+  id: string
+  type: PropType
+  position: [number, number, number]
+  spawnedAt: number
+  /** Timestamp when pickup fade-out started; null while idle */
+  fadingSince: number | null
+}
+
+export interface PropsConfig {
+  spawnIntervalSec: number
+  healAmount: number
+  silenceSec: number
+  pickupRadius: number
+  floatHeight: number
+  spawnMargin: number
+  tableMargin: number
+  doorExclusionRadius: number
+}
+
 export interface GameConfig {
   maxHp: number
   softThreat: number
@@ -142,4 +164,5 @@ export interface GameConfig {
   poopShoutLine: string
   civilityShoutLine: string
   donation: DonationConfig
+  props: PropsConfig
 }

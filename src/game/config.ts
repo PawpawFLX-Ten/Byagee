@@ -202,6 +202,16 @@ export const CONFIG: GameConfig = {
     kofiUrl: '',
     label: '支持开发者',
   },
+  props: {
+    spawnIntervalSec: 45,
+    healAmount: 35,
+    silenceSec: 5,
+    pickupRadius: 0.8,
+    floatHeight: 0.5,
+    spawnMargin: 0.8,
+    tableMargin: 1.0,
+    doorExclusionRadius: 2.0,
+  },
 }
 
 export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag', 'poop', 'civility'] as const
