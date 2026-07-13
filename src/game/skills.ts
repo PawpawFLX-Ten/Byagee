@@ -1,6 +1,6 @@
 import { CONFIG } from './config'
 import { scaledSilence } from './difficulty'
-import { applySilence } from './npcFsm'
+import { resolveBossHit } from './bossModules'
 import { distance3 } from './threat'
 import type { NpcState, SkillId } from './types'
 
@@ -10,7 +10,10 @@ export function pickTarget(
   preferredId: string | null,
 ): NpcState | null {
   const smackers = npcs.filter((n) => n.status === 'smacking')
-  const pool = smackers.length ? smackers : npcs
+  // Fallback: NPCs at a table (idle/silenced/sealed) — never walking (in transit from door, unreachable)
+  const pool = smackers.length
+    ? smackers
+    : npcs.filter((n) => n.status !== 'walking')
   if (!pool.length) return null
   if (preferredId) {
     const pref = pool.find((n) => n.id === preferredId)
@@ -75,7 +78,7 @@ export function tryUseSkill(
         const others = npcs
           .filter((n) => n.id !== npc.id)
           .map((n) => ({ x: n.position[0], z: n.position[2] }))
-        return applySilence(
+        return resolveBossHit(
           npc,
           skill.applyStatus,
           duration,
@@ -83,7 +86,7 @@ export function tryUseSkill(
           null,
           playerPos,
           others,
-        )
+        ).npc
       }
       return npc
     })
@@ -127,7 +130,7 @@ export function tryUseSkill(
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     next = next.map((n) =>
       n.id === target.id
-        ? applySilence(
+        ? resolveBossHit(
             n,
             skill.applyStatus,
             duration,
@@ -135,7 +138,7 @@ export function tryUseSkill(
             sealProp,
             playerPos,
             others,
-          )
+          ).npc
         : n,
     )
   }

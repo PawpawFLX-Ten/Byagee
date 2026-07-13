@@ -62,6 +62,7 @@ export function createNpcs(now: number): NpcState[] {
       raging: false,
       exiting: false,
       idleSince: now,
+      smackingSince: 0,
     }
   })
 }
@@ -72,10 +73,11 @@ export function tickNpcs(
   elapsedSec: number,
   dt: number,
   playerPos?: [number, number, number],
-): NpcState[] {
+): { npcs: NpcState[]; despawnIds: string[] } {
   const phase = getPhase(elapsedSec)
   const maxSmack = CONFIG.maxOverlappingSmackers[phase]
   let smacking = npcs.filter((n) => n.status === 'smacking').length
+  const despawnIds: string[] = []
 
   // Claim food targets sequentially so later NPCs see earlier claims
   const claimed = new Set(
@@ -88,6 +90,23 @@ export function tickNpcs(
       ...othersXZ(npcs, npc.id),
       ...(playerPos ? [{ x: playerPos[0], z: playerPos[2] }] : []),
     ]
+
+    if (next.exiting) {
+      const door = CONFIG.door.position
+      const tx = door[0] - next.position[0]
+      const tz = door[2] - next.position[2]
+      const dist = Math.hypot(tx, tz)
+      next.facing = Math.atan2(tx, tz)
+      if (dist < 0.45 || now >= next.statusUntil) {
+        despawnIds.push(next.id)
+        return next
+      }
+      const step = CONFIG.npcWalkSpeed * dt
+      const mx = (tx / dist) * Math.min(step, dist)
+      const mz = (tz / dist) * Math.min(step, dist)
+      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, CONFIG.tables, blockers)
+      return { ...next, position: [x, 0, z] as [number, number, number] }
+    }
 
     if (next.status === 'walking' && next.foodId) {
       // Give up if walk timed out
@@ -129,6 +148,7 @@ export function tickNpcs(
             position: [x, 0, z] as [number, number, number],
             facing: facingToward([x, 0, z], food.plate),
             stuckTicks: 0,
+            smackingSince: now,
           }
         }
         return {
@@ -207,6 +227,7 @@ export function tickNpcs(
         statusUntil: now + idleGap(phase),
         foodId: null,
         stuckTicks: 0,
+        smackingSince: 0,
       }
     }
 
@@ -240,7 +261,7 @@ export function tickNpcs(
     return { ...npc, position: [x, 0, z] as [number, number, number] }
   })
 
-  return nextList
+  return { npcs: nextList, despawnIds }
 }
 
 /** Walk along the outside of the table AABB when path is jammed. */
@@ -350,5 +371,6 @@ export function applySilence(
     facing: attackerPos
       ? facingToward(npc.position, attackerPos)
       : npc.facing,
+    smackingSince: 0,
   }
 }

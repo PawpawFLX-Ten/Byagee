@@ -1,6 +1,6 @@
 /** Simple AABB / capsule collision for the dining room. */
 
-export const ROOM_LIMIT = 4.35
+export const ROOM_LIMIT = 4.48
 export const CHAR_RADIUS = 0.34
 
 export type XZ = { x: number; z: number }

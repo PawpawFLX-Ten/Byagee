@@ -82,6 +82,7 @@ export interface NpcState {
   raging: boolean
   exiting: boolean
   idleSince: number
+  smackingSince: number
 }
 
 export interface SkillDef {
@@ -106,6 +107,7 @@ export interface GameConfig {
   softDrainPerSec: number
   hardDrainPerSec: number
   roomReverb: number
+  smackDamageDelaySec: number
   playerSpeed: number
   skillRangeDefault: number
   phases: {
@@ -126,4 +128,6 @@ export interface GameConfig {
   door: DoorConfig
   boss: BossConfig
   slapShoutLine: string
+  tapeShoutLine: string
+  gagShoutLine: string
 }

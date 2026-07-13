@@ -24,6 +24,7 @@ const baseNpc = (overrides: Partial<NpcState> = {}): NpcState => ({
   raging: false,
   exiting: false,
   idleSince: 0,
+  smackingSince: 0,
   ...overrides,
 })
 

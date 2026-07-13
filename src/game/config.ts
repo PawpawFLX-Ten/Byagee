@@ -7,6 +7,7 @@ export const CONFIG: GameConfig = {
   softDrainPerSec: 8,
   hardDrainPerSec: 28,
   roomReverb: 1.35,
+  smackDamageDelaySec: 1.5,
   playerSpeed: 4.5,
   skillRangeDefault: 2.2,
   phases: { earlyEnd: 60, midEnd: 180 },
@@ -17,13 +18,15 @@ export const CONFIG: GameConfig = {
   npcWalkSpeed: 1.6,
   shoutLine: '都他妈把嘴闭上！',
   slapShoutLine: '操你妈',
+  tapeShoutLine: '给老子闭嘴！',
+  gagShoutLine: '吃屎吧你！',
   tables: [
     { id: 't-round', shape: 'round', position: [-2.2, 0, -1.2], half: { x: 1.0, z: 1.0 }, topY: 0.75 },
     { id: 't-rect', shape: 'rect', position: [2.4, 0, -1.0], half: { x: 1.2, z: 0.7 }, topY: 0.75 },
     { id: 't-oval', shape: 'oval', position: [0.2, 0, 2.0], half: { x: 1.6, z: 0.65 }, topY: 0.75 },
   ],
   door: {
-    position: [0, 0, -4.35],
+    position: [0, 0, -4.48],
     maxNpcs: 10,
     startNpcCount: 3,
     timedIntervalSec: 16,
@@ -122,7 +125,7 @@ export const CONFIG: GameConfig = {
     slap: {
       id: 'slap',
       displayName: '拍',
-      cooldown: 2,
+      cooldown: 1.3,
       range: 2.4,
       silenceDuration: 1.2,
       tags: ['instant'],

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { CONFIG, SKILL_ORDER } from './config'
+import { createBossNpc, tickBossRage } from './bossModules'
 import { getPhase } from './difficulty'
+import { applyDoorAction, freeSeatIndexes, planBossAdmission, planDoorAction } from './doorSystem'
 import { createNpcs, tickNpcs } from './npcFsm'
 import { cycleTarget, tryUseSkill } from './skills'
 import { computeThreat, hpDrainPerSec } from './threat'
@@ -70,6 +72,9 @@ export interface GameStore {
 }
 
 let fxSeq = 1
+let npcSeq = 0
+let lastDoorEventAt = 0
+let nextBossAtElapsed = CONFIG.boss.intervalSec
 
 const FAIL_TEXT: Record<string, string> = {
   cooldown: '技能冷却中',
@@ -124,6 +129,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   start: (now = performance.now()) => {
     const npcs = createNpcs(now)
+    npcSeq = CONFIG.npcCount
+    lastDoorEventAt = 0
+    nextBossAtElapsed = CONFIG.boss.intervalSec
     set({
       hp: CONFIG.maxHp,
       alive: true,
@@ -150,6 +158,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   beginMission: (now = performance.now()) => {
     const npcs = createNpcs(now)
+    npcSeq = CONFIG.npcCount
+    lastDoorEventAt = 0
+    nextBossAtElapsed = CONFIG.boss.intervalSec
     set({
       briefingDone: true,
       alive: true,
@@ -290,8 +301,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const elapsedSec = (now - state.startedAt) / 1000
     const phase = getPhase(elapsedSec)
-    npcs = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
-    const threat = computeThreat(npcs, state.playerPos, selfNoise)
+    const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
+    npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
+
+    const threat = computeThreat(npcs, state.playerPos, selfNoise, now)
+
+    // Boss spawn every intervalSec (max 1 boss at a time)
+    if (elapsedSec >= nextBossAtElapsed) {
+      nextBossAtElapsed += CONFIG.boss.intervalSec
+      if (!npcs.some((n) => n.role === 'boss')) {
+        // If at cap, evict a non-critical NPC first
+        if (npcs.length >= CONFIG.door.maxNpcs) {
+          const admission = planBossAdmission(npcs)
+          if (admission) {
+            npcs = applyDoorAction(npcs, admission, now, () => `npc-${++npcSeq}`)
+          }
+        }
+        // Spawn boss into a free seat
+        const occupiedSeats = new Set(npcs.map((n) => n.seatIndex))
+        const free = freeSeatIndexes(occupiedSeats)
+        if (free.length && npcs.length < CONFIG.door.maxNpcs) {
+          npcs = [...npcs, createBossNpc(free[0], now, elapsedSec, `boss-${++npcSeq}`)]
+          lastDoorEventAt = now
+        }
+      }
+    }
+
+    // Normal door traffic (timed / threat / seat plugins)
+    const occupiedForDoor = new Set(npcs.map((n) => n.seatIndex))
+    const doorAction = planDoorAction({
+      npcs,
+      elapsedSec,
+      now,
+      threat,
+      lastDoorEventAt,
+      occupiedSeatIndexes: occupiedForDoor,
+    })
+    if (doorAction) {
+      npcs = applyDoorAction(npcs, doorAction, now, () => `npc-${++npcSeq}`)
+      lastDoorEventAt = now
+    }
+
+    // Boss rage — clear seals + force smacking on nearby NPCs at ≤50% mouth HP
+    const boss = npcs.find((n) => n.role === 'boss')
+    if (boss) {
+      const rageResult = tickBossRage(boss, npcs, now)
+      npcs = rageResult.npcs
+    }
+
     const drain = hpDrainPerSec(threat, CONFIG.damageCoeff[phase])
     const hp = Math.max(0, state.hp - drain * dt)
     const alive = hp > 0
@@ -300,8 +357,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!targetId || !npcs.some((n) => n.id === targetId)) {
       targetId =
         npcs.find((n) => n.status === 'smacking')?.id ??
-        npcs.find((n) => n.status === 'walking')?.id ??
-        npcs[0]?.id ??
+        npcs.find((n) => n.status !== 'walking')?.id ??
         null
     }
 

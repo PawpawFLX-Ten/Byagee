@@ -154,7 +154,7 @@ function NpcMesh({
             : null
 
   return (
-    <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]}>
+    <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]} scale={npc.scale}>
       <mesh position={[0, 0.42, 0]} castShadow>
         <capsuleGeometry args={[0.26, 0.35, 4, 8]} />
         <meshStandardMaterial color={bodyColor} />
@@ -272,6 +272,19 @@ function NpcMesh({
           <Text fontSize={0.2} color="#88cc88" anchorX="center" anchorY="middle">
             {quietLabel}
           </Text>
+        </Billboard>
+      )}
+
+      {npc.role === 'boss' && npc.bossModules.a && (
+        <Billboard position={[0, 2.2, 0]}>
+          <mesh position={[0, 0, 0]}>
+            <planeGeometry args={[1.2, 0.12]} />
+            <meshBasicMaterial color="#222" />
+          </mesh>
+          <mesh position={[-(1.2 - 1.2 * (npc.mouthHp / Math.max(1, npc.mouthHpMax))) / 2, 0, 0.01]}>
+            <planeGeometry args={[1.2 * (npc.mouthHp / Math.max(1, npc.mouthHpMax)), 0.1]} />
+            <meshBasicMaterial color={npc.raging ? '#cc4444' : '#d4a017'} />
+          </mesh>
         </Billboard>
       )}
     </group>

@@ -1,7 +1,7 @@
 # Civic Man — Round 2 Design Spec
 
 **Date:** 2026-07-13  
-**Status:** Approved  
+**Status:** Development Complete  
 **Goal:** Extend the v1 prototype with room population flow, a three-table layout, escalating boss mechanics, and slap shout SFX — without replacing the core threat / skill loop.
 
 **Approach:** Config-driven modular plugins (Approach 1). Door behaviors and boss modules are independently toggleable and unlock by survival time.

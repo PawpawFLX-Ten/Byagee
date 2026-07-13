@@ -1,6 +1,6 @@
-# Civic Man Round 2 — Implementation Plan
+# Civic Man Round 2 �?Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add door population (cap 10 incl. boss), three shaped tables, escalating boss modules, and slap「操你妈」SFX on the existing Civic Man prototype.
 
@@ -18,8 +18,8 @@
 src/game/types.ts              # NpcRole, mouth HP, table defs, door/boss config types
 src/game/config.ts             # 3 tables, 10 seats, doorPlugins, boss, slapShoutLine
 src/game/collision.ts          # Multi-table colliders
-src/game/doorSystem.ts         # NEW — enter/exit intents (pure)
-src/game/bossModules.ts        # NEW — mouth HP, resistance, rage, demote (pure)
+src/game/doorSystem.ts         # NEW �?enter/exit intents (pure)
+src/game/bossModules.ts        # NEW �?mouth HP, resistance, rage, demote (pure)
 src/game/npcFsm.ts             # createNpc(count), walking-to-door exit, role fields
 src/game/skills.ts             # Route hits through resolveBossHit
 src/game/store.ts              # Tick door + boss schedule; slap toast line
@@ -41,7 +41,7 @@ README.md                      # Round 2 notes
 - Modify: `src/game/config.ts`
 - Test: `src/game/__tests__/configRound2.test.ts` (light sanity)
 
-- [ ] **Step 1: Extend types**
+- [x] **Step 1: Extend types**
 
 Add to `src/game/types.ts` (keep existing exports; append):
 
@@ -107,7 +107,7 @@ export interface BossConfig {
 // and seatPositions length === 10 aligned to three tables.
 ```
 
-- [ ] **Step 2: Write failing sanity test**
+- [x] **Step 2: Write failing sanity test**
 
 Create `src/game/__tests__/configRound2.test.ts`:
 
@@ -123,23 +123,23 @@ describe('round2 config', () => {
     expect(CONFIG.door.maxNpcs).toBe(10)
     expect(CONFIG.npcCount).toBe(CONFIG.door.startNpcCount)
     expect(CONFIG.boss.intervalSec).toBe(180)
-    expect(CONFIG.slapShoutLine).toBe('操你妈')
+    expect(CONFIG.slapShoutLine).toBe('操你�?)
   })
 })
 ```
 
-- [ ] **Step 3: Run test — expect FAIL**
+- [x] **Step 3: Run test �?expect FAIL**
 
 Run: `npm test -- src/game/__tests__/configRound2.test.ts`
 
 Expected: FAIL (missing `tables` / `door` / `boss` / `slapShoutLine`)
 
-- [ ] **Step 4: Minimal config implementation**
+- [x] **Step 4: Minimal config implementation**
 
 Update `CONFIG` in `src/game/config.ts`:
 
 ```ts
-// Tables — triangular layout (north door)
+// Tables �?triangular layout (north door)
 tables: [
   { id: 't-round', shape: 'round', position: [-2.2, 0, -1.2], half: { x: 1.0, z: 1.0 }, topY: 0.75 },
   { id: 't-rect', shape: 'rect', position: [2.4, 0, -1.0], half: { x: 1.2, z: 0.7 }, topY: 0.75 },
@@ -164,16 +164,16 @@ boss: {
   mouthHpByEra: [4, 6, 8],
   moduleUnlockSec: { a: 180, b: 360, c: 540 },
 },
-slapShoutLine: '操你妈',
+slapShoutLine: '操你�?,
 npcCount: 3,
 shoutLine: '都他妈把嘴闭上！',
-// Rebuild seatPositions (10) around the three table centers — approaches outside each collider
+// Rebuild seatPositions (10) around the three table centers �?approaches outside each collider
 // Rebuild foodSpots (10+) with plate positions on each tabletop
 ```
 
 Also extend every `createNpcs` default field usage later; for this task only config + types.
 
-Update `NpcState` creation sites temporarily: add defaults in `createNpcs` in Task 3/5 if compile breaks — prefer updating `createNpcs` now with:
+Update `NpcState` creation sites temporarily: add defaults in `createNpcs` in Task 3/5 if compile breaks �?prefer updating `createNpcs` now with:
 
 ```ts
 role: 'normal',
@@ -188,11 +188,11 @@ exiting: false,
 idleSince: now,
 ```
 
-- [ ] **Step 5: Run test — expect PASS**
+- [x] **Step 5: Run test �?expect PASS**
 
 Run: `npm test -- src/game/__tests__/configRound2.test.ts`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/game/types.ts src/game/config.ts src/game/__tests__/configRound2.test.ts src/game/npcFsm.ts
@@ -208,7 +208,7 @@ git commit -m "feat: add Round 2 config for tables, door, and boss"
 - Modify: `src/game/npcFsm.ts` (perimeterSlide uses multi-table)
 - Test: `src/game/__tests__/collision.test.ts`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -234,11 +234,11 @@ describe('resolveTablesCollision', () => {
 })
 ```
 
-- [ ] **Step 2: Run — expect FAIL**
+- [x] **Step 2: Run �?expect FAIL**
 
 Run: `npm test -- src/game/__tests__/collision.test.ts`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `collision.ts`:
 
@@ -295,7 +295,7 @@ export function resolveTablesCollision(
 }
 ```
 
-Update `moveWithCollision` to use `CONFIG.tables` via `resolveTablesCollision` (import CONFIG or pass tables). Prefer passing tables from callers to keep collision pure — update `moveWithCollision` signature:
+Update `moveWithCollision` to use `CONFIG.tables` via `resolveTablesCollision` (import CONFIG or pass tables). Prefer passing tables from callers to keep collision pure �?update `moveWithCollision` signature:
 
 ```ts
 export function moveWithCollision(
@@ -316,11 +316,11 @@ Keep deprecated `resolveTableCollision` wrapping a single synthetic rect **or** 
 
 Update `perimeterSlide` to slide around nearest table center using that table's half extents.
 
-- [ ] **Step 4: Run tests PASS + existing suite**
+- [x] **Step 4: Run tests PASS + existing suite**
 
 Run: `npm test`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/game/collision.ts src/game/npcFsm.ts src/scene/World.tsx src/game/__tests__/collision.test.ts
@@ -329,13 +329,13 @@ git commit -m "feat: collide against three dining tables"
 
 ---
 
-### Task 3: Door system (pure) — TDD
+### Task 3: Door system (pure) �?TDD
 
 **Files:**
 - Create: `src/game/doorSystem.ts`
 - Create: `src/game/__tests__/doorSystem.test.ts`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -408,11 +408,11 @@ describe('doorSystem', () => {
 })
 ```
 
-- [ ] **Step 2: Run — FAIL**
+- [x] **Step 2: Run �?FAIL**
 
 Run: `npm test -- src/game/__tests__/doorSystem.test.ts`
 
-- [ ] **Step 3: Implement `doorSystem.ts`**
+- [x] **Step 3: Implement `doorSystem.ts`**
 
 ```ts
 import { CONFIG } from './config'
@@ -494,11 +494,11 @@ export function planBossAdmission(npcs: NpcState[]): DoorAction | null {
 }
 ```
 
-- [ ] **Step 4: Tests PASS**
+- [x] **Step 4: Tests PASS**
 
 Run: `npm test -- src/game/__tests__/doorSystem.test.ts`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/game/doorSystem.ts src/game/__tests__/doorSystem.test.ts
@@ -507,13 +507,13 @@ git commit -m "feat: add door population planning logic"
 
 ---
 
-### Task 4: Boss modules (pure) — TDD
+### Task 4: Boss modules (pure) �?TDD
 
 **Files:**
 - Create: `src/game/bossModules.ts`
 - Create: `src/game/__tests__/bossModules.test.ts`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -595,9 +595,9 @@ describe('bossModules', () => {
 })
 ```
 
-- [ ] **Step 2: Run — FAIL**
+- [x] **Step 2: Run �?FAIL**
 
-- [ ] **Step 3: Implement `bossModules.ts`**
+- [x] **Step 3: Implement `bossModules.ts`**
 
 ```ts
 import { CONFIG } from './config'
@@ -689,7 +689,7 @@ export function resolveBossHit(
   }
 
   if (next.bossModules.a && next.mouthHp > 0) {
-    // Chip only — stay smacking / resume
+    // Chip only �?stay smacking / resume
     next.status = 'smacking'
     next.statusUntil = now + 2000
     next.wobbleUntil = now + 400
@@ -749,9 +749,9 @@ export function tickBossRage(
 }
 ```
 
-- [ ] **Step 4: Tests PASS**
+- [x] **Step 4: Tests PASS**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/game/bossModules.ts src/game/__tests__/bossModules.test.ts
@@ -768,7 +768,7 @@ git commit -m "feat: add boss mouth HP, resistance, and rage modules"
 - Modify: `src/game/__tests__/skills.test.ts`
 - Create: `src/game/__tests__/slapShout.test.ts` (pure hook)
 
-- [ ] **Step 1: Change `tryUseSkill` to use `resolveBossHit` instead of raw `applySilence`**
+- [x] **Step 1: Change `tryUseSkill` to use `resolveBossHit` instead of raw `applySilence`**
 
 In both AoE and single-target branches, replace `applySilence(...)` with:
 
@@ -789,7 +789,7 @@ return hitNpc
 
 For AoE, `sealProp` stays `null` unless you pass tape/gag only on single target (current behavior).
 
-- [ ] **Step 2: Slap shout — extend `playSkill`**
+- [x] **Step 2: Slap shout �?extend `playSkill`**
 
 ```ts
 import { CONFIG } from './config'
@@ -827,21 +827,21 @@ Test:
 ```ts
 import { describe, expect, it } from 'vitest'
 import { slapShoutLine } from '../slapShout'
-it('uses 操你妈', () => expect(slapShoutLine()).toBe('操你妈'))
+it('uses 操你�?, () => expect(slapShoutLine()).toBe('操你�?))
 ```
 
-- [ ] **Step 3: Run `npm test` — fix skills tests if they assume immediate silence on all NPCs**
+- [x] **Step 3: Run `npm test` �?fix skills tests if they assume immediate silence on all NPCs**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/game/skills.ts src/game/audio.ts src/game/slapShout.ts src/game/__tests__/slapShout.test.ts src/game/__tests__/skills.test.ts
-git commit -m "feat: route skill hits through boss modules; slap shouts 操你妈"
+git commit -m "feat: route skill hits through boss modules; slap shouts 操你�?
 ```
 
 ---
 
-### Task 6: Store — door tick + boss every 180s
+### Task 6: Store �?door tick + boss every 180s
 
 **Files:**
 - Modify: `src/game/store.ts`
@@ -876,7 +876,7 @@ export function applyDoorAction(
 
 In `tickNpcs`: if `exiting`, walk toward door; when close (`dist < 0.45`), mark with a flag or return id for store to filter out.
 
-Cleaner: `tickNpcs` returns `{ npcs, despawnIds: string[] }` — **breaking change**. Minimal alternative: set `status: 'idle'` and `foodId: '__DESPAWN__'` sentinel — avoid. Prefer return tuple:
+Cleaner: `tickNpcs` returns `{ npcs, despawnIds: string[] }` �?**breaking change**. Minimal alternative: set `status: 'idle'` and `foodId: '__DESPAWN__'` sentinel �?avoid. Prefer return tuple:
 
 ```ts
 export function tickNpcs(...): { npcs: NpcState[]; despawnIds: string[] }
@@ -934,13 +934,13 @@ Slap toast on windup start:
 text: skillId === 'slap' ? CONFIG.slapShoutLine : skillId === 'megaphone' ? CONFIG.shoutLine : ...
 ```
 
-- [ ] **Step 1: Update `tickNpcs` signature + tests**
+- [x] **Step 1: Update `tickNpcs` signature + tests**
 
-- [ ] **Step 2: Wire store**
+- [x] **Step 2: Wire store**
 
-- [ ] **Step 3: `npm test` PASS**
+- [x] **Step 3: `npm test` PASS**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/game/store.ts src/game/npcFsm.ts src/game/doorSystem.ts src/game/__tests__/npcFsm.test.ts
@@ -949,12 +949,12 @@ git commit -m "feat: tick door traffic and periodic boss spawns"
 
 ---
 
-### Task 7: Scene — three tables + door
+### Task 7: Scene �?three tables + door
 
 **Files:**
 - Modify: `src/scene/World.tsx`
 
-- [ ] **Step 1: Replace single `Table()` with `Tables()`**
+- [x] **Step 1: Replace single `Table()` with `Tables()`**
 
 ```tsx
 export function Tables() {
@@ -1001,13 +1001,13 @@ export function Door() {
 }
 ```
 
-North wall: leave a visual gap or keep wall and put door flush inside (`z ≈ -4.7`).
+North wall: leave a visual gap or keep wall and put door flush inside (`z �?-4.7`).
 
 Update `Room` / player spawn if needed (`playerPos` near oval table).
 
-- [ ] **Step 2: Manual smoke — `npm run dev`** (agent: `npm run build` must pass)
+- [x] **Step 2: Manual smoke �?`npm run dev`** (agent: `npm run build` must pass)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/scene/World.tsx
@@ -1016,14 +1016,14 @@ git commit -m "feat: render door and three shaped tables"
 
 ---
 
-### Task 8: NPC visuals — boss scale + mouth HP
+### Task 8: NPC visuals �?boss scale + mouth HP
 
 **Files:**
 - Modify: `src/scene/Npcs.tsx`
 
-- [ ] **Step 1: Scale root group by `npc.scale`**
+- [x] **Step 1: Scale root group by `npc.scale`**
 
-- [ ] **Step 2: If `role === 'boss' && bossModules.a`, Billboard HP bar**
+- [x] **Step 2: If `role === 'boss' && bossModules.a`, Billboard HP bar**
 
 ```tsx
 {npc.role === 'boss' && npc.bossModules.a && (
@@ -1040,7 +1040,7 @@ git commit -m "feat: render door and three shaped tables"
 )}
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/scene/Npcs.tsx
@@ -1052,19 +1052,19 @@ git commit -m "feat: show boss size and mouth HP bar"
 ### Task 9: HUD + README polish
 
 **Files:**
-- Modify: `src/ui/Hud.tsx` — show `npcs.length / 10`; boss present cue
-- Modify: `README.md` — Round 2 bullets + slap line note
-- Modify: `docs/superpowers/specs/2026-07-13-civic-man-round2-design.md` — Status: Approved
+- Modify: `src/ui/Hud.tsx` �?show `npcs.length / 10`; boss present cue
+- Modify: `README.md` �?Round 2 bullets + slap line note
+- Modify: `docs/superpowers/specs/2026-07-13-civic-man-round2-design.md` �?Status: Approved
 
-- [ ] **Step 1: Small HUD population text**
+- [x] **Step 1: Small HUD population text**
 
-- [ ] **Step 2: README**
+- [x] **Step 2: README**
 
-- [ ] **Step 3: `npm test` && `npm run build`**
+- [x] **Step 3: `npm test` && `npm run build`**
 
 Expected: all tests pass; build succeeds
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/ui/Hud.tsx README.md docs/superpowers/specs/2026-07-13-civic-man-round2-design.md
@@ -1075,7 +1075,7 @@ git commit -m "docs: note Round 2 door, boss, and slap shout"
 
 ### Task 10: Final verification against success criteria
 
-- [ ] **Step 1: Checklist (manual / automated)**
+- [x] **Step 1: Checklist (manual / automated)**
 
 | Spec criterion | How verified |
 |----------------|--------------|
@@ -1087,7 +1087,7 @@ git commit -m "docs: note Round 2 door, boss, and slap shout"
 | Slap「操你妈」SFX, no windup change | `slapShout` test + `CONFIG.skills.slap.windup` unchanged |
 | Unit tests | `npm test` |
 
-- [ ] **Step 2: Commit any fixes**
+- [x] **Step 2: Commit any fixes**
 
 ---
 

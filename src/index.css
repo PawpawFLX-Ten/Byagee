@@ -259,6 +259,25 @@ body,
   font-size: 12px;
 }
 
+.population {
+  font-size: 12px;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.boss-cue {
+  color: #ff4444;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  animation: boss-blink 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes boss-blink {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+
 .hud-nausea {
   pointer-events: auto;
   display: flex;

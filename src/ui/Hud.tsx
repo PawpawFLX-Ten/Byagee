@@ -22,6 +22,8 @@ export function Hud() {
   const cooldownReadyAt = useGameStore((s) => s.cooldownReadyAt)
   const playerPos = useGameStore((s) => s.playerPos)
   const npcs = useGameStore((s) => s.npcs)
+  const population = npcs.length
+  const hasBoss = npcs.some((n) => n.role === 'boss')
   const targetId = useGameStore((s) => s.targetId)
   const useSkill = useGameStore((s) => s.useSkill)
   const cycle = useGameStore((s) => s.cycleTarget)
@@ -101,6 +103,8 @@ export function Hud() {
           <span>{formatTime(elapsedSec)}</span>
           <span className="phase">{phase}</span>
           {selfNoise > 0 && <span className="self-noise">自噪音</span>}
+          <span className="population">{population}/{CONFIG.door.maxNpcs}</span>
+          {hasBoss && <span className="boss-cue">BOSS</span>}
         </div>
         <label className="hud-nausea">
           <input

@@ -20,22 +20,40 @@ function Wall({
   position,
   args,
   color,
+  accentColor,
 }: {
   position: [number, number, number]
   args: [number, number, number]
   color: string
+  accentColor: string
 }) {
   return (
-    <mesh position={position} userData={{ fadeWall: true }} name={WALL_LAYER_NAME}>
-      <boxGeometry args={args} />
-      <meshStandardMaterial
-        color={color}
-        transparent
-        opacity={1}
-        depthWrite
-        side={DoubleSide}
-      />
-    </mesh>
+    <group position={position}>
+      <mesh userData={{ fadeWall: true }} name={WALL_LAYER_NAME}>
+        <boxGeometry args={args} />
+        <meshStandardMaterial
+          color={color}
+          transparent
+          opacity={0.3}
+          depthWrite
+          side={DoubleSide}
+        />
+      </mesh>
+      {/* Decorative baseboard strip */}
+      <mesh
+        position={[0, -args[1] / 2 + 0.18, 0]}
+        userData={{ fadeWall: true }}
+      >
+        <boxGeometry args={[args[0], 0.36, args[2] + 0.02]} />
+        <meshStandardMaterial
+          color={accentColor}
+          transparent
+          opacity={0.4}
+          depthWrite
+          side={DoubleSide}
+        />
+      </mesh>
+    </group>
   )
 }
 
@@ -50,9 +68,9 @@ export function WallOcclusionFader() {
 
   useFrame(() => {
     for (const mat of faded.current) {
-      mat.opacity = Math.min(1, mat.opacity + 0.08)
-      mat.depthWrite = mat.opacity > 0.9
-      if (mat.opacity >= 1) faded.current.delete(mat)
+      mat.opacity = Math.min(0.3, mat.opacity + 0.06)
+      mat.depthWrite = mat.opacity > 0.25
+      if (mat.opacity >= 0.3) faded.current.delete(mat)
     }
 
     from.copy(camera.position)
@@ -71,7 +89,7 @@ export function WallOcclusionFader() {
       const mat = mesh.material as MeshStandardMaterial
       if (!mat || Array.isArray(mat)) continue
       mat.transparent = true
-      mat.opacity = Math.min(mat.opacity, 0.12)
+      mat.opacity = Math.min(mat.opacity, 0.05)
       mat.depthWrite = false
       faded.current.add(mat)
     }
@@ -84,19 +102,39 @@ export function Room() {
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[10, 10]} />
+        <planeGeometry args={[10.3, 10.3]} />
         <meshStandardMaterial color="#c4b8a8" />
       </mesh>
-      <Wall position={[0, 1.2, -4.8]} args={[10, 2.4, 0.18]} color="#8b7355" />
-      <Wall position={[0, 1.2, 4.8]} args={[10, 2.4, 0.18]} color="#8b7355" />
-      <Wall position={[-4.8, 1.2, 0]} args={[0.18, 2.4, 10]} color="#7a6548" />
-      <Wall position={[4.8, 1.2, 0]} args={[0.18, 2.4, 10]} color="#7a6548" />
+      <Wall
+        position={[0, 1.2, -4.94]}
+        args={[10.3, 2.4, 0.18]}
+        color="#9a8268"
+        accentColor="#6b5a45"
+      />
+      <Wall
+        position={[0, 1.2, 4.94]}
+        args={[10.3, 2.4, 0.18]}
+        color="#9a8268"
+        accentColor="#6b5a45"
+      />
+      <Wall
+        position={[-4.94, 1.2, 0]}
+        args={[0.18, 2.4, 10.3]}
+        color="#8a7560"
+        accentColor="#5e4f3d"
+      />
+      <Wall
+        position={[4.94, 1.2, 0]}
+        args={[0.18, 2.4, 10.3]}
+        color="#8a7560"
+        accentColor="#5e4f3d"
+      />
       <mesh position={[0, 2.45, 0]}>
-        <boxGeometry args={[9.6, 0.08, 9.6]} />
+        <boxGeometry args={[9.89, 0.08, 9.89]} />
         <meshStandardMaterial
           color="#6e5a42"
           transparent
-          opacity={0.35}
+          opacity={0.22}
           depthWrite={false}
         />
       </mesh>
@@ -124,26 +162,52 @@ const FOOD_COLORS = [
   '#c06040',
 ]
 
-export function Table() {
+export function Tables() {
   return (
     <group>
-      <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.2, 0.12, 2.2]} />
-        <meshStandardMaterial color="#5c3d2e" />
-      </mesh>
-      {(
-        [
-          [-1.3, 0.375, -0.9],
-          [1.3, 0.375, -0.9],
-          [-1.3, 0.375, 0.9],
-          [1.3, 0.375, 0.9],
-        ] as const
-      ).map((pos, i) => (
-        <mesh key={i} position={pos} castShadow>
-          <cylinderGeometry args={[0.08, 0.1, 0.75, 8]} />
-          <meshStandardMaterial color="#3d2817" />
-        </mesh>
-      ))}
+      {CONFIG.tables.map((t) => {
+        const legX = t.half.x * 0.85
+        const legZ = t.half.z * 0.85
+        const legPositions: [number, number, number][] = [
+          [-legX, t.topY / 2, -legZ],
+          [legX, t.topY / 2, -legZ],
+          [-legX, t.topY / 2, legZ],
+          [legX, t.topY / 2, legZ],
+        ]
+        return (
+          <group key={t.id} position={t.position}>
+            {t.shape === 'round' && (
+              <mesh position={[0, t.topY, 0]} castShadow receiveShadow>
+                <cylinderGeometry args={[t.half.x, t.half.x, 0.12, 24]} />
+                <meshStandardMaterial color="#5c3d2e" />
+              </mesh>
+            )}
+            {t.shape === 'rect' && (
+              <mesh position={[0, t.topY, 0]} castShadow receiveShadow>
+                <boxGeometry args={[t.half.x * 2, 0.12, t.half.z * 2]} />
+                <meshStandardMaterial color="#4a3728" />
+              </mesh>
+            )}
+            {t.shape === 'oval' && (
+              <mesh
+                position={[0, t.topY, 0]}
+                castShadow
+                receiveShadow
+                scale={[1, 1, t.half.z / t.half.x]}
+              >
+                <cylinderGeometry args={[t.half.x, t.half.x, 0.12, 24]} />
+                <meshStandardMaterial color="#6a4530" />
+              </mesh>
+            )}
+            {legPositions.map((pos, i) => (
+              <mesh key={i} position={pos} castShadow>
+                <cylinderGeometry args={[0.08, 0.1, t.topY, 8]} />
+                <meshStandardMaterial color="#3d2817" />
+              </mesh>
+            ))}
+          </group>
+        )
+      })}
 
       {CONFIG.foodSpots.map((food, i) => {
         const kind = i % 4
@@ -200,6 +264,38 @@ export function Table() {
   )
 }
 
+export function Door() {
+  const p = CONFIG.door.position
+  return (
+    <group position={[p[0], 0, p[2]]}>
+      {/* Door frame — side pillars */}
+      <mesh position={[-0.62, 1.1, -0.35]} castShadow>
+        <boxGeometry args={[0.08, 2.2, 0.14]} />
+        <meshStandardMaterial color="#8b6914" />
+      </mesh>
+      <mesh position={[0.62, 1.1, -0.35]} castShadow>
+        <boxGeometry args={[0.08, 2.2, 0.14]} />
+        <meshStandardMaterial color="#8b6914" />
+      </mesh>
+      {/* Top lintel */}
+      <mesh position={[0, 2.18, -0.35]} castShadow>
+        <boxGeometry args={[1.32, 0.08, 0.14]} />
+        <meshStandardMaterial color="#8b6914" />
+      </mesh>
+      {/* Door panel */}
+      <mesh position={[0, 1.1, -0.38]} castShadow>
+        <boxGeometry args={[1.16, 2.08, 0.08]} />
+        <meshStandardMaterial color="#a67c52" />
+      </mesh>
+      {/* Door handle */}
+      <mesh position={[0.38, 1.1, -0.33]}>
+        <sphereGeometry args={[0.06, 8, 8]} />
+        <meshStandardMaterial color="#d4a017" metalness={0.6} roughness={0.3} />
+      </mesh>
+    </group>
+  )
+}
+
 const keys = new Set<string>()
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e) => keys.add(e.code))
@@ -245,15 +341,30 @@ export function Player() {
   const skillAction = useGameStore((s) => s.skillAction)
   const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
   const npcs = useGameStore((s) => s.npcs)
+  const jumpUntil = useRef(0)
+  const jumpCooldownUntil = useRef(0)
+  const wasSpace = useRef(false)
 
   useFrame((_, dt) => {
     if (!ref.current || !alive || !briefingDone) return
 
     const acting = skillAction !== null
-    const blockers = npcs.map((n) => ({
-      x: n.position[0],
-      z: n.position[2],
-    }))
+    const now = performance.now()
+    const isSpace = keys.has('Space')
+    if (isSpace && !wasSpace.current && !acting) {
+      if (now >= jumpCooldownUntil.current) {
+        jumpUntil.current = now + 500
+        jumpCooldownUntil.current = now + 800
+      }
+    }
+    wasSpace.current = isSpace
+    const isAirborne = now < jumpUntil.current
+    const blockers = isAirborne
+      ? []
+      : npcs.map((n) => ({
+          x: n.position[0],
+          z: n.position[2],
+        }))
     if (!acting) {
       let forwardInput = 0
       let strafeInput = 0
@@ -286,7 +397,7 @@ export function Player() {
         ref.current.position.x = x
         ref.current.position.z = z
         ref.current.rotation.y = Math.atan2(mx, mz)
-      } else {
+      } else if (!isAirborne) {
         // Idle: still resolve overlap if NPCs walk into the player
         const [x, z] = separateFromOthers(
           ref.current.position.x,
@@ -312,8 +423,11 @@ export function Player() {
           1 - (skillAction.until - now) / (skill.windup * 1000)
         const k = Math.max(0, Math.min(1, t))
         if (skillAction.skillId === 'slap') {
-          arm.current.rotation.x = -0.2 - Math.sin(k * Math.PI) * 1.2
-          arm.current.rotation.z = -0.3 + k * 0.8
+          // 横向扇脸: arm sweeps from right to left (yaw swing)
+          const eased = 0.5 - 0.5 * Math.cos(k * Math.PI)
+          arm.current.rotation.y = -0.8 + eased * 1.6
+          arm.current.rotation.x = -0.15
+          arm.current.rotation.z = -0.3
         } else if (skillAction.skillId === 'tape') {
           arm.current.rotation.x = -0.6 * k
           arm.current.position.z = 0.15 * k
@@ -325,9 +439,18 @@ export function Player() {
         }
       } else {
         arm.current.rotation.x *= 0.8
+        arm.current.rotation.y *= 0.8
         arm.current.rotation.z *= 0.8
         arm.current.position.z *= 0.8
       }
+    }
+
+    // Jump arc animation
+    if (isAirborne) {
+      const jumpProgress = 1 - (jumpUntil.current - now) / 500
+      ref.current.position.y = Math.sin(jumpProgress * Math.PI) * 0.8
+    } else if (ref.current.position.y !== 0) {
+      ref.current.position.y = 0
     }
 
     setPlayerPos([

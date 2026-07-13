@@ -6,7 +6,7 @@ import { useGameStore } from '../game/store'
 import { AudioDirector } from './AudioDirector'
 import { Npcs } from './Npcs'
 import { SkillFx } from './SkillFx'
-import { Player, Room, Table, WallOcclusionFader } from './World'
+import { Player, Room, Tables, Door, WallOcclusionFader } from './World'
 
 function GameLoop() {
   const tick = useGameStore((s) => s.tick)
@@ -101,7 +101,8 @@ export function GameCanvas() {
       <CameraFollow />
       <WallOcclusionFader />
       <Room />
-      <Table />
+      <Door />
+      <Tables />
       <Player />
       <Npcs />
       <SkillFx />

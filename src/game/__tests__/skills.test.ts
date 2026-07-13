@@ -12,7 +12,9 @@ const cds = (): Record<SkillId, number> => ({
 
 describe('skills', () => {
   it('silences target in range', () => {
-    const npcs = createNpcs(0)
+    const npcs = createNpcs(0).map((n, i) =>
+      i === 0 ? { ...n, status: 'smacking' as const } : n,
+    )
     const result = tryUseSkill(
       'slap',
       npcs,

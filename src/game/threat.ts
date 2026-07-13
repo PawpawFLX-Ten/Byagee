@@ -19,10 +19,12 @@ export function computeThreat(
   npcs: NpcState[],
   playerPos: [number, number, number],
   extraNoise = 0,
+  now = 0,
 ): number {
   let sum = 0
   for (const npc of npcs) {
     if (npc.status !== 'smacking') continue
+    if (now > 0 && npc.smackingSince > 0 && now - npc.smackingSince < CONFIG.smackDamageDelaySec * 1000) continue
     const d = distance3(npc.position, playerPos)
     sum += npc.baseLoudness * distanceAttenuation(d)
   }

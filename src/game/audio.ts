@@ -1,5 +1,6 @@
 import type { SkillId } from './types'
 import { distance3 } from './threat'
+import { CONFIG } from './config'
 
 /** Procedural SFX — no external audio assets. */
 
@@ -247,11 +248,13 @@ export function playSkill(skillId: SkillId) {
       burstNoise(0.06, 0.35, 2200)
       beep(320, 0.06, 'square', 0.16)
       beep(180, 0.1, 'triangle', 0.1)
+      playShoutVoice(CONFIG.slapShoutLine, 2.6)
       break
     case 'tape':
       burstNoise(0.2, 0.22, 3200)
       beep(620, 0.14, 'sawtooth', 0.1, 140)
       beep(90, 0.08, 'sine', 0.12)
+      playShoutVoice(CONFIG.tapeShoutLine, 1.4)
       break
     case 'megaphone':
       beep(180, 0.12, 'sawtooth', 0.3)
@@ -264,12 +267,13 @@ export function playSkill(skillId: SkillId) {
       beep(100, 0.22, 'triangle', 0.22, 45)
       burstNoise(0.14, 0.2, 700)
       beep(60, 0.3, 'sine', 0.1)
+      playShoutVoice(CONFIG.gagShoutLine, 1.5)
       break
   }
 }
 
 /** Browser TTS shout — prefer male zh voice, barked fast. */
-export function playShoutVoice(line = '都他妈把嘴闭上！') {
+export function playShoutVoice(line = CONFIG.shoutLine, rate = 1.45) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
 
   const speak = () => {
@@ -277,7 +281,7 @@ export function playShoutVoice(line = '都他妈把嘴闭上！') {
       window.speechSynthesis.cancel()
       const u = new SpeechSynthesisUtterance(line)
       u.lang = 'zh-CN'
-      u.rate = 1.45
+      u.rate = rate
       u.pitch = 0.65
       u.volume = 1
 

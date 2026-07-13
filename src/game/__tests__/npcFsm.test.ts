@@ -25,7 +25,7 @@ describe('npcFsm', () => {
           }
         : { ...n, status: 'idle' as const, statusUntil: 999999, foodId: null },
     )
-    npcs = tickNpcs(npcs, 100, 10, 0.05)
-    expect(['walking', 'smacking']).toContain(npcs[0].status)
+    const result = tickNpcs(npcs, 100, 10, 0.05)
+    expect(['walking', 'smacking']).toContain(result.npcs[0].status)
   })
 })
