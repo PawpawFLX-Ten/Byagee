@@ -3,10 +3,8 @@
   "short_name": "Civic Man",
   "display": "fullscreen",
   "orientation": "landscape",
-  "start_url": "./",
+  "start_url": "/",
   "background_color": "#1e1a16",
   "theme_color": "#1e1a16",
-  "icons": [
-    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml" }
-  ]
+  "icons": []
 }
