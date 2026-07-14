@@ -1,20 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import nipplejs from 'nipplejs'
 import { useInputStore } from '../game/inputStore'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
-
-/** Detects touch device — component renders nothing on desktop. */
-function useIsTouch(): boolean {
-  const [isTouch, setIsTouch] = useState(false)
-  useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0)
-  }, [])
-  return isTouch
-}
+import { useDeviceProfile } from '../game/deviceDetect'
 
 export function TouchControls() {
-  const isTouch = useIsTouch()
+  const profile = useDeviceProfile()
+  const isTouch = profile.isTouch
   const joystickZone = useRef<HTMLDivElement>(null)
   const managerRef = useRef<ReturnType<typeof nipplejs.create> | null>(null)
   const setMove = useInputStore((s) => s.setMove)
@@ -27,25 +20,49 @@ export function TouchControls() {
   useEffect(() => {
     if (!isTouch || !briefingDone || !joystickZone.current) return
 
-    const manager = nipplejs.create({
-      zone: joystickZone.current,
-      mode: 'static',
-      position: { left: '80px', bottom: '80px' },
-      size: 130,
-      fadeTime: 0,
-      restOpacity: 0.5,
-    })
+    let manager: ReturnType<typeof nipplejs.create> | null = null
+    let timer: ReturnType<typeof setTimeout> | undefined
 
-    manager.on('move', (evt) => {
-      setMove(evt.data.vector.x, evt.data.vector.y)
-    })
-    manager.on('end', () => {
-      reset()
-    })
+    const createJoystick = () => {
+      if (manager) {
+        manager.destroy()
+        manager = null
+      }
+      if (!joystickZone.current) return
+      manager = nipplejs.create({
+        zone: joystickZone.current,
+        mode: 'static',
+        position: {
+          left: `${Math.max(70, Math.round(window.innerWidth * 0.18))}px`,
+          bottom: `${Math.max(70, Math.round(window.innerHeight * 0.12))}px`,
+        },
+        size: 130,
+        fadeTime: 0,
+        restOpacity: 0.5,
+      })
+      manager.on('move', (evt) => {
+        setMove(evt.data.vector.x, evt.data.vector.y)
+      })
+      manager.on('end', () => {
+        reset()
+      })
+      managerRef.current = manager
+    }
 
-    managerRef.current = manager
+    createJoystick()
+
+    const onResize = () => {
+      if (timer !== undefined) clearTimeout(timer)
+      timer = setTimeout(createJoystick, 200)
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+
     return () => {
-      manager.destroy()
+      if (timer !== undefined) clearTimeout(timer)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+      if (manager) manager.destroy()
       managerRef.current = null
     }
   }, [isTouch, briefingDone, setMove, reset])
