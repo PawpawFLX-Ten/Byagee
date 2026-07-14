@@ -1,9 +1,30 @@
 export type Lang = 'zh' | 'en' | 'nl'
 
-let currentLang: Lang = 'zh'
+const LANG_STORAGE_KEY = 'civicman.lang'
+
+function detectInitialLang(): Lang {
+  try {
+    const stored = localStorage.getItem(LANG_STORAGE_KEY)
+    if (stored === 'zh' || stored === 'en' || stored === 'nl') return stored
+  } catch {
+    // localStorage unavailable (private mode, SSR, etc.)
+  }
+  const browser = typeof navigator !== 'undefined' ? navigator.language : ''
+  const lower = (browser ?? '').toLowerCase()
+  if (lower.startsWith('zh')) return 'zh'
+  if (lower.startsWith('nl')) return 'nl'
+  return 'en'
+}
+
+let currentLang: Lang = detectInitialLang()
 
 export function setLang(lang: Lang): void {
   currentLang = lang
+  try {
+    localStorage.setItem(LANG_STORAGE_KEY, lang)
+  } catch {
+    // ignore write failures (private mode, quota, etc.)
+  }
 }
 
 export function getLang(): Lang {

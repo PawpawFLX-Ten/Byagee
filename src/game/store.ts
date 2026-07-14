@@ -9,7 +9,7 @@ import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORM
 import { cycleTarget, tryUseSkill } from './skills'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
-import { t, setLang, type Lang } from './i18n'
+import { t, setLang, getLang, type Lang } from './i18n'
 import type { DifficultyPhase, NpcState, PropState, SkillId } from './types'
 
 function emptyCooldowns(): Record<SkillId, number> {
@@ -170,7 +170,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   propSeq: 0,
   paused: false,
   pausedAt: 0,
-  lang: 'zh',
+  lang: getLang(),
 
   setLang: (lang) => {
     setLang(lang)
