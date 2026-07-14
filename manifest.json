@@ -1,0 +1,10 @@
+{
+  "name": "Civic Man",
+  "short_name": "Civic Man",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "start_url": "/",
+  "background_color": "#1e1a16",
+  "theme_color": "#1e1a16",
+  "icons": []
+}
