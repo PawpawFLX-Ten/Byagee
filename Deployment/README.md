@@ -1,4 +1,13 @@
-# Deployment — Civic Man
+[English] | [[简体中文](./README_zh.md)]
+
+# Game Intro
+Human beings are under serious threat of Byagee mouth. When spicies chew yet with their lips open, nuclear noise would evaporate all lives' blood from the heart.
+
+You act as the man of justice, trying to fight against this endless noise. Your goal is to maintain social order and peace amongst public space - but new Byagee mouther still occur occasionally. You have to fight hard and make sure your lips are shut during chewing.
+
+Be mad! Fight Hard
+
+# Deployment
 
 This folder contains the pre-built static files for Civic Man. No backend, no server-side logic — just upload these files to any static host.
 
