@@ -18,6 +18,7 @@ let chewNodes: Map<
 let threatGain: GainNode | null = null
 let threatOsc: OscillatorNode | null = null
 let unlocked = false
+let ttsWarmedUp = false
 let reduceNausea = false
 
 function ac(): AudioContext | null {
@@ -42,7 +43,20 @@ export async function unlockAudio(): Promise<void> {
   const c = ac()
   if (!c) return
   if (c.state === 'suspended') await c.resume()
-  unlocked = true
+  if (!unlocked) {
+    unlocked = true
+    if (!ttsWarmedUp && typeof window !== 'undefined' && window.speechSynthesis) {
+      ttsWarmedUp = true
+      try {
+        const warmup = new SpeechSynthesisUtterance('')
+        warmup.volume = 0
+        warmup.rate = 1
+        window.speechSynthesis.speak(warmup)
+      } catch {
+        /* ignore missing TTS */
+      }
+    }
+  }
 }
 
 function ensureUnlocked(): AudioContext | null {
@@ -291,26 +305,33 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
   const speak = () => {
     try {
       window.speechSynthesis.cancel()
-      const u = new SpeechSynthesisUtterance(line)
       const lang = getLang()
-      u.lang = lang === 'zh' ? 'zh-CN' : 'en-US'
-      u.rate = rate
-      u.pitch = 0.65
-      u.volume = 1
+      // iOS Safari can swallow speak() if called synchronously after cancel().
+      // Defer to next tick to break the race.
+      window.setTimeout(() => {
+        window.speechSynthesis.cancel()
+        const u = new SpeechSynthesisUtterance(line)
+        u.lang = lang === 'zh' ? 'zh-CN' : 'en-US'
+        u.rate = rate
+        u.pitch = 0.65
+        u.volume = 1
 
-      const voices = window.speechSynthesis.getVoices()
-      const maleHint = lang === 'zh' ? /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu|david/i : /male|david|alex|daniel|fred/i
-      const femaleHint =
-        /female|女|xiaoyi|xiaoxiao|tingting|yaoyao|huihui|tracy|jenny|zira/i
+        const voices = window.speechSynthesis.getVoices()
+        const maleHint = lang === 'zh' ? /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu/i : /male|david|alex|daniel|fred/i
+        const femaleHint = lang === 'zh'
+          ? /female|女|xiaoyi|xiaoxiao|tingting|yaoyao|huihui/i
+          : /female|tracy|jenny|zira/i
 
-      const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'zh' ? 'zh' : 'en'))
-      const male =
-        zhVoices.find((v) => maleHint.test(v.name)) ??
-        zhVoices.find((v) => !femaleHint.test(v.name)) ??
-        zhVoices[0]
+        const zhVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(lang === 'zh' ? 'zh' : 'en'))
+        const male =
+          zhVoices.find((v) => maleHint.test(v.name)) ??
+          zhVoices.find((v) => !femaleHint.test(v.name)) ??
+          zhVoices[0]
 
-      if (male) u.voice = male
-      window.speechSynthesis.speak(u)
+        // If no matching voice, leave u.voice unset — u.lang guides the engine to auto-pick.
+        if (male) u.voice = male
+        window.speechSynthesis.speak(u)
+      }, 0)
     } catch {
       /* ignore missing TTS */
     }
@@ -318,9 +339,24 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
 
   const voices = window.speechSynthesis.getVoices()
   if (voices.length === 0) {
-    window.speechSynthesis.addEventListener('voiceschanged', speak, { once: true })
-    // Fallback if event never fires
-    window.setTimeout(speak, 250)
+    // iOS Safari: voiceschanged event is unreliable. Poll as fallback.
+    let attempts = 0
+    let done = false
+    const trySpeak = () => {
+      if (done) return
+      const v = window.speechSynthesis.getVoices()
+      if (v.length > 0 || attempts >= 6) {
+        done = true
+        speak()
+      } else {
+        attempts++
+        window.setTimeout(trySpeak, 40)
+      }
+    }
+    window.speechSynthesis.addEventListener('voiceschanged', () => {
+      if (!done) { done = true; speak() }
+    }, { once: true })
+    trySpeak()
   } else {
     speak()
   }
