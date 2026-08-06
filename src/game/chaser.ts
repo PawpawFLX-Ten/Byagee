@@ -6,9 +6,15 @@ import {
 } from './collision'
 import { CONFIG } from './config'
 import { getRuntimeSpace } from './runtimeSpace'
-import { roomIdAt, type SpaceLayoutState } from './spaceLayout'
+import { latchedOnPath, roomIdAt, type SpaceLayoutState } from './spaceLayout'
 import { distance3, distanceAttenuation } from './threat'
-import type { DifficultyPhase, NpcState, RoomId } from './types'
+import type { DifficultyPhase, NpcState, RoomId, TableDef } from './types'
+
+export type ChaserStepOpts = {
+  playerHidden?: boolean
+  hideEscalated?: boolean
+  playerRoomId?: RoomId
+}
 
 export type ChaserSpawnCtx = {
   phase: DifficultyPhase
@@ -110,6 +116,61 @@ export function inFaceRadius(
   return Math.hypot(dx, dz) <= CONFIG.chaser.faceRadius
 }
 
+function nearestTable(
+  pos: [number, number, number],
+  tables: TableDef[],
+): TableDef {
+  let best = tables[0]
+  let bestD = Infinity
+  for (const t of tables) {
+    const d = Math.hypot(pos[0] - t.position[0], pos[2] - t.position[2])
+    if (d < bestD) {
+      bestD = d
+      best = t
+    }
+  }
+  return best
+}
+
+function wanderFurniture(
+  npc: NpcState,
+  tables: TableDef[],
+  obstacles: ObstacleCollider[],
+  dt: number,
+): NpcState {
+  const table = nearestTable(npc.position, tables)
+  const cx = table.position[0]
+  const cz = table.position[2]
+  const orbitR = Math.max(table.half.x, table.half.z) + 0.75
+  const angle = Math.atan2(npc.position[2] - cz, npc.position[0] - cx) + dt * 1.1
+  const tx = cx + Math.cos(angle) * orbitR
+  const tz = cz + Math.sin(angle) * orbitR
+  const dx = tx - npc.position[0]
+  const dz = tz - npc.position[2]
+  const dist = Math.hypot(dx, dz)
+  if (dist < 0.05) return npc
+  const step = CONFIG.chaser.walkSpeed * dt * 0.65
+  const mx = (dx / dist) * Math.min(step, dist)
+  const mz = (dz / dist) * Math.min(step, dist)
+  const [x, z] = moveWithCollision(
+    npc.position[0],
+    npc.position[2],
+    mx,
+    mz,
+    tables,
+    [],
+    undefined,
+    obstacles,
+  )
+  return {
+    ...npc,
+    position: [x, 0, z] as [number, number, number],
+    facing: Math.atan2(mx, mz),
+    status: 'walking',
+    smackingSince: 0,
+  }
+}
+
 /** Chasers and in-transit walkers can be shoved; seated diners cannot. */
 export function isKnockbackTarget(npc: NpcState): boolean {
   return npc.role === 'chaser' || npc.status === 'walking'
@@ -182,6 +243,7 @@ export function stepChaser(
   obstacles: ObstacleCollider[],
   dt: number,
   now: number,
+  opts: ChaserStepOpts = {},
 ): NpcState {
   if (npc.role !== 'chaser') return npc
 
@@ -202,6 +264,24 @@ export function stepChaser(
 
   if (next.status === 'silenced' || next.status === 'sealed') {
     return next
+  }
+
+  const { tables } = getRuntimeSpace()
+  const playerRoomId =
+    opts.playerRoomId ??
+    roomIdAt(layout, playerPos[0], playerPos[2], 0)
+  const pathBlocked =
+    next.roomId !== playerRoomId &&
+    latchedOnPath(layout, next.roomId, playerRoomId, now)
+
+  if (pathBlocked) {
+    return wanderFurniture(next, tables, obstacles, dt)
+  }
+
+  const playerHidden = opts.playerHidden ?? false
+  const hideEscalated = opts.hideEscalated ?? false
+  if (playerHidden && !hideEscalated) {
+    return wanderFurniture(next, tables, obstacles, dt)
   }
 
   const face = inFaceRadius(next, playerPos)
@@ -225,7 +305,6 @@ export function stepChaser(
     next = { ...next, status: 'walking', smackingSince: 0 }
   }
 
-  const { tables } = getRuntimeSpace()
   const tx = playerPos[0] - next.position[0]
   const tz = playerPos[2] - next.position[2]
   const dist = Math.hypot(tx, tz)

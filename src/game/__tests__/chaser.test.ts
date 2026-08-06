@@ -183,6 +183,29 @@ describe('stepChaser', () => {
     expect(next.position[0]).toBeGreaterThan(0)
     expect(next.status).toBe('walking')
   })
+
+  it('wanders furniture when player is hidden and search not escalated', () => {
+    const c = stubChaser({ position: [0, 0, 0], status: 'walking' })
+    const before = [...c.position] as [number, number, number]
+    const next = stepChaser(c, [4, 0, 0], layout, [], 0.1, 5000, {
+      playerHidden: true,
+      hideEscalated: false,
+      playerRoomId: 'r0',
+    })
+    expect(next.status).toBe('walking')
+    expect(next.position).not.toEqual(before)
+    expect(Math.abs(next.position[0] - 4)).toBeGreaterThan(2)
+  })
+
+  it('resumes pursuit after hide search escalates', () => {
+    const c = stubChaser({ position: [0, 0, 0], status: 'walking' })
+    const next = stepChaser(c, [4, 0, 0], layout, [], 0.1, 5000, {
+      playerHidden: true,
+      hideEscalated: true,
+      playerRoomId: 'r0',
+    })
+    expect(next.position[0]).toBeGreaterThan(0)
+  })
 })
 
 describe('applyChaserKnockback', () => {

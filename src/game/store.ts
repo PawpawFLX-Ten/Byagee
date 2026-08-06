@@ -11,6 +11,11 @@ import {
 } from './chaser'
 import { getPhase } from './difficulty'
 import { applyDoorAction, freeSeatIndexes, planBossAdmission, planDoorAction } from './doorSystem'
+import {
+  isSearchEscalated,
+  latchOpening,
+  tickLatch,
+} from './hideLatch'
 import { createNpcs, tickNpcs } from './npcFsm'
 import { shouldSpawnProp, sampleFloorPosition, pickPropType, checkPickup, applyPropEffect, createProp } from './props'
 import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORMAL, XP_PER_SKILL_HIT_BOSS, XP_PER_SURVIVAL_SEC, cdMultiplier } from './progression'
@@ -135,12 +140,16 @@ export interface GameStore {
   runtimeFoodSpots: FoodSpot[]
   maxNpcs: number
   spaceEventToast: SpaceEventId | null
+  playerHidden: boolean
+  hideStartedAt: number | null
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
   restart: (now?: number) => void
   beginMission: (now?: number) => void
   setPlayerPos: (pos: [number, number, number]) => void
+  setHideState: (hidden: boolean, now?: number) => void
+  applyLatch: (openingId: string, now?: number) => void
   cycleTarget: () => void
   useSkill: (skillId: SkillId, now?: number) => void
   tick: (dt: number, now: number) => void
@@ -249,6 +258,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   runtimeFoodSpots: initialRuntime().foodSpots,
   maxNpcs: initialRuntime().maxNpcs,
   spaceEventToast: null,
+  playerHidden: false,
+  hideStartedAt: null,
   lang: getLang(),
 
   setLang: (lang) => {
@@ -305,6 +316,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       runtimeFoodSpots: runtime.foodSpots,
       maxNpcs: runtime.maxNpcs,
       spaceEventToast: null,
+      playerHidden: false,
+      hideStartedAt: null,
     })
   },
 
@@ -356,6 +369,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       runtimeFoodSpots: runtime.foodSpots,
       maxNpcs: runtime.maxNpcs,
       spaceEventToast: null,
+      playerHidden: false,
+      hideStartedAt: null,
     })
   },
 
@@ -364,6 +379,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setPlayerPos: (pos) => set({ playerPos: pos }),
+
+  setHideState: (hidden, now = performance.now()) =>
+    set({
+      playerHidden: hidden,
+      hideStartedAt: hidden ? now : null,
+    }),
+
+  applyLatch: (openingId, now = performance.now()) =>
+    set((s) => ({
+      layout: latchOpening(s.layout, openingId, now, CONFIG.door.position),
+    })),
 
   cycleTarget: () => {
     const { npcs, targetId } = get()
@@ -471,7 +497,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let queuedSpaceEventId = state.queuedSpaceEventId
     let lastSpaceEventAt = state.lastSpaceEventAt
     let minorMorphsSinceBoss = state.minorMorphsSinceBoss
-    let layout = state.layout
+    let layout = tickLatch(state.layout, now)
     let runtimeTables = state.runtimeTables
     let runtimeSeats = state.runtimeSeats
     let runtimeFoodSpots = state.runtimeFoodSpots
@@ -553,20 +579,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos, layout.obstacles)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
-    npcs = npcs.map((n) =>
-      n.role === 'chaser'
-        ? stepChaser(n, state.playerPos, layout, layout.obstacles, dt, now)
-        : n,
-    )
-
-    const layoutForRoom = layout
+    const playerHidden = state.playerHidden
+    const hideEscalated = isSearchEscalated(state.hideStartedAt, now)
     const playerFloor = floorFromPlayerY(state.playerPos[1])
     const playerRoomId = roomIdAt(
-      layoutForRoom,
+      layout,
       state.playerPos[0],
       state.playerPos[2],
       playerFloor,
     )
+
+    npcs = npcs.map((n) =>
+      n.role === 'chaser'
+        ? stepChaser(n, state.playerPos, layout, layout.obstacles, dt, now, {
+            playerHidden,
+            hideEscalated,
+            playerRoomId,
+          })
+        : n,
+    )
+
     const roomFloor = (roomId: RoomId) =>
       layout.rooms.find((r) => r.id === roomId)?.floor ?? 0
 
@@ -661,7 +693,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const drain = hpDrainPerSec(threat, CONFIG.damageCoeff[phase])
     let hp = Math.max(0, state.hp - drain * dt)
-    if (healFromSkill > 0) {
+    if (healFromSkill > 0 && !playerHidden) {
       hp = Math.min(CONFIG.maxHp, hp + healFromSkill)
     }
 
@@ -678,7 +710,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Overflow heal at max level
-    if (isMaxLevel(level)) {
+    if (isMaxLevel(level) && !playerHidden) {
       const maxXp = CONFIG.levelXpTable[CONFIG.levelXpTable.length - 1]
       const overflow = Math.max(0, newXp - maxXp)
       const healPerSec = overflow > 0 ? Math.min(2, overflow / 50) : 0

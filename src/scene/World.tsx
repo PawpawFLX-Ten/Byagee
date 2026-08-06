@@ -11,6 +11,17 @@ import {
 } from 'three'
 import { CHAR_RADIUS, moveWithCollision, separateFromOthers } from '../game/collision'
 import { CONFIG } from '../game/config'
+import { inFaceRadius } from '../game/chaser'
+import {
+  beginHold,
+  buildProximityContext,
+  cancelHold,
+  createHoldState,
+  isHoldReady,
+  resolveHold,
+  shouldCancelHold,
+  type ProximityFlags,
+} from '../game/hideLatch'
 import { t } from '../game/i18n'
 import { useGameStore } from '../game/store'
 import { useInputStore } from '../game/inputStore'
@@ -469,10 +480,17 @@ export function Player() {
   const npcs = useGameStore((s) => s.npcs)
   const tables = useGameStore((s) => s.runtimeTables)
   const obstacles = useGameStore((s) => s.layout.obstacles)
+  const layout = useGameStore((s) => s.layout)
+  const paused = useGameStore((s) => s.paused)
+  const playerHidden = useGameStore((s) => s.playerHidden)
+  const setHideState = useGameStore((s) => s.setHideState)
+  const applyLatch = useGameStore((s) => s.applyLatch)
   useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
   const wasSpace = useRef(false)
+  const holdState = useRef(createHoldState())
+  const contextAtHoldStart = useRef<ProximityFlags | null>(null)
   const touchMoveX = useInputStore((s) => s.moveX)
   const touchMoveY = useInputStore((s) => s.moveY)
 
@@ -482,14 +500,70 @@ export function Player() {
     const acting = skillAction !== null
     const now = performance.now()
     const isSpace = keys.has('Space')
-    if (isSpace && !wasSpace.current && !acting) {
-      if (now >= jumpCooldownUntil.current) {
-        jumpUntil.current = now + 650
-        jumpCooldownUntil.current = now + 900
+    const isAirborne = now < jumpUntil.current
+    const grounded = !isAirborne
+    const playerPos: [number, number, number] = [
+      ref.current.position.x,
+      ref.current.position.y,
+      ref.current.position.z,
+    ]
+    const chaserFace = npcs.some(
+      (n) => n.role === 'chaser' && inFaceRadius(n, playerPos),
+    )
+    const prox = buildProximityContext(
+      playerPos,
+      tables,
+      layout,
+      CONFIG.door.position,
+      grounded,
+      chaserFace,
+      [],
+      paused,
+    )
+
+    if (!acting) {
+      if (isSpace && !wasSpace.current) {
+        holdState.current = beginHold(createHoldState(), now)
+        contextAtHoldStart.current = {
+          nearFurniture: prox.nearFurniture,
+          nearDoor: prox.nearDoor,
+        }
       }
+
+      if (isSpace && holdState.current.holding && !holdState.current.resolved) {
+        if (shouldCancelHold(prox, contextAtHoldStart.current)) {
+          holdState.current = cancelHold(holdState.current)
+          contextAtHoldStart.current = null
+        } else if (isHoldReady(holdState.current, now)) {
+          const resolved = resolveHold(holdState.current, prox, now)
+          holdState.current = resolved.hold
+          if (resolved.action === 'hide') {
+            setHideState(true, now)
+          } else if (resolved.action === 'latch' && prox.openingId) {
+            applyLatch(prox.openingId, now)
+          }
+        }
+      }
+
+      if (!isSpace && wasSpace.current) {
+        const released = resolveHold(holdState.current, prox, now, { released: true })
+        holdState.current = cancelHold(released.hold)
+        if (
+          released.action === 'jump' &&
+          !playerHidden &&
+          now >= jumpCooldownUntil.current
+        ) {
+          jumpUntil.current = now + 650
+          jumpCooldownUntil.current = now + 900
+        }
+        contextAtHoldStart.current = null
+      }
+    } else if (!isSpace && wasSpace.current) {
+      holdState.current = cancelHold(holdState.current)
+      contextAtHoldStart.current = null
     }
     wasSpace.current = isSpace
-    const isAirborne = now < jumpUntil.current
+
     const blockers = isAirborne
       ? []
       : npcs.map((n) => ({
@@ -510,7 +584,12 @@ export function Player() {
       forwardInput = Math.max(-1, Math.min(1, forwardInput))
       strafeInput = Math.max(-1, Math.min(1, strafeInput))
 
-      if (forwardInput !== 0 || strafeInput !== 0) {
+      const moveIntent = forwardInput !== 0 || strafeInput !== 0
+      if (playerHidden) {
+        if (moveIntent) {
+          setHideState(false)
+        }
+      } else if (moveIntent) {
         camera.getWorldDirection(_forward)
         _forward.y = 0
         if (_forward.lengthSq() < 1e-6) _forward.set(0, 0, -1)
@@ -615,7 +694,7 @@ export function Player() {
   const shouting = performance.now() < shoutBannerUntil
 
   return (
-    <group ref={ref} position={[0, 0, 2.4]}>
+    <group ref={ref} position={[0, 0, 2.4]} scale={[1, playerHidden ? 0.55 : 1, 1]}>
       <mesh position={[0, 0.5, 0]} castShadow>
         <capsuleGeometry args={[0.28, 0.45, 4, 8]} />
         <meshStandardMaterial color="#3a6ea5" />

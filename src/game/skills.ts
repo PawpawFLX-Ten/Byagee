@@ -170,7 +170,21 @@ export function tryUseSkill(
   } else if (skill.tags.includes('global')) {
     let hit = false
     next = next.map((npc) => {
-      if (npc.status === 'walking') return npc
+      if (npc.status === 'walking') {
+        if (skillId === 'civility' && isKnockbackTarget(npc)) {
+          hit = true
+          hitIds.push(npc.id)
+          const others = npcs
+            .filter((n) => n.id !== npc.id)
+            .map((n) => ({ x: n.position[0], z: n.position[2] }))
+          return applyChaserKnockback(npc, playerPos, now, {
+            dist: CONFIG.chaser.knockbackDist * 0.5,
+            staggerSec: CONFIG.chaser.staggerSec * 0.5,
+            others,
+          })
+        }
+        return npc
+      }
       hit = true
       hitIds.push(npc.id)
       const others = npcs.filter((n) => n.id !== npc.id).map((n) => ({ x: n.position[0], z: n.position[2] }))

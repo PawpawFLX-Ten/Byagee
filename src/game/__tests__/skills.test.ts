@@ -146,4 +146,25 @@ describe('skills', () => {
     expect(hitSeated.position).toEqual(seatedPos)
     expect(hitSeated.status).toBe('silenced')
   })
+
+  it('civility shoves walking chasers like megaphone', () => {
+    const chaser = {
+      ...createChaser('chaser-0', [1, 0, 0], 'r0', 0),
+      status: 'walking' as const,
+    }
+    const result = tryUseSkill(
+      'civility',
+      [chaser],
+      [0, 0, 0],
+      null,
+      1000,
+      5,
+      cds(),
+      10,
+    )
+    expect(result.ok).toBe(true)
+    const hit = result.npcs[0]
+    expect(Math.hypot(hit.position[0], hit.position[2])).toBeGreaterThan(0.8)
+    expect(hit.staggerUntil).toBeGreaterThan(1000)
+  })
 })
