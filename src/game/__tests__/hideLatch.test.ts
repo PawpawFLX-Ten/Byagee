@@ -134,6 +134,12 @@ describe('nearFurniture', () => {
   it('is false far from tables', () => {
     expect(nearFurniture([20, 0, 20], CONFIG.tables)).toBe(false)
   })
+
+  it('is true within interact radius of a cabinet', () => {
+    // coords mirror Atmosphere CABINET_POSITIONS (avoid scene import cycles)
+    const cabinet: [number, number, number] = [-4.15, 0, 3.6]
+    expect(nearFurniture([cabinet[0], 0, cabinet[2]], [], [cabinet])).toBe(true)
+  })
 })
 
 describe('latchOpening', () => {

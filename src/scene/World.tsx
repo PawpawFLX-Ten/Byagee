@@ -29,6 +29,9 @@ import type { SkillId } from '../game/types'
 import { CABINET_POSITIONS } from './Atmosphere'
 
 const WALL_LAYER_NAME = 'fade-wall'
+/** Vertical drop when hiding under furniture (with Y-scale 0.55). */
+const HIDE_CROUCH_Y = 0.42
+const LATCH_MIME_MS = 380
 
 function Wall({
   position,
@@ -498,6 +501,7 @@ export function Player() {
   useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
+  const latchMimeUntil = useRef(0)
   const wasSpace = useRef(false)
   const holdState = useRef(createHoldState())
   const contextAtHoldStart = useRef<ProximityFlags | null>(null)
@@ -551,6 +555,7 @@ export function Player() {
             setHideState(true, now)
           } else if (resolved.action === 'latch' && prox.openingId) {
             applyLatch(prox.openingId, now)
+            latchMimeUntil.current = now + LATCH_MIME_MS
           }
         }
       }
@@ -685,6 +690,13 @@ export function Player() {
         arm.current.rotation.y = -0.9 + eased * 1.8
         arm.current.rotation.x = -0.2
         arm.current.rotation.z = -0.35
+      } else if (now < latchMimeUntil.current) {
+        const k = 1 - (latchMimeUntil.current - now) / LATCH_MIME_MS
+        const reach = Math.sin(k * Math.PI)
+        arm.current.rotation.x = -0.85 * reach
+        arm.current.position.z = 0.32 * reach
+        arm.current.rotation.y = 0
+        arm.current.rotation.z = -0.25
       } else {
         arm.current.rotation.x *= 0.8
         arm.current.rotation.y *= 0.8
@@ -693,10 +705,12 @@ export function Player() {
       }
     }
 
-    // Jump arc animation
+    // Jump arc / hide crouch height
     if (isAirborne) {
       const jumpProgress = 1 - (jumpUntil.current - now) / 650
       ref.current.position.y = Math.sin(jumpProgress * Math.PI) * 1.1
+    } else if (playerHidden) {
+      ref.current.position.y = HIDE_CROUCH_Y
     } else if (ref.current.position.y !== 0) {
       ref.current.position.y = 0
     }
