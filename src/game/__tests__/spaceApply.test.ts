@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
-import { createInitialLayout, hopDistance, addRoomConnected } from '../spaceLayout'
-import { applySpaceEvent } from '../spaceApply'
+import { createInitialLayout, hopDistance, addRoomConnected, roomIdAt } from '../spaceLayout'
+import { applySpaceEvent, roomIdForSeatIndex } from '../spaceApply'
 import { createRuntimeSpaceFromConfig } from '../runtimeSpace'
 
 function baseInput(eventId: 'A1' | 'C1' | 'C2', rng = () => 0.5) {
@@ -80,6 +80,44 @@ describe('spaceApply', () => {
     const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'C4' })
     expect(result.layout.rooms.some((r) => r.floor === 1)).toBe(true)
     expect(result.layout.stairs.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('A4 upstairs seats resolve to upper room, not r0', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'A4' })
+    const upper = result.layout.rooms.find((r) => r.floor === 1)!
+    const baseSeatCount = CONFIG.seatPositions.length
+    const newSeat = result.seatPositions[baseSeatCount]
+    expect(newSeat).toBeDefined()
+    expect(newSeat![1]).toBeGreaterThan(1.2)
+    expect(roomIdAt(result.layout, newSeat![0], newSeat![2], 1)).toBe(upper.id)
+    expect(roomIdForSeatIndex(result.layout, result.seatPositions, baseSeatCount)).toBe(upper.id)
+    expect(roomIdForSeatIndex(result.layout, result.seatPositions, baseSeatCount)).not.toBe('r0')
+  })
+
+  it('C4 upstairs seats resolve to platform room via roomIdAt', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'C4' })
+    const upper = result.layout.rooms.find((r) => r.floor === 1)!
+    const baseSeatCount = CONFIG.seatPositions.length
+    const newSeat = result.seatPositions[baseSeatCount]
+    expect(newSeat![1]).toBeGreaterThan(1.2)
+    expect(roomIdAt(result.layout, newSeat![0], newSeat![2], 1)).toBe(upper.id)
+    expect(roomIdForSeatIndex(result.layout, result.seatPositions, baseSeatCount)).toBe(upper.id)
+  })
+
+  it('A3 adds two tables with up to eight new seats', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'A3', rng: () => 0 })
+    const addedSeats = result.seatPositions.length - CONFIG.seatPositions.length
+    expect(addedSeats).toBeGreaterThanOrEqual(4)
+    expect(addedSeats).toBeLessThanOrEqual(8)
+    expect(result.tables.length).toBe(CONFIG.tables.length + 2)
+  })
+
+  it('C5 nudges first obstacle when present', () => {
+    const afterC3 = applySpaceEvent({ ...baseInput('A1'), eventId: 'C3' })
+    const obsBefore = afterC3.layout.obstacles[0]!
+    const result = applySpaceEvent({ ...afterC3, eventId: 'C5', rng: () => 0.9 })
+    const obsAfter = result.layout.obstacles[0]!
+    expect(obsAfter.min[0]).not.toBe(obsBefore.min[0])
   })
 })
 

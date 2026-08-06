@@ -106,6 +106,17 @@ const DICT: Record<Lang, Record<string, string>> = {
     toast_fail: '无法使用',
     toast_levelUp_prefix: '升级！',
 
+    // === Space events ===
+    spaceEvent_A1: '扩建：新包间',
+    spaceEvent_A2: '扩建：走廊与房间',
+    spaceEvent_A3: '扩建：宴会厅',
+    spaceEvent_A4: '扩建：楼上小包间',
+    spaceEvent_C1: '改造：大厅扩张',
+    spaceEvent_C2: '改造：大厅收缩',
+    spaceEvent_C3: '改造：立柱障碍',
+    spaceEvent_C4: '改造：阁楼平台',
+    spaceEvent_C5: '改造：微调整',
+
     // === Donation modal ===
     donation_title: '☕ 吧唧钱包',
     donation_p1: '本作在人类学意义上，冒犯了许多人。',
@@ -231,6 +242,17 @@ const DICT: Record<Lang, Record<string, string>> = {
     toast_fail: 'Unavailable',
     toast_levelUp_prefix: 'Level-UP!',
 
+    // === Space events ===
+    spaceEvent_A1: 'Expansion: new side room',
+    spaceEvent_A2: 'Expansion: corridor & room',
+    spaceEvent_A3: 'Expansion: banquet hall',
+    spaceEvent_A4: 'Expansion: upstairs nook',
+    spaceEvent_C1: 'Morph: hall expanded',
+    spaceEvent_C2: 'Morph: hall shrunk',
+    spaceEvent_C3: 'Morph: pillar obstacles',
+    spaceEvent_C4: 'Morph: loft platform',
+    spaceEvent_C5: 'Morph: minor tweak',
+
     // === Donation modal ===
     donation_title: '☕ Byagee My Wallet',
     donation_p1: 'This work violated some cultural convention in the broadest anthropological sense',
@@ -355,6 +377,17 @@ const DICT: Record<Lang, Record<string, string>> = {
     toast_noTarget: 'Doel verloren',
     toast_fail: 'Niet beschikbaar',
     toast_levelUp_prefix: 'Level-UP!',
+
+    // === Space events ===
+    spaceEvent_A1: 'Uitbreiding: nieuwe zijkamer',
+    spaceEvent_A2: 'Uitbreiding: gang & kamer',
+    spaceEvent_A3: 'Uitbreiding: banketzaal',
+    spaceEvent_A4: 'Uitbreiding: bovenverdieping',
+    spaceEvent_C1: 'Aanpassing: zaal vergroot',
+    spaceEvent_C2: 'Aanpassing: zaal verkleind',
+    spaceEvent_C3: 'Aanpassing: pilaar obstakels',
+    spaceEvent_C4: 'Aanpassing: platform',
+    spaceEvent_C5: 'Aanpassing: kleine wijziging',
 
     // === Donation modal ===
     donation_title: '☕ Byagee Mijn Portemonnee',

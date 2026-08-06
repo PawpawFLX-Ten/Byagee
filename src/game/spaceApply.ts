@@ -1,5 +1,7 @@
 import {
   addRoomConnected,
+  floorFromPlayerY,
+  floorY,
   roomIdAt,
   type SpaceLayoutState,
 } from './spaceLayout'
@@ -71,13 +73,14 @@ function seatsAroundTable(
   tablePos: [number, number, number],
   count: number,
   radius = 1.35,
+  seatY = tablePos[1],
 ): [number, number, number][] {
   const seats: [number, number, number][] = []
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2 + Math.PI / 4
     seats.push([
       tablePos[0] + Math.sin(angle) * radius,
-      0,
+      seatY,
       tablePos[2] + Math.cos(angle) * radius,
     ])
   }
@@ -93,7 +96,7 @@ function foodForSeat(
     id,
     plate: [
       (seat[0] + tablePos[0]) / 2,
-      0.82,
+      seat[1] + 0.82,
       (seat[2] + tablePos[2]) / 2,
     ],
     approach: [...seat] as [number, number, number],
@@ -341,10 +344,11 @@ function applyA4(input: ApplySpaceEventInput): ApplySpaceEventResult {
     ],
   }
 
+  const upperY = floorY(1)
   const table: TableDef = {
     id: `t-${roomId}`,
     shape: 'round',
-    position: [0, 0, 0],
+    position: [0, upperY, 0],
     half: { x: 0.7, z: 0.7 },
     topY: 0.75,
   }
@@ -485,10 +489,11 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
     },
   ]
 
+  const upperY = floorY(1)
   const table: TableDef = {
     id: `t-${roomId}`,
     shape: 'rect',
-    position: [0, 0, 3],
+    position: [0, upperY, 3],
     half: { x: 0.9, z: 0.55 },
     topY: 0.75,
   }
@@ -573,6 +578,6 @@ export function roomIdForSeatIndex(
 ): string {
   const seat = seatPositions[seatIndex]
   if (!seat) return layout.rooms[0]?.id ?? 'r0'
-  const floor = seat[1] > 0.5 ? 1 : 0
+  const floor = floorFromPlayerY(seat[1])
   return roomIdAt(layout, seat[0], seat[2], floor)
 }

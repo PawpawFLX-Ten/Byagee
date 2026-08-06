@@ -1,8 +1,9 @@
 import {
   knockbackFrom,
   moveWithCollision,
-  resolveTablesCollision,
+  resolveWorldCollision,
   separateFromOthers,
+  type ObstacleCollider,
   type TableCollider,
   type XZ,
 } from './collision'
@@ -50,6 +51,7 @@ function steeredDirection(
   toX: number,
   toZ: number,
   tables: TableCollider[],
+  obstacles: ObstacleCollider[] = [],
 ): [number, number] {
   const dx = toX - fromX
   const dz = toZ - fromZ
@@ -58,11 +60,11 @@ function steeredDirection(
   const dirX = dx / dist
   const dirZ = dz / dist
 
-  // Probe ahead for table collisions
+  // Probe ahead for table/obstacle collisions
   const lookAhead = Math.min(dist, 1.5)
   const probeX = fromX + dirX * lookAhead
   const probeZ = fromZ + dirZ * lookAhead
-  const [resolvedX, resolvedZ] = resolveTablesCollision(probeX, probeZ, tables)
+  const [resolvedX, resolvedZ] = resolveWorldCollision(probeX, probeZ, tables, obstacles)
 
   if (resolvedX === probeX && resolvedZ === probeZ) {
     return [dirX, dirZ] // path is clear, go straight
@@ -125,6 +127,7 @@ export function tickNpcs(
   elapsedSec: number,
   dt: number,
   playerPos?: [number, number, number],
+  obstacles: ObstacleCollider[] = [],
 ): { npcs: NpcState[]; despawnIds: string[] } {
   const phase = getPhase(elapsedSec)
   const maxSmack = CONFIG.maxOverlappingSmackers[phase]
@@ -159,10 +162,11 @@ export function tickNpcs(
         next.position[0], next.position[2],
         door[0], door[2],
         tables,
+        obstacles,
       )
       const mx = dirX * Math.min(step, dist)
       const mz = dirZ * Math.min(step, dist)
-      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers)
+      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles)
       return { ...next, position: [x, 0, z] as [number, number, number] }
     }
 
@@ -196,7 +200,7 @@ export function tickNpcs(
       if (dist < 0.28) {
         if (smacking < maxSmack) {
           smacking += 1
-          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables)
+          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles)
           return {
             ...next,
             status: 'smacking' as const,
@@ -221,6 +225,7 @@ export function tickNpcs(
         next.position[0], next.position[2],
         target[0], target[2],
         tables,
+        obstacles,
       )
       let mx = dirX * Math.min(step, dist)
       let mz = dirZ * Math.min(step, dist)
@@ -240,6 +245,8 @@ export function tickNpcs(
         mz,
         tables,
         blockers,
+        undefined,
+        obstacles,
       )
       const moved = Math.hypot(x - next.position[0], z - next.position[2])
       const stuckTicks =
@@ -318,7 +325,7 @@ export function tickNpcs(
       .filter((_, j) => j !== i)
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     if (playerPos) blockers.push({ x: playerPos[0], z: playerPos[2] })
-    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables)
+    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles)
     if (x === npc.position[0] && z === npc.position[2]) return npc
     return { ...npc, position: [x, 0, z] as [number, number, number] }
   })

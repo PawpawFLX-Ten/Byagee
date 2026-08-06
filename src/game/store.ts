@@ -137,6 +137,7 @@ export interface GameStore {
   useSkill: (skillId: SkillId, now?: number) => void
   tick: (dt: number, now: number) => void
   clearToast: () => void
+  clearSpaceEventToast: () => void
   setReduceNausea: (on: boolean) => void
   togglePause: () => void
 }
@@ -362,6 +363,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   clearToast: () => set({ toast: null }),
+  clearSpaceEventToast: () => set({ spaceEventToast: null }),
 
   setReduceNausea: (on) => set({ reduceNausea: on }),
 
@@ -540,7 +542,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const elapsedSec = (now - state.startedAt) / 1000
     const phase = getPhase(elapsedSec)
-    const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
+    const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos, layout.obstacles)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
     const layoutForRoom = layout

@@ -41,6 +41,60 @@ export function resolveTableShapeCollision(
   return [x, z]
 }
 
+export type ObstacleCollider = {
+  min: [number, number]
+  max: [number, number]
+}
+
+export function resolveObstacleCollision(
+  x: number,
+  z: number,
+  obs: ObstacleCollider,
+  radius = CHAR_RADIUS,
+): [number, number] {
+  const cx = (obs.min[0] + obs.max[0]) / 2
+  const cz = (obs.min[1] + obs.max[1]) / 2
+  const hx = (obs.max[0] - obs.min[0]) / 2 + radius
+  const hz = (obs.max[1] - obs.min[1]) / 2 + radius
+  const lx = x - cx
+  const lz = z - cz
+  if (Math.abs(lx) <= hx && Math.abs(lz) <= hz) {
+    const dx = hx - Math.abs(lx)
+    const dz = hz - Math.abs(lz)
+    if (dx < dz) return [cx + Math.sign(lx || 1) * hx, z]
+    return [x, cz + Math.sign(lz || 1) * hz]
+  }
+  return [x, z]
+}
+
+export function resolveObstaclesCollision(
+  x: number,
+  z: number,
+  obstacles: ObstacleCollider[],
+  radius = CHAR_RADIUS,
+): [number, number] {
+  let nx = x
+  let nz = z
+  for (const o of obstacles) {
+    ;[nx, nz] = resolveObstacleCollision(nx, nz, o, radius)
+  }
+  return [nx, nz]
+}
+
+export function resolveWorldCollision(
+  x: number,
+  z: number,
+  tables: TableCollider[],
+  obstacles: ObstacleCollider[] = [],
+  radius = CHAR_RADIUS,
+): [number, number] {
+  let nx = x
+  let nz = z
+  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
+  ;[nx, nz] = resolveObstaclesCollision(nx, nz, obstacles, radius)
+  return [nx, nz]
+}
+
 export function resolveTablesCollision(
   x: number,
   z: number,
@@ -69,6 +123,7 @@ export function separateFromOthers(
   others: XZ[],
   tables: TableCollider[],
   radius = CHAR_RADIUS,
+  obstacles: ObstacleCollider[] = [],
 ): [number, number] {
   let nx = x
   let nz = z
@@ -88,7 +143,7 @@ export function separateFromOthers(
       nz += (dz / d) * push
     }
   }
-  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius)
   return clampRoom(nx, nz)
 }
 
@@ -100,17 +155,18 @@ export function moveWithCollision(
   tables: TableCollider[],
   others: XZ[] = [],
   radius = CHAR_RADIUS,
+  obstacles: ObstacleCollider[] = [],
 ): [number, number] {
   let nx = x + dx
   let nz = z
-  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius)
   ;[nx, nz] = clampRoom(nx, nz)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles)
 
   nz = nz + dz
-  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius)
   ;[nx, nz] = clampRoom(nx, nz)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles)
   return [nx, nz]
 }
 
@@ -121,11 +177,12 @@ export function knockbackFrom(
   strength = 0.45,
   tables: TableCollider[],
   others: XZ[] = [],
+  obstacles: ObstacleCollider[] = [],
 ): [number, number] {
   let dx = to[0] - from[0]
   let dz = to[2] - from[2]
   const len = Math.hypot(dx, dz) || 1
   dx = (dx / len) * strength
   dz = (dz / len) * strength
-  return moveWithCollision(to[0], to[2], dx, dz, tables, others)
+  return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles)
 }

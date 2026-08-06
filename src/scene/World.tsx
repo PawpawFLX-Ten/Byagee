@@ -9,7 +9,7 @@ import {
   Raycaster,
   Vector3,
 } from 'three'
-import { moveWithCollision, separateFromOthers } from '../game/collision'
+import { CHAR_RADIUS, moveWithCollision, separateFromOthers } from '../game/collision'
 import { CONFIG } from '../game/config'
 import { t } from '../game/i18n'
 import { useGameStore } from '../game/store'
@@ -468,6 +468,7 @@ export function Player() {
   const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
   const npcs = useGameStore((s) => s.npcs)
   const tables = useGameStore((s) => s.runtimeTables)
+  const obstacles = useGameStore((s) => s.layout.obstacles)
   useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
@@ -529,6 +530,8 @@ export function Player() {
           mz * speed * dt,
           isAirborne ? [] : tables,
           blockers,
+          CHAR_RADIUS,
+          isAirborne ? [] : obstacles,
         )
         ref.current.position.x = x
         ref.current.position.z = z
@@ -540,6 +543,8 @@ export function Player() {
           ref.current.position.z,
           blockers,
           tables,
+          CHAR_RADIUS,
+          obstacles,
         )
         ref.current.position.x = x
         ref.current.position.z = z

@@ -32,6 +32,8 @@ export function Hud() {
   const cycle = useGameStore((s) => s.cycleTarget)
   const restart = useGameStore((s) => s.restart)
   const toast = useGameStore((s) => s.toast)
+  const spaceEventToast = useGameStore((s) => s.spaceEventToast)
+  const clearSpaceEventToast = useGameStore((s) => s.clearSpaceEventToast)
   const lastSkillOk = useGameStore((s) => s.lastSkillOk)
   const guideTip = useGameStore((s) => s.guideTip)
   const reduceNausea = useGameStore((s) => s.reduceNausea)
@@ -48,6 +50,12 @@ export function Hud() {
     const id = window.setInterval(() => setTick((t) => t + 1), 100)
     return () => window.clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    if (!spaceEventToast) return
+    const id = window.setTimeout(() => clearSpaceEventToast(), 2500)
+    return () => window.clearTimeout(id)
+  }, [spaceEventToast, clearSpaceEventToast])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -216,7 +224,11 @@ export function Hud() {
         </div>
       )}
 
-      {!showToast && guideTip && alive && (
+      {spaceEventToast && (
+        <div className="toast space-event">{t(`spaceEvent_${spaceEventToast}`)}</div>
+      )}
+
+      {!showToast && !spaceEventToast && guideTip && alive && (
         <div className="toast guide">{guideTip}</div>
       )}
 

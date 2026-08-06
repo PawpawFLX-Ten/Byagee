@@ -147,6 +147,13 @@ export function addRoomConnected(
   }
 }
 
+/** World Y offset per floor band (matches Room mesh). */
+export const FLOOR_ELEVATION = 1.5
+
+export function floorY(floor: number): number {
+  return floor * FLOOR_ELEVATION
+}
+
 /** Infer player floor from Y height (stairs land ~1.5m). */
 export function floorFromPlayerY(y: number): number {
   return y > 1.2 ? 1 : 0
