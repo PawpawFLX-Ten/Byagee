@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import { CONFIG, SKILL_ORDER } from './config'
 import { createBossNpc, tickBossRage } from './bossModules'
+import {
+  createChaser,
+  inFaceRadius,
+  neighborThreatShare,
+  shouldSpawnChaser,
+  stepChaser,
+  threatPartsFromNpcs,
+} from './chaser'
 import { getPhase } from './difficulty'
 import { applyDoorAction, freeSeatIndexes, planBossAdmission, planDoorAction } from './doorSystem'
 import { createNpcs, tickNpcs } from './npcFsm'
@@ -545,6 +553,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos, layout.obstacles)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
+    npcs = npcs.map((n) =>
+      n.role === 'chaser'
+        ? stepChaser(n, state.playerPos, layout, layout.obstacles, dt, now)
+        : n,
+    )
+
     const layoutForRoom = layout
     const playerFloor = floorFromPlayerY(state.playerPos[1])
     const playerRoomId = roomIdAt(
@@ -563,9 +577,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerFloor,
       hopDistance: (npcRoom) => hopDistance(layout, playerRoomId, npcRoom),
       latchedOnPath: (npcRoom) => latchedOnPath(layout, playerRoomId, npcRoom, now),
+      ignoreRoomGate: (npc) =>
+        npc.role === 'chaser' && inFaceRadius(npc, state.playerPos),
     })
 
     // Boss spawn every intervalSec (max 1 boss at a time)
+    let bossSpawnThisBeat = false
     if (elapsedSec >= nextBossAtElapsed) {
       nextBossAtElapsed += CONFIG.boss.intervalSec
       if (!npcs.some((n) => n.role === 'boss')) {
@@ -578,16 +595,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
           }
         }
         // Spawn boss into a free seat
-        const occupiedSeats = new Set(npcs.map((n) => n.seatIndex))
+        const occupiedSeats = new Set(
+          npcs.filter((n) => n.seatIndex >= 0).map((n) => n.seatIndex),
+        )
         const free = freeSeatIndexes(occupiedSeats)
         if (free.length && npcs.length < maxNpcs) {
           npcs = [...npcs, createBossNpc(free[0], now, elapsedSec, `boss-${++npcSeq}`)]
+          bossSpawnThisBeat = true
         }
       }
     }
 
+    const chaserCount = npcs.filter((n) => n.role === 'chaser').length
+    const neighborShare = neighborThreatShare(
+      playerRoomId,
+      threatPartsFromNpcs(npcs, state.playerPos),
+    )
+    const doorRoomId = roomIdAt(
+      layout,
+      CONFIG.door.position[0],
+      CONFIG.door.position[2],
+      0,
+    )
+    if (
+      shouldSpawnChaser({
+        phase,
+        roomCount: layout.rooms.length,
+        neighborShare,
+        chaserCount,
+        bossPresent: npcs.some((n) => n.role === 'boss'),
+        bossSpawnThisBeat,
+        totalNpcCount: npcs.length,
+        maxNpcs,
+      })
+    ) {
+      npcs = [
+        ...npcs,
+        createChaser(`chaser-${++npcSeq}`, CONFIG.door.position, doorRoomId, now),
+      ]
+    }
+
     // Normal door traffic (timed / threat / seat plugins)
-    const occupiedForDoor = new Set(npcs.map((n) => n.seatIndex))
+    const occupiedForDoor = new Set(
+      npcs.filter((n) => n.seatIndex >= 0).map((n) => n.seatIndex),
+    )
     const doorAction = planDoorAction({
       npcs,
       elapsedSec,

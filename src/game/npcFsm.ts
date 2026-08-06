@@ -141,6 +141,8 @@ export function tickNpcs(
   )
 
   let nextList = npcs.map((npc) => {
+    if (npc.role === 'chaser') return npc
+
     let next = { ...npc }
     const blockers = [
       ...othersXZ(npcs, npc.id),

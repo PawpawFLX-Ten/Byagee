@@ -108,8 +108,19 @@ export function applyPropEffect(
 
   // silence: only normal NPCs
   const silenceUntil = now + CONFIG.props.silenceSec * 1000
+  const chaserSilenceMs = 300
   const nextNpcs = npcs.map((n) => {
     if (n.role === 'boss') return n
+    if (n.role === 'chaser') {
+      if (n.status === 'walking') return n
+      return {
+        ...n,
+        status: 'silenced' as const,
+        statusUntil: now + chaserSilenceMs,
+        sealProp: null,
+        smackingSince: 0,
+      }
+    }
     if (n.status === 'walking') return n // don't silence walking NPCs
     return {
       ...n,

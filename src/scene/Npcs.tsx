@@ -7,6 +7,7 @@ import { t } from '../game/i18n'
 import type { NpcState, SkillId } from '../game/types'
 
 const COLORS = ['#e07070', '#70a070', '#7070c0']
+const CHASER_COLOR = '#e04030'
 const HEAD_Y = 1.28
 const HIT_COLOR: Record<SkillId, string> = {
   slap: '#ffdd66',
@@ -39,8 +40,9 @@ function NpcMesh({
   const cheekR = useRef<Mesh>(null)
   const flash = useRef<Mesh>(null)
   const wave = useRef<Group>(null)
-  const bodyColor = COLORS[npc.seatIndex % COLORS.length]
-  const phase = useMemo(() => npc.seatIndex * 1.7, [npc.seatIndex])
+  const isChaser = npc.role === 'chaser'
+  const bodyColor = isChaser ? CHASER_COLOR : COLORS[npc.seatIndex % COLORS.length]
+  const phase = useMemo(() => (isChaser ? npc.id.length * 1.3 : npc.seatIndex * 1.7), [npc.id, npc.seatIndex, isChaser])
   useGameStore((s) => s.lang) // re-render on language change
 
   useFrame(({ clock }) => {
@@ -51,6 +53,11 @@ function NpcMesh({
     if (root.current) {
       root.current.position.set(npc.position[0], 0, npc.position[2])
       root.current.rotation.y = npc.facing
+      if (isChaser && npc.status === 'walking') {
+        root.current.position.y = Math.abs(Math.sin(t * 12)) * 0.06
+      } else {
+        root.current.position.y = 0
+      }
     }
 
     if (flash.current) {
@@ -147,7 +154,9 @@ function NpcMesh({
 
   const faceLocked = npc.status === 'sealed' || npc.status === 'silenced'
   const quietLabel =
-    npc.sealProp === 'tape'
+    isChaser && npc.status === 'walking'
+      ? t('npc_chaser')
+      : npc.sealProp === 'tape'
       ? t('npc_sealedTape')
       : npc.sealProp === 'gag'
         ? t('npc_sealedGag')
@@ -276,6 +285,15 @@ function NpcMesh({
           <Text fontSize={0.2} color="#88cc88" anchorX="center" anchorY="middle">
             {quietLabel}
           </Text>
+        </Billboard>
+      )}
+
+      {isChaser && npc.status === 'walking' && (
+        <Billboard position={[0, 2.05, 0]}>
+          <mesh>
+            <ringGeometry args={[0.22, 0.3, 16]} />
+            <meshBasicMaterial color="#ff5533" transparent opacity={0.9} />
+          </mesh>
         </Billboard>
       )}
 

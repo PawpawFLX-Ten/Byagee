@@ -147,6 +147,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     npc_sealedGag: '塞住',
     npc_silenced: '安静',
     npc_walking: '觅食',
+    npc_chaser: '追杀',
     npc_smacking: '吧唧',
 
     // === Scene 3D text ===
@@ -283,6 +284,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     npc_sealedGag: 'Gagged',
     npc_silenced: 'Quiet',
     npc_walking: 'Hungry',
+    npc_chaser: 'Chasing',
     npc_smacking: 'Byagee',
 
     // === Scene 3D text ===
@@ -419,6 +421,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     npc_sealedGag: 'Gepropt',
     npc_silenced: 'Stil',
     npc_walking: 'Hongerig',
+    npc_chaser: 'Achtervolging',
     npc_smacking: 'Byagee',
 
     // === Scene 3D text ===

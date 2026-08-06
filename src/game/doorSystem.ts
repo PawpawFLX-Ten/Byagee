@@ -25,7 +25,7 @@ export function freeSeatIndexes(occupied: Set<number>): number[] {
 }
 
 export function pickExitCandidate(npcs: NpcState[], now: number = 0): NpcState | null {
-  const normals = npcs.filter((n) => n.role !== 'boss' && !n.exiting)
+  const normals = npcs.filter((n) => n.role !== 'boss' && n.role !== 'chaser' && !n.exiting)
   const rank = (n: NpcState) => {
     // Force-exit NPCs that have been in the room beyond idleExitSec
     if (now > 0 && now - n.idleSince > CONFIG.door.idleExitSec * 1000) return -1
