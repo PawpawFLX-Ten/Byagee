@@ -7,10 +7,17 @@ import { createNpcs, tickNpcs } from './npcFsm'
 import { shouldSpawnProp, sampleFloorPosition, pickPropType, checkPickup, applyPropEffect, createProp } from './props'
 import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORMAL, XP_PER_SKILL_HIT_BOSS, XP_PER_SURVIVAL_SEC, cdMultiplier } from './progression'
 import { cycleTarget, tryUseSkill } from './skills'
+import {
+  createInitialLayout,
+  hopDistance,
+  latchedOnPath,
+  roomIdAt,
+  type SpaceLayoutState,
+} from './spaceLayout'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
 import { t, setLang, getLang, type Lang } from './i18n'
-import type { DifficultyPhase, NpcState, PropState, SkillId } from './types'
+import type { DifficultyPhase, NpcState, PropState, RoomId, SkillId } from './types'
 
 function emptyCooldowns(): Record<SkillId, number> {
   return {
@@ -74,6 +81,8 @@ export interface GameStore {
   propSeq: number
   paused: boolean
   pausedAt: number
+  layout: SpaceLayoutState
+  playerRoomId: RoomId
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
@@ -170,6 +179,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   propSeq: 0,
   paused: false,
   pausedAt: 0,
+  layout: createInitialLayout(),
+  playerRoomId: 'r0',
   lang: getLang(),
 
   setLang: (lang) => {
@@ -211,6 +222,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextPropAt: CONFIG.props.spawnIntervalSec,
       propSeq: 0,
       paused: false,
+      layout: createInitialLayout(),
+      playerRoomId: 'r0',
     })
   },
 
@@ -247,6 +260,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextPropAt: CONFIG.props.spawnIntervalSec,
       propSeq: 0,
       paused: false,
+      layout: createInitialLayout(),
+      playerRoomId: 'r0',
     })
   },
 
@@ -416,13 +431,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
+    const layout = state.layout
+    const playerFloor =
+      layout.rooms.find((r) => r.id === state.playerRoomId)?.floor ?? 0
+    const playerRoomId = roomIdAt(
+      layout,
+      state.playerPos[0],
+      state.playerPos[2],
+      playerFloor,
+    )
+    const roomFloor = (roomId: RoomId) =>
+      layout.rooms.find((r) => r.id === roomId)?.floor ?? 0
+
     const threat = computeThreat(npcs, state.playerPos, selfNoise, now, elapsedSec, {
-      playerRoomId: 'r0',
+      playerRoomId,
       npcRoomId: (npc) => npc.roomId,
-      npcFloor: () => 0,
-      playerFloor: 0,
-      hopDistance: () => 0,
-      latchedOnPath: () => false,
+      npcFloor: (npc) => roomFloor(npc.roomId),
+      playerFloor,
+      hopDistance: (npcRoom) => hopDistance(layout, playerRoomId, npcRoom),
+      latchedOnPath: (npcRoom) => latchedOnPath(layout, playerRoomId, npcRoom, now),
     })
 
     // Boss spawn every intervalSec (max 1 boss at a time)
@@ -533,6 +560,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       elapsedSec,
       phase,
       npcs,
+      layout,
+      playerRoomId,
       threat,
       selfNoise,
       selfNoiseUntil,
