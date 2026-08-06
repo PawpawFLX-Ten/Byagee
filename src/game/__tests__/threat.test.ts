@@ -69,4 +69,39 @@ describe('threat', () => {
     const threatNeighbor = computeThreat([neighborNpc], pos, 0, 0, 0, ctx)
     expect(threatSame).toBeGreaterThan(threatNeighbor)
   })
+
+  it('ignoreRoomGate lets face-smack chaser in neighbor room contribute full threat', () => {
+    const pos: [number, number, number] = [0, 0, 1]
+    const neighborChaser = baseNpc({
+      id: 'chaser-neighbor',
+      role: 'chaser',
+      status: 'smacking',
+      position: [0, 0, 0],
+      roomId: 'r1',
+    })
+    const ctx = {
+      playerRoomId: 'r0',
+      npcRoomId: (npc: NpcState) => npc.roomId,
+      npcFloor: () => 0,
+      playerFloor: 0,
+      hopDistance: (roomId: string) => (roomId === 'r0' ? 0 : 1),
+      latchedOnPath: () => false,
+    }
+    const threatMuted = computeThreat([neighborChaser], pos, 0, 0, 0, ctx)
+    const threatFull = computeThreat([neighborChaser], pos, 0, 0, 0, {
+      ...ctx,
+      ignoreRoomGate: () => true,
+    })
+    expect(threatFull).toBeGreaterThan(threatMuted)
+
+    const sameRoomChaser = baseNpc({
+      id: 'chaser-same',
+      role: 'chaser',
+      status: 'smacking',
+      position: [0, 0, 0],
+      roomId: 'r0',
+    })
+    const threatSameRoom = computeThreat([sameRoomChaser], pos, 0, 0, 0, ctx)
+    expect(threatFull).toBeCloseTo(threatSameRoom)
+  })
 })
