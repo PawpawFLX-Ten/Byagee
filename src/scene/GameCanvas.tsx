@@ -3,9 +3,11 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { Vector3 } from 'three'
 import { useGameStore } from '../game/store'
+import { Selection } from '@react-three/postprocessing'
 import { AudioDirector } from './AudioDirector'
 import { Atmosphere } from './Atmosphere'
 import { Npcs } from './Npcs'
+import { PostProcessing } from './PostProcessing'
 import { Props } from './Props'
 import { SkillFx } from './SkillFx'
 import { Player, Room, Tables, Door, WallOcclusionFader } from './World'
@@ -98,18 +100,21 @@ export function GameCanvas() {
       style={{ width: '100%', height: '100%' }}
     >
       <color attach="background" args={['#d9cfc0']} />
-      <GameLoop />
-      <AudioDirector />
-      <Atmosphere />
-      <CameraFollow />
-      <WallOcclusionFader />
-      <Room />
-      <Door />
-      <Tables />
-      <Player />
-      <Npcs />
-      <Props />
-      <SkillFx />
+      <Selection>
+        <PostProcessing />
+        <GameLoop />
+        <AudioDirector />
+        <Atmosphere />
+        <CameraFollow />
+        <WallOcclusionFader />
+        <Room />
+        <Door />
+        <Tables />
+        <Player />
+        <Npcs />
+        <Props />
+        <SkillFx />
+      </Selection>
     </Canvas>
   )
 }

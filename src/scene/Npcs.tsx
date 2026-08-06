@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
+import { Select } from '@react-three/postprocessing'
 import type { Group, Mesh } from 'three'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
@@ -171,6 +172,7 @@ function NpcMesh({
             : null
 
   return (
+    <Select enabled={selected}>
     <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]} scale={npc.scale * variance}>
       <mesh position={[0, isChaser ? 0.48 : 0.42, 0]} castShadow>
         <capsuleGeometry args={[torsoWidth, isChaser ? 0.42 : 0.35, 4, 8]} />
@@ -320,6 +322,7 @@ function NpcMesh({
         </Billboard>
       )}
     </group>
+    </Select>
   )
 }
 
