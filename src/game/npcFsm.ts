@@ -7,13 +7,14 @@ import {
   type XZ,
 } from './collision'
 import { CONFIG } from './config'
+import { getRuntimeSpace } from './runtimeSpace'
 import { getPhase } from './difficulty'
 import type { DifficultyPhase, FoodSpot, NpcState, SealProp } from './types'
 
 const STUCK_TICKS_BEFORE_REROUTE = 25
 
 function foodIndexInConfig(foodId: string): number {
-  const idx = CONFIG.foodSpots.findIndex((f) => f.id === foodId)
+  const idx = getRuntimeSpace().foodSpots.findIndex((f) => f.id === foodId)
   return idx >= 0 ? idx : 0
 }
 
@@ -83,8 +84,9 @@ function steeredDirection(
 }
 
 export function createNpcs(now: number): NpcState[] {
-  return CONFIG.seatPositions.slice(0, CONFIG.npcCount).map((pos, i) => {
-    const food = CONFIG.foodSpots[i % CONFIG.foodSpots.length]
+  const runtime = getRuntimeSpace()
+  return runtime.seatPositions.slice(0, CONFIG.npcCount).map((pos, i) => {
+    const food = runtime.foodSpots[i % runtime.foodSpots.length]
     const approach = approachFor(food, i)
     return {
       id: `npc-${i}`,
@@ -126,6 +128,7 @@ export function tickNpcs(
 ): { npcs: NpcState[]; despawnIds: string[] } {
   const phase = getPhase(elapsedSec)
   const maxSmack = CONFIG.maxOverlappingSmackers[phase]
+  const { tables, foodSpots } = getRuntimeSpace()
   let smacking = npcs.filter((n) => n.status === 'smacking').length
   const despawnIds: string[] = []
 
@@ -155,11 +158,11 @@ export function tickNpcs(
       const [dirX, dirZ] = steeredDirection(
         next.position[0], next.position[2],
         door[0], door[2],
-        CONFIG.tables,
+        tables,
       )
       const mx = dirX * Math.min(step, dist)
       const mz = dirZ * Math.min(step, dist)
-      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, CONFIG.tables, blockers)
+      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers)
       return { ...next, position: [x, 0, z] as [number, number, number] }
     }
 
@@ -175,7 +178,7 @@ export function tickNpcs(
         }
       }
 
-      const food = CONFIG.foodSpots.find((f) => f.id === next.foodId)
+      const food = foodSpots.find((f) => f.id === next.foodId)
       if (!food) {
         return {
           ...next,
@@ -193,7 +196,7 @@ export function tickNpcs(
       if (dist < 0.28) {
         if (smacking < maxSmack) {
           smacking += 1
-          const [x, z] = separateFromOthers(target[0], target[2], blockers, CONFIG.tables)
+          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables)
           return {
             ...next,
             status: 'smacking' as const,
@@ -217,7 +220,7 @@ export function tickNpcs(
       const [dirX, dirZ] = steeredDirection(
         next.position[0], next.position[2],
         target[0], target[2],
-        CONFIG.tables,
+        tables,
       )
       let mx = dirX * Math.min(step, dist)
       let mz = dirZ * Math.min(step, dist)
@@ -235,7 +238,7 @@ export function tickNpcs(
         next.position[2],
         mx,
         mz,
-        CONFIG.tables,
+        tables,
         blockers,
       )
       const moved = Math.hypot(x - next.position[0], z - next.position[2])
@@ -315,7 +318,7 @@ export function tickNpcs(
       .filter((_, j) => j !== i)
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     if (playerPos) blockers.push({ x: playerPos[0], z: playerPos[2] })
-    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, CONFIG.tables)
+    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables)
     if (x === npc.position[0] && z === npc.position[2]) return npc
     return { ...npc, position: [x, 0, z] as [number, number, number] }
   })
@@ -345,9 +348,9 @@ function perimeterSlide(
 }
 
 function nearestTable(x: number, z: number): TableCollider {
-  let best = CONFIG.tables[0]
+  let best = getRuntimeSpace().tables[0]
   let bestD = Infinity
-  for (const t of CONFIG.tables) {
+  for (const t of getRuntimeSpace().tables) {
     const d = Math.hypot(x - t.position[0], z - t.position[2])
     if (d < bestD) {
       bestD = d
@@ -372,9 +375,10 @@ function pickFood(
   }
   if (excludeId) taken.add(excludeId)
 
-  const free = CONFIG.foodSpots.filter((f) => !taken.has(f.id))
-  const pool = free.length ? free : CONFIG.foodSpots.filter((f) => f.id !== excludeId)
-  const choices = pool.length ? pool : CONFIG.foodSpots
+  const foods = getRuntimeSpace().foodSpots
+  const free = foods.filter((f) => !taken.has(f.id))
+  const pool = free.length ? free : foods.filter((f) => f.id !== excludeId)
+  const choices = pool.length ? pool : foods
 
   // Prefer nearest uncrowded approach
   const scored = choices.map((f) => {
@@ -421,7 +425,7 @@ export function applySilence(
 ): NpcState {
   let position = npc.position
   if (attackerPos) {
-    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, CONFIG.tables, others)
+    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, getRuntimeSpace().tables, others)
     position = [x, 0, z]
   }
   return {

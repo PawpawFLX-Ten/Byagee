@@ -5,6 +5,7 @@ import {
   hopDistance,
   latchedOnPath,
   roomIdAt,
+  floorFromPlayerY,
 } from '../spaceLayout'
 
 describe('spaceLayout', () => {
@@ -13,6 +14,8 @@ describe('spaceLayout', () => {
     expect(roomIdAt(L, 0, 0, 0)).toBe('r0')
     expect(L.rooms).toHaveLength(1)
     expect(L.rooms[0].id).toBe('r0')
+    expect(L.obstacles).toEqual([])
+    expect(L.stairs).toEqual([])
   })
 
   it('after adding adjacent room, hopDistance is 1', () => {
@@ -54,5 +57,10 @@ describe('spaceLayout', () => {
   it('latchedOnPath is false for same room', () => {
     const L = createInitialLayout()
     expect(latchedOnPath(L, 'r0', 'r0', 0)).toBe(false)
+  })
+
+  it('floorFromPlayerY infers upstairs from height', () => {
+    expect(floorFromPlayerY(0)).toBe(0)
+    expect(floorFromPlayerY(1.5)).toBe(1)
   })
 })

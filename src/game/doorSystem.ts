@@ -1,5 +1,8 @@
 import { CONFIG } from './config'
+import { getRuntimeSpace } from './runtimeSpace'
 import type { NpcState } from './types'
+import type { SpaceLayoutState } from './spaceLayout'
+import { roomIdForSeatIndex } from './spaceApply'
 
 export function activeDoorPlugins(elapsedSec: number) {
   const p = CONFIG.door.plugins
@@ -16,7 +19,8 @@ export type DoorAction =
   | { type: 'evict'; npcId: string }
 
 export function freeSeatIndexes(occupied: Set<number>): number[] {
-  const all = CONFIG.seatPositions.map((_, i) => i)
+  const seats = getRuntimeSpace().seatPositions
+  const all = seats.map((_, i) => i)
   return all.filter((i) => !occupied.has(i))
 }
 
@@ -51,7 +55,7 @@ export function planDoorAction(args: {
   if (!plugins.timed) return null
   if (now - lastDoorEventAt < CONFIG.door.timedIntervalSec * 1000) return null
 
-  const atCap = npcs.length >= CONFIG.door.maxNpcs
+  const atCap = npcs.length >= getRuntimeSpace().maxNpcs
   const free = freeSeatIndexes(occupiedSeatIndexes)
 
   let preferEnter = npcs.length < CONFIG.door.startNpcCount + 2
@@ -77,13 +81,19 @@ export function planDoorAction(args: {
 
 export function planBossAdmission(npcs: NpcState[], now: number = 0): DoorAction | null {
   if (npcs.some((n) => n.role === 'boss')) return null
-  if (npcs.length < CONFIG.door.maxNpcs) return null
+  if (npcs.length < getRuntimeSpace().maxNpcs) return null
   const victim = pickExitCandidate(npcs, now)
   return victim ? { type: 'evict', npcId: victim.id } : null
 }
 
-export function createNormalFromDoor(seatIndex: number, now: number, id: string): NpcState {
-  const seat = CONFIG.seatPositions[seatIndex]
+export function createNormalFromDoor(
+  seatIndex: number,
+  now: number,
+  id: string,
+  roomId = 'r0',
+): NpcState {
+  const runtime = getRuntimeSpace()
+  const seat = runtime.seatPositions[seatIndex]
   const door = CONFIG.door.position
   return {
     id,
@@ -94,11 +104,11 @@ export function createNormalFromDoor(seatIndex: number, now: number, id: string)
     facing: Math.atan2(seat[0] - door[0], seat[2] - door[2]),
     baseLoudness: 0.4 + (seatIndex % 5) * 0.05,
     sealProp: null,
-    foodId: CONFIG.foodSpots[seatIndex % CONFIG.foodSpots.length]?.id ?? null,
+    foodId: runtime.foodSpots[seatIndex % runtime.foodSpots.length]?.id ?? null,
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'normal',
-    roomId: 'r0',
+    roomId,
     staggerUntil: 0,
     chaseTarget: false,
     scale: 1,
@@ -120,9 +130,15 @@ export function applyDoorAction(
   action: DoorAction,
   now: number,
   nextId: () => string,
+  layout?: SpaceLayoutState,
 ): NpcState[] {
   if (action.type === 'enter') {
-    return [...npcs, createNormalFromDoor(action.seatIndex, now, nextId())]
+    const seats = getRuntimeSpace().seatPositions
+    const roomId =
+      layout !== undefined
+        ? roomIdForSeatIndex(layout, seats, action.seatIndex)
+        : 'r0'
+    return [...npcs, createNormalFromDoor(action.seatIndex, now, nextId(), roomId)]
   }
   if (action.type === 'exit' || action.type === 'evict') {
     return npcs.map((n) =>

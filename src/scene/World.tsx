@@ -142,46 +142,88 @@ export function WallArt() {
 }
 
 export function Room() {
+  const layout = useGameStore((s) => s.layout)
+  // Full dynamic wall rebuild deferred to Task 9 — draw per-room floors from layout.
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[10.3, 10.3]} />
-        <meshStandardMaterial color="#c4b8a8" />
-      </mesh>
-      <Wall
-        position={[0, 1.2, -4.94]}
-        args={[10.3, 2.4, 0.18]}
-        color="#9a8268"
-        accentColor="#6b5a45"
-      />
-      <Wall
-        position={[0, 1.2, 4.94]}
-        args={[10.3, 2.4, 0.18]}
-        color="#9a8268"
-        accentColor="#6b5a45"
-      />
-      <Wall
-        position={[-4.94, 1.2, 0]}
-        args={[0.18, 2.4, 10.3]}
-        color="#8a7560"
-        accentColor="#5e4f3d"
-      />
-      <Wall
-        position={[4.94, 1.2, 0]}
-        args={[0.18, 2.4, 10.3]}
-        color="#8a7560"
-        accentColor="#5e4f3d"
-      />
-      <mesh position={[0, 2.45, 0]}>
-        <boxGeometry args={[9.89, 0.08, 9.89]} />
-        <meshStandardMaterial
-          color="#6e5a42"
-          transparent
-          opacity={0.22}
-          depthWrite={false}
-        />
-      </mesh>
-      <WallArt />
+      {layout.rooms.map((room) => {
+        const w = room.max[0] - room.min[0]
+        const d = room.max[1] - room.min[1]
+        const cx = (room.min[0] + room.max[0]) / 2
+        const cz = (room.min[1] + room.max[1]) / 2
+        const y = room.floor * 1.5
+        const floorColor = room.floor === 0 ? '#c4b8a8' : '#b8a898'
+        return (
+          <group key={room.id} position={[cx, y, cz]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+              <planeGeometry args={[w + 0.3, d + 0.3]} />
+              <meshStandardMaterial color={floorColor} />
+            </mesh>
+            {room.floor === 0 && room.id === 'r0' && (
+              <>
+                <Wall
+                  position={[0, 1.2, -d / 2 - 0.14]}
+                  args={[w + 0.3, 2.4, 0.18]}
+                  color="#9a8268"
+                  accentColor="#6b5a45"
+                />
+                <Wall
+                  position={[0, 1.2, d / 2 + 0.14]}
+                  args={[w + 0.3, 2.4, 0.18]}
+                  color="#9a8268"
+                  accentColor="#6b5a45"
+                />
+                <Wall
+                  position={[-w / 2 - 0.14, 1.2, 0]}
+                  args={[0.18, 2.4, d + 0.3]}
+                  color="#8a7560"
+                  accentColor="#5e4f3d"
+                />
+                <Wall
+                  position={[w / 2 + 0.14, 1.2, 0]}
+                  args={[0.18, 2.4, d + 0.3]}
+                  color="#8a7560"
+                  accentColor="#5e4f3d"
+                />
+                <mesh position={[0, 2.45, 0]}>
+                  <boxGeometry args={[w - 0.11, 0.08, d - 0.11]} />
+                  <meshStandardMaterial
+                    color="#6e5a42"
+                    transparent
+                    opacity={0.22}
+                    depthWrite={false}
+                  />
+                </mesh>
+                <WallArt />
+              </>
+            )}
+            {room.floor > 0 && (
+              <mesh position={[0, 0.05, 0]}>
+                <boxGeometry args={[w, 0.1, d]} />
+                <meshStandardMaterial color="#a09080" />
+              </mesh>
+            )}
+          </group>
+        )
+      })}
+      {layout.obstacles.map((obs) => {
+        const w = obs.max[0] - obs.min[0]
+        const d = obs.max[1] - obs.min[1]
+        const cx = (obs.min[0] + obs.max[0]) / 2
+        const cz = (obs.min[1] + obs.max[1]) / 2
+        return (
+          <mesh key={obs.id} position={[cx, 0.75, cz]} castShadow>
+            <boxGeometry args={[w, 1.5, d]} />
+            <meshStandardMaterial color="#6a5a4a" />
+          </mesh>
+        )
+      })}
+      {layout.stairs.map((st) => (
+        <mesh key={st.id} position={[st.position[0], 0.75, st.position[2]]} rotation={[0, Math.PI / 4, 0]}>
+          <boxGeometry args={[1.2, 1.5, 2.4]} />
+          <meshStandardMaterial color="#7a6a58" />
+        </mesh>
+      ))}
       <ambientLight intensity={0.65} />
       <hemisphereLight args={['#fff2e0', '#8a7a68', 0.45]} />
       <directionalLight
@@ -207,9 +249,11 @@ const FOOD_COLORS = [
 ]
 
 export function Tables() {
+  const tables = useGameStore((s) => s.runtimeTables)
+  const foodSpots = useGameStore((s) => s.runtimeFoodSpots)
   return (
     <group>
-      {CONFIG.tables.map((t) => {
+      {tables.map((t) => {
         const legX = t.half.x * 0.85
         const legZ = t.half.z * 0.85
         const legPositions: [number, number, number][] = [
@@ -253,7 +297,7 @@ export function Tables() {
         )
       })}
 
-      {CONFIG.foodSpots.map((food, i) => {
+      {foodSpots.map((food, i) => {
         const kind = i % 4
         return (
           <group key={food.id} position={food.plate}>
@@ -423,6 +467,7 @@ export function Player() {
   const skillAction = useGameStore((s) => s.skillAction)
   const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
   const npcs = useGameStore((s) => s.npcs)
+  const tables = useGameStore((s) => s.runtimeTables)
   useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
@@ -482,7 +527,7 @@ export function Player() {
           ref.current.position.z,
           mx * speed * dt,
           mz * speed * dt,
-          isAirborne ? [] : CONFIG.tables,
+          isAirborne ? [] : tables,
           blockers,
         )
         ref.current.position.x = x
@@ -494,7 +539,7 @@ export function Player() {
           ref.current.position.x,
           ref.current.position.z,
           blockers,
-          CONFIG.tables,
+          tables,
         )
         ref.current.position.x = x
         ref.current.position.z = z

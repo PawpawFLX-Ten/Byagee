@@ -1,8 +1,10 @@
-import type { RoomId, SpaceOpening, SpaceRoom } from './types'
+import type { RoomId, SpaceObstacle, SpaceOpening, SpaceRoom, SpaceStairs } from './types'
 
 export interface SpaceLayoutState {
   rooms: SpaceRoom[]
   openings: SpaceOpening[]
+  obstacles: SpaceObstacle[]
+  stairs: SpaceStairs[]
 }
 
 /** Default single-room layout: r0 AABB ~±5 matching playable area. */
@@ -17,6 +19,8 @@ export function createInitialLayout(): SpaceLayoutState {
       },
     ],
     openings: [],
+    obstacles: [],
+    stairs: [],
   }
 }
 
@@ -138,5 +142,21 @@ export function addRoomConnected(
   return {
     rooms: [...layout.rooms, room],
     openings: [...layout.openings, opening],
+    obstacles: layout.obstacles,
+    stairs: layout.stairs,
   }
+}
+
+/** Infer player floor from Y height (stairs land ~1.5m). */
+export function floorFromPlayerY(y: number): number {
+  return y > 1.2 ? 1 : 0
+}
+
+/** Room for a world XZ seat (floor 0 unless upstairs). */
+export function roomIdForSeat(
+  layout: SpaceLayoutState,
+  seat: [number, number, number],
+  floor = 0,
+): RoomId {
+  return roomIdAt(layout, seat[0], seat[2], floor)
 }

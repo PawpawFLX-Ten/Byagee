@@ -9,6 +9,7 @@ import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORM
 import { cycleTarget, tryUseSkill } from './skills'
 import {
   createInitialLayout,
+  floorFromPlayerY,
   hopDistance,
   latchedOnPath,
   roomIdAt,
@@ -18,17 +19,39 @@ import {
   consumePendingSpaceEvent,
   onBossDemotedForSpace,
 } from './spaceDirector'
+import { applySpaceEvent, roomIdForSeatIndex } from './spaceApply'
+import {
+  createRuntimeSpaceFromConfig,
+  resetRuntimeSpace,
+  setRuntimeSpace,
+  type RuntimeSpaceState,
+} from './runtimeSpace'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
 import { t, setLang, getLang, type Lang } from './i18n'
 import type {
   DifficultyPhase,
+  FoodSpot,
   NpcState,
   PropState,
   RoomId,
   SkillId,
   SpaceEventId,
+  TableDef,
 } from './types'
+
+function syncRuntimeFromStore(
+  tables: TableDef[],
+  seats: [number, number, number][],
+  foodSpots: FoodSpot[],
+  maxNpcs: number,
+): void {
+  setRuntimeSpace({ tables, seatPositions: seats, foodSpots, maxNpcs })
+}
+
+function initialRuntime(): RuntimeSpaceState {
+  return createRuntimeSpaceFromConfig()
+}
 
 function emptyCooldowns(): Record<SkillId, number> {
   return {
@@ -99,6 +122,11 @@ export interface GameStore {
   queuedSpaceEventId: SpaceEventId | null
   lastSpaceEventAt: number
   minorMorphsSinceBoss: number
+  runtimeTables: TableDef[]
+  runtimeSeats: [number, number, number][]
+  runtimeFoodSpots: FoodSpot[]
+  maxNpcs: number
+  spaceEventToast: SpaceEventId | null
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
@@ -207,6 +235,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   queuedSpaceEventId: null,
   lastSpaceEventAt: 0,
   minorMorphsSinceBoss: 0,
+  runtimeTables: initialRuntime().tables,
+  runtimeSeats: initialRuntime().seatPositions,
+  runtimeFoodSpots: initialRuntime().foodSpots,
+  maxNpcs: initialRuntime().maxNpcs,
+  spaceEventToast: null,
   lang: getLang(),
 
   setLang: (lang) => {
@@ -215,6 +248,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   start: (now = performance.now()) => {
+    resetRuntimeSpace()
+    const runtime = initialRuntime()
+    syncRuntimeFromStore(runtime.tables, runtime.seatPositions, runtime.foodSpots, runtime.maxNpcs)
     const npcs = createNpcs(now)
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
@@ -255,10 +291,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       queuedSpaceEventId: null,
       lastSpaceEventAt: 0,
       minorMorphsSinceBoss: 0,
+      runtimeTables: runtime.tables,
+      runtimeSeats: runtime.seatPositions,
+      runtimeFoodSpots: runtime.foodSpots,
+      maxNpcs: runtime.maxNpcs,
+      spaceEventToast: null,
     })
   },
 
   beginMission: (now = performance.now()) => {
+    resetRuntimeSpace()
+    const runtime = initialRuntime()
+    syncRuntimeFromStore(runtime.tables, runtime.seatPositions, runtime.foodSpots, runtime.maxNpcs)
     const npcs = createNpcs(now)
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
@@ -298,6 +342,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       queuedSpaceEventId: null,
       lastSpaceEventAt: 0,
       minorMorphsSinceBoss: 0,
+      runtimeTables: runtime.tables,
+      runtimeSeats: runtime.seatPositions,
+      runtimeFoodSpots: runtime.foodSpots,
+      maxNpcs: runtime.maxNpcs,
+      spaceEventToast: null,
     })
   },
 
@@ -412,6 +461,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let queuedSpaceEventId = state.queuedSpaceEventId
     let lastSpaceEventAt = state.lastSpaceEventAt
     let minorMorphsSinceBoss = state.minorMorphsSinceBoss
+    let layout = state.layout
+    let runtimeTables = state.runtimeTables
+    let runtimeSeats = state.runtimeSeats
+    let runtimeFoodSpots = state.runtimeFoodSpots
+    let maxNpcs = state.maxNpcs
+    let spaceEventToast = state.spaceEventToast
 
     // Resolve windup → apply skill with knockback
     if (skillAction && now >= skillAction.until) {
@@ -488,11 +543,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
-    const layout = state.layout
-    const playerFloor =
-      layout.rooms.find((r) => r.id === state.playerRoomId)?.floor ?? 0
+    const layoutForRoom = layout
+    const playerFloor = floorFromPlayerY(state.playerPos[1])
     const playerRoomId = roomIdAt(
-      layout,
+      layoutForRoom,
       state.playerPos[0],
       state.playerPos[2],
       playerFloor,
@@ -514,7 +568,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextBossAtElapsed += CONFIG.boss.intervalSec
       if (!npcs.some((n) => n.role === 'boss')) {
         // If at cap, evict a non-critical NPC first
-        if (npcs.length >= CONFIG.door.maxNpcs) {
+        if (npcs.length >= maxNpcs) {
           const admission = planBossAdmission(npcs, now)
           if (admission && admission.type === 'evict') {
             // Directly remove the evicted NPC — boss needs the slot immediately
@@ -524,7 +578,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // Spawn boss into a free seat
         const occupiedSeats = new Set(npcs.map((n) => n.seatIndex))
         const free = freeSeatIndexes(occupiedSeats)
-        if (free.length && npcs.length < CONFIG.door.maxNpcs) {
+        if (free.length && npcs.length < maxNpcs) {
           npcs = [...npcs, createBossNpc(free[0], now, elapsedSec, `boss-${++npcSeq}`)]
         }
       }
@@ -541,7 +595,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       occupiedSeatIndexes: occupiedForDoor,
     })
     if (doorAction) {
-      npcs = applyDoorAction(npcs, doorAction, now, () => `npc-${++npcSeq}`)
+      npcs = applyDoorAction(npcs, doorAction, now, () => `npc-${++npcSeq}`, layout)
       lastDoorEventAt = now
     }
 
@@ -581,7 +635,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // --- Prop spawn ---
     if (shouldSpawnProp({ elapsedSec, nextPropAt, existingProps: props, alive: hp > 0 })) {
       const type = pickPropType(hp, CONFIG.maxHp)
-      const pos = sampleFloorPosition(CONFIG.tables, CONFIG.door.position)
+      const pos = sampleFloorPosition(runtimeTables, CONFIG.door.position)
       const id = `prop-${propSeq + 1}`
       const prop = createProp(type, pos, now, id)
       props = [...props, prop]
@@ -622,7 +676,70 @@ export const useGameStore = create<GameStore>((set, get) => ({
       queuedSpaceEventId = spaceConsumed.queuedSpaceEventId
       lastSpaceEventAt = spaceConsumed.lastSpaceEventAt
       minorMorphsSinceBoss = spaceConsumed.minorMorphsSinceBoss
-      // Task 5: applySpaceEvent(layout, seats, tables, queuedSpaceEventId, rng)
+    }
+
+    if (queuedSpaceEventId) {
+      const applied = applySpaceEvent({
+        layout,
+        tables: runtimeTables,
+        seatPositions: runtimeSeats,
+        foodSpots: runtimeFoodSpots,
+        maxNpcs,
+        eventId: queuedSpaceEventId,
+        rng: () => Math.random(),
+      })
+      layout = applied.layout
+      runtimeTables = applied.tables
+      runtimeSeats = applied.seatPositions
+      runtimeFoodSpots = applied.foodSpots
+      maxNpcs = applied.doorMaxNpcs ?? applied.maxNpcs
+      syncRuntimeFromStore(runtimeTables, runtimeSeats, runtimeFoodSpots, maxNpcs)
+      spaceEventToast = queuedSpaceEventId
+      queuedSpaceEventId = null
+
+      const invalidSet = new Set(applied.invalidSeatIndices ?? [])
+      const remap = applied.seatIndexRemap
+      npcs = npcs.map((n) => {
+        if (invalidSet.has(n.seatIndex)) {
+          return {
+            ...n,
+            exiting: true,
+            status: 'walking' as const,
+            foodId: null,
+            statusUntil: now + 6000,
+          }
+        }
+        if (remap && remap.has(n.seatIndex)) {
+          const newIdx = remap.get(n.seatIndex)!
+          return {
+            ...n,
+            seatIndex: newIdx,
+            roomId: roomIdForSeatIndex(layout, runtimeSeats, newIdx),
+          }
+        }
+        return {
+          ...n,
+          roomId: roomIdForSeatIndex(layout, runtimeSeats, n.seatIndex),
+        }
+      })
+
+      let seatedCount = npcs.filter((n) => !n.exiting).length
+      while (seatedCount > maxNpcs && npcs.some((n) => !n.exiting && n.role !== 'boss')) {
+        const victim = npcs.find((n) => !n.exiting && n.role !== 'boss')
+        if (!victim) break
+        npcs = npcs.map((n) =>
+          n.id === victim.id
+            ? {
+                ...n,
+                exiting: true,
+                status: 'walking' as const,
+                foodId: null,
+                statusUntil: now + 6000,
+              }
+            : n,
+        )
+        seatedCount = npcs.filter((n) => !n.exiting).length
+      }
     }
 
     let targetId = state.targetId
@@ -638,6 +755,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       phase,
       npcs,
       layout,
+      runtimeTables,
+      runtimeSeats,
+      runtimeFoodSpots,
+      maxNpcs,
+      spaceEventToast,
       playerRoomId,
       threat,
       selfNoise,
@@ -668,5 +790,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })
   },
 }))
+
+const bootRuntime = initialRuntime()
+syncRuntimeFromStore(
+  bootRuntime.tables,
+  bootRuntime.seatPositions,
+  bootRuntime.foodSpots,
+  bootRuntime.maxNpcs,
+)
 
 export { SKILL_ORDER }

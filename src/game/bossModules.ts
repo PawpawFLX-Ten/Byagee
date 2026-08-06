@@ -1,4 +1,5 @@
 import { CONFIG } from './config'
+import { getRuntimeSpace } from './runtimeSpace'
 import { applySilence } from './npcFsm'
 import { distance3 } from './threat'
 import type { NpcState, SealProp } from './types'
@@ -36,7 +37,7 @@ export function createBossNpc(
     facing: 0,
     baseLoudness: CONFIG.boss.baseLoudness,
     sealProp: null,
-    foodId: CONFIG.foodSpots[seatIndex % CONFIG.foodSpots.length]?.id ?? null,
+    foodId: getRuntimeSpace().foodSpots[seatIndex % getRuntimeSpace().foodSpots.length]?.id ?? null,
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'boss',

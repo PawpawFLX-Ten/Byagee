@@ -38,6 +38,19 @@ export interface SpaceRoom {
   floor: number
 }
 
+export interface SpaceObstacle {
+  id: string
+  min: [number, number]
+  max: [number, number]
+}
+
+export interface SpaceStairs {
+  id: string
+  position: [number, number, number]
+  fromRoom: RoomId
+  toRoom: RoomId
+}
+
 export type SpaceEventId = 'A1' | 'A2' | 'A3' | 'A4' | 'C1' | 'C2' | 'C3' | 'C4' | 'C5'
 
 export interface SpaceEventDef {
