@@ -416,7 +416,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos)
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
-    const threat = computeThreat(npcs, state.playerPos, selfNoise, now, elapsedSec)
+    const threat = computeThreat(npcs, state.playerPos, selfNoise, now, elapsedSec, {
+      playerRoomId: 'r0',
+      npcRoomId: (npc) => npc.roomId,
+      npcFloor: () => 0,
+      playerFloor: 0,
+      hopDistance: () => 0,
+      latchedOnPath: () => false,
+    })
 
     // Boss spawn every intervalSec (max 1 boss at a time)
     if (elapsedSec >= nextBossAtElapsed) {

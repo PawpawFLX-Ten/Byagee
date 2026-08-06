@@ -1,5 +1,18 @@
+import { floorFactor, openingFactor, roomGate } from './acoustics'
 import { CONFIG } from './config'
-import type { NpcState } from './types'
+import type { NpcState, RoomId } from './types'
+
+export type ThreatAcousticsCtx = {
+  playerRoomId: RoomId
+  npcRoomId: (npc: NpcState) => RoomId
+  npcFloor: (npc: NpcState) => number
+  playerFloor: number
+  /** graph hops player→npc; 0 if same */
+  hopDistance: (npcRoom: RoomId) => number
+  latchedOnPath: (npcRoom: RoomId) => boolean
+  /** chaser in face radius ignores room mute */
+  ignoreRoomGate?: (npc: NpcState) => boolean
+}
 
 export function distance3(
   a: [number, number, number],
@@ -35,6 +48,7 @@ export function computeThreat(
   extraNoise = 0,
   now = 0,
   elapsedSec = 0,
+  ctx?: ThreatAcousticsCtx,
 ): number {
   let sum = 0
   const delaySec = smackDamageDelayFor(elapsedSec)
@@ -43,7 +57,19 @@ export function computeThreat(
     if (now > 0 && npc.smackingSince > 0 && now - npc.smackingSince < delaySec * 1000) continue
     const d = distance3(npc.position, playerPos)
     const effectiveLoudness = Math.max(0.05, npc.baseLoudness - npc.noiseReduction)
-    sum += effectiveLoudness * distanceAttenuation(d)
+    let gate = 1
+    if (ctx) {
+      if (ctx.ignoreRoomGate?.(npc)) {
+        gate = 1
+      } else {
+        const nr = ctx.npcRoomId(npc)
+        gate =
+          roomGate(ctx.playerRoomId, nr, ctx.hopDistance(nr)) *
+          openingFactor(ctx.latchedOnPath(nr)) *
+          floorFactor(ctx.playerRoomId === nr, ctx.npcFloor(npc) === ctx.playerFloor)
+      }
+    }
+    sum += effectiveLoudness * distanceAttenuation(d) * gate
   }
   return Math.min(1.5, (sum + extraNoise) * CONFIG.roomReverb)
 }

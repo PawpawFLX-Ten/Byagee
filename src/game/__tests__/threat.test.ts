@@ -52,4 +52,21 @@ describe('threat', () => {
     expect(hpDrainPerSec(0.9, 1)).toBeCloseTo(38, 1)
     expect(hpDrainPerSec(0.9, 2)).toBeCloseTo(76, 1)
   })
+
+  it('neighbor room contributes less than same room at equal distance', () => {
+    const pos: [number, number, number] = [0, 0, 1]
+    const sameRoomNpc = baseNpc({ id: 'same', position: [0, 0, 0], roomId: 'r0' })
+    const neighborNpc = baseNpc({ id: 'neighbor', position: [0, 0, 0], roomId: 'r1' })
+    const ctx = {
+      playerRoomId: 'r0',
+      npcRoomId: (npc: NpcState) => npc.roomId,
+      npcFloor: () => 0,
+      playerFloor: 0,
+      hopDistance: (roomId: string) => (roomId === 'r0' ? 0 : 1),
+      latchedOnPath: () => false,
+    }
+    const threatSame = computeThreat([sameRoomNpc], pos, 0, 0, 0, ctx)
+    const threatNeighbor = computeThreat([neighborNpc], pos, 0, 0, 0, ctx)
+    expect(threatSame).toBeGreaterThan(threatNeighbor)
+  })
 })
