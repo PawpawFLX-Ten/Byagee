@@ -14,10 +14,22 @@ import {
   roomIdAt,
   type SpaceLayoutState,
 } from './spaceLayout'
+import {
+  canFireSpaceEvent,
+  pickSpaceEvent,
+  scheduleFirstReward,
+} from './spaceDirector'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
 import { t, setLang, getLang, type Lang } from './i18n'
-import type { DifficultyPhase, NpcState, PropState, RoomId, SkillId } from './types'
+import type {
+  DifficultyPhase,
+  NpcState,
+  PropState,
+  RoomId,
+  SkillId,
+  SpaceEventId,
+} from './types'
 
 function emptyCooldowns(): Record<SkillId, number> {
   return {
@@ -83,6 +95,11 @@ export interface GameStore {
   pausedAt: number
   layout: SpaceLayoutState
   playerRoomId: RoomId
+  bossesCleared: number
+  pendingSpaceEventAt: number | null
+  queuedSpaceEventId: SpaceEventId | null
+  lastSpaceEventAt: number
+  minorMorphsSinceBoss: number
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
@@ -113,6 +130,11 @@ function failText(reason: string): string {
     default:
       return t('toast_fail')
   }
+}
+
+function demotedBossIds(before: NpcState[], after: NpcState[]): string[] {
+  const bossIds = new Set(before.filter((n) => n.role === 'boss').map((n) => n.id))
+  return after.filter((n) => bossIds.has(n.id) && n.role !== 'boss').map((n) => n.id)
 }
 
 function guideForElapsed(elapsed: number): string | null {
@@ -181,6 +203,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   pausedAt: 0,
   layout: createInitialLayout(),
   playerRoomId: 'r0',
+  bossesCleared: 0,
+  pendingSpaceEventAt: null,
+  queuedSpaceEventId: null,
+  lastSpaceEventAt: 0,
+  minorMorphsSinceBoss: 0,
   lang: getLang(),
 
   setLang: (lang) => {
@@ -224,6 +251,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       paused: false,
       layout: createInitialLayout(),
       playerRoomId: 'r0',
+      bossesCleared: 0,
+      pendingSpaceEventAt: null,
+      queuedSpaceEventId: null,
+      lastSpaceEventAt: 0,
+      minorMorphsSinceBoss: 0,
     })
   },
 
@@ -262,6 +294,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       paused: false,
       layout: createInitialLayout(),
       playerRoomId: 'r0',
+      bossesCleared: 0,
+      pendingSpaceEventAt: null,
+      queuedSpaceEventId: null,
+      lastSpaceEventAt: 0,
+      minorMorphsSinceBoss: 0,
     })
   },
 
@@ -371,6 +408,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let props = state.props
     let nextPropAt = state.nextPropAt
     let propSeq = state.propSeq
+    let bossesCleared = state.bossesCleared
+    let pendingSpaceEventAt = state.pendingSpaceEventAt
+    let queuedSpaceEventId = state.queuedSpaceEventId
+    let lastSpaceEventAt = state.lastSpaceEventAt
+    let minorMorphsSinceBoss = state.minorMorphsSinceBoss
 
     // Resolve windup → apply skill with knockback
     if (skillAction && now >= skillAction.until) {
@@ -387,6 +429,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
         state.level,
       )
       if (result.ok) {
+        const demoted = demotedBossIds(npcs, result.npcs)
+        if (demoted.length > 0) {
+          const prevCleared = bossesCleared
+          bossesCleared += demoted.length
+          minorMorphsSinceBoss = 0
+          if (pendingSpaceEventAt === null) {
+            if (prevCleared === 0) {
+              pendingSpaceEventAt = scheduleFirstReward(now)
+            } else if (
+              canFireSpaceEvent({
+                lastSpaceEventAt,
+                now,
+                cooldownSec: CONFIG.space.eventCooldownSec,
+              })
+            ) {
+              pendingSpaceEventAt = scheduleFirstReward(now)
+            }
+          }
+        }
         // Check if any hit NPC was smacking BEFORE the skill applied
         const resolvedSmacker = result.hitIds.some((id) =>
           npcs.find((n) => n.id === id)?.status === 'smacking',
@@ -548,6 +609,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const alive = hp > 0
 
+    // SpaceDirector: pick queued event when due (Task 5 applies geometry)
+    if (
+      pendingSpaceEventAt !== null &&
+      now >= pendingSpaceEventAt &&
+      queuedSpaceEventId === null
+    ) {
+      const isFirstEvent = lastSpaceEventAt === 0
+      const cooldownOk =
+        isFirstEvent ||
+        canFireSpaceEvent({
+          lastSpaceEventAt,
+          now,
+          cooldownSec: CONFIG.space.eventCooldownSec,
+        })
+      if (cooldownOk) {
+        queuedSpaceEventId = pickSpaceEvent(() => Math.random(), {
+          isFirst: isFirstEvent,
+          late: phase === 'late',
+        })
+        lastSpaceEventAt = now
+        pendingSpaceEventAt = null
+        if (queuedSpaceEventId === 'C5') {
+          minorMorphsSinceBoss += 1
+        }
+        // Task 5: applySpaceEvent(layout, seats, tables, queuedSpaceEventId, rng)
+      }
+    }
+
     let targetId = state.targetId
     if (!targetId || !npcs.some((n) => n.id === targetId)) {
       targetId =
@@ -583,6 +672,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       props,
       nextPropAt,
       propSeq,
+      bossesCleared,
+      pendingSpaceEventAt,
+      queuedSpaceEventId,
+      lastSpaceEventAt,
+      minorMorphsSinceBoss,
     })
   },
 }))
