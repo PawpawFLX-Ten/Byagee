@@ -5,6 +5,7 @@ import {
   pickSpaceEvent,
   scheduleFirstReward,
 } from '../spaceDirector'
+import type { SpaceEventId } from '../types'
 import { CONFIG } from '../config'
 
 describe('spaceDirector', () => {
@@ -46,5 +47,30 @@ describe('spaceDirector', () => {
     expect(scheduleFirstReward(demotedAt)).toBe(
       demotedAt + CONFIG.space.firstEventDelayAfterBossDemoteMs,
     )
+  })
+
+  it('excludes C5 from late pool when allowMinorMorph is false', () => {
+    for (let i = 0; i < 100; i++) {
+      const id = pickSpaceEvent(() => Math.random(), {
+        isFirst: false,
+        late: true,
+        allowMinorMorph: false,
+      })
+      expect(id).not.toBe('C5')
+    }
+  })
+
+  it('can pick C5 from late pool when allowMinorMorph is true', () => {
+    const ids = new Set<SpaceEventId>()
+    for (let i = 0; i < 200; i++) {
+      ids.add(
+        pickSpaceEvent(() => Math.random(), {
+          isFirst: false,
+          late: true,
+          allowMinorMorph: true,
+        }),
+      )
+    }
+    expect(ids.has('C5')).toBe(true)
   })
 })

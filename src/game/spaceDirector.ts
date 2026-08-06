@@ -33,10 +33,18 @@ function weightedPick(
   return items[items.length - 1]!.id
 }
 
+export type PickSpaceEventOpts = {
+  isFirst: boolean
+  late: boolean
+  /** When false, C5 is excluded (minor morph cap between bosses). Defaults to true. */
+  allowMinorMorph?: boolean
+}
+
 export function pickSpaceEvent(
   rng: () => number,
-  opts: { isFirst: boolean; late: boolean },
+  opts: PickSpaceEventOpts,
 ): SpaceEventId {
+  const allowMinorMorph = opts.allowMinorMorph ?? true
   let pool: { id: SpaceEventId; weight: number }[]
 
   if (opts.isFirst) {
@@ -45,7 +53,10 @@ export function pickSpaceEvent(
       weight: weightForFirstPool(e.id),
     }))
   } else if (opts.late) {
-    pool = EVENTS.map((e) => ({ id: e.id, weight: e.weightLate }))
+    pool = EVENTS.filter((e) => allowMinorMorph || e.id !== 'C5').map((e) => ({
+      id: e.id,
+      weight: e.weightLate,
+    }))
   } else {
     pool = EVENTS.filter((e) => e.id !== 'C5').map((e) => ({
       id: e.id,
@@ -67,4 +78,107 @@ export function canFireSpaceEvent(args: {
 
 export function scheduleFirstReward(demotedAtMs: number): number {
   return demotedAtMs + CONFIG.space.firstEventDelayAfterBossDemoteMs
+}
+
+export type BossDemotedForSpaceInput = {
+  bossesCleared: number
+  pendingSpaceEventAt: number | null
+  lastSpaceEventAt: number
+  now: number
+  demotedCount: number
+  eventCooldownSec: number
+}
+
+export type BossDemotedForSpaceResult = {
+  bossesCleared: number
+  pendingSpaceEventAt: number | null
+  minorMorphsSinceBoss: number
+}
+
+/** Schedule a pending space event after boss demote; resets minor morph counter. */
+export function onBossDemotedForSpace(
+  input: BossDemotedForSpaceInput,
+): BossDemotedForSpaceResult | null {
+  if (input.demotedCount <= 0) return null
+
+  const prevCleared = input.bossesCleared
+  let pendingSpaceEventAt = input.pendingSpaceEventAt
+
+  if (pendingSpaceEventAt === null) {
+    if (prevCleared === 0) {
+      pendingSpaceEventAt = scheduleFirstReward(input.now)
+    } else if (
+      canFireSpaceEvent({
+        lastSpaceEventAt: input.lastSpaceEventAt,
+        now: input.now,
+        cooldownSec: input.eventCooldownSec,
+      })
+    ) {
+      pendingSpaceEventAt = scheduleFirstReward(input.now)
+    }
+  }
+
+  return {
+    bossesCleared: input.bossesCleared + input.demotedCount,
+    pendingSpaceEventAt,
+    minorMorphsSinceBoss: 0,
+  }
+}
+
+export type ConsumePendingSpaceEventInput = {
+  pendingSpaceEventAt: number | null
+  queuedSpaceEventId: SpaceEventId | null
+  lastSpaceEventAt: number
+  minorMorphsSinceBoss: number
+  now: number
+  phaseLate: boolean
+  eventCooldownSec: number
+  minorMorphMaxBetweenBosses: number
+  rng: () => number
+}
+
+export type ConsumePendingSpaceEventResult = {
+  pendingSpaceEventAt: number | null
+  queuedSpaceEventId: SpaceEventId
+  lastSpaceEventAt: number
+  minorMorphsSinceBoss: number
+}
+
+/** Pick and queue a due space event; enforces cooldown and C5 morph cap. */
+export function consumePendingSpaceEvent(
+  input: ConsumePendingSpaceEventInput,
+): ConsumePendingSpaceEventResult | null {
+  if (input.pendingSpaceEventAt === null) return null
+  if (input.now < input.pendingSpaceEventAt) return null
+  if (input.queuedSpaceEventId !== null) return null
+
+  const isFirstEvent = input.lastSpaceEventAt === 0
+  const cooldownOk =
+    isFirstEvent ||
+    canFireSpaceEvent({
+      lastSpaceEventAt: input.lastSpaceEventAt,
+      now: input.now,
+      cooldownSec: input.eventCooldownSec,
+    })
+  if (!cooldownOk) return null
+
+  const allowMinorMorph =
+    input.minorMorphsSinceBoss < input.minorMorphMaxBetweenBosses
+  const queuedSpaceEventId = pickSpaceEvent(input.rng, {
+    isFirst: isFirstEvent,
+    late: input.phaseLate,
+    allowMinorMorph,
+  })
+
+  let minorMorphsSinceBoss = input.minorMorphsSinceBoss
+  if (queuedSpaceEventId === 'C5') {
+    minorMorphsSinceBoss += 1
+  }
+
+  return {
+    pendingSpaceEventAt: null,
+    queuedSpaceEventId,
+    lastSpaceEventAt: input.now,
+    minorMorphsSinceBoss,
+  }
 }

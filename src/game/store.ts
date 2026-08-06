@@ -15,9 +15,8 @@ import {
   type SpaceLayoutState,
 } from './spaceLayout'
 import {
-  canFireSpaceEvent,
-  pickSpaceEvent,
-  scheduleFirstReward,
+  consumePendingSpaceEvent,
+  onBossDemotedForSpace,
 } from './spaceDirector'
 import { computeThreat, hpDrainPerSec } from './threat'
 import { titleForTime } from './titles'
@@ -431,21 +430,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (result.ok) {
         const demoted = demotedBossIds(npcs, result.npcs)
         if (demoted.length > 0) {
-          const prevCleared = bossesCleared
-          bossesCleared += demoted.length
-          minorMorphsSinceBoss = 0
-          if (pendingSpaceEventAt === null) {
-            if (prevCleared === 0) {
-              pendingSpaceEventAt = scheduleFirstReward(now)
-            } else if (
-              canFireSpaceEvent({
-                lastSpaceEventAt,
-                now,
-                cooldownSec: CONFIG.space.eventCooldownSec,
-              })
-            ) {
-              pendingSpaceEventAt = scheduleFirstReward(now)
-            }
+          const spaceUpdate = onBossDemotedForSpace({
+            bossesCleared,
+            pendingSpaceEventAt,
+            lastSpaceEventAt,
+            now,
+            demotedCount: demoted.length,
+            eventCooldownSec: CONFIG.space.eventCooldownSec,
+          })
+          if (spaceUpdate) {
+            bossesCleared = spaceUpdate.bossesCleared
+            pendingSpaceEventAt = spaceUpdate.pendingSpaceEventAt
+            minorMorphsSinceBoss = spaceUpdate.minorMorphsSinceBoss
           }
         }
         // Check if any hit NPC was smacking BEFORE the skill applied
@@ -610,31 +606,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const alive = hp > 0
 
     // SpaceDirector: pick queued event when due (Task 5 applies geometry)
-    if (
-      pendingSpaceEventAt !== null &&
-      now >= pendingSpaceEventAt &&
-      queuedSpaceEventId === null
-    ) {
-      const isFirstEvent = lastSpaceEventAt === 0
-      const cooldownOk =
-        isFirstEvent ||
-        canFireSpaceEvent({
-          lastSpaceEventAt,
-          now,
-          cooldownSec: CONFIG.space.eventCooldownSec,
-        })
-      if (cooldownOk) {
-        queuedSpaceEventId = pickSpaceEvent(() => Math.random(), {
-          isFirst: isFirstEvent,
-          late: phase === 'late',
-        })
-        lastSpaceEventAt = now
-        pendingSpaceEventAt = null
-        if (queuedSpaceEventId === 'C5') {
-          minorMorphsSinceBoss += 1
-        }
-        // Task 5: applySpaceEvent(layout, seats, tables, queuedSpaceEventId, rng)
-      }
+    const spaceConsumed = consumePendingSpaceEvent({
+      pendingSpaceEventAt,
+      queuedSpaceEventId,
+      lastSpaceEventAt,
+      minorMorphsSinceBoss,
+      now,
+      phaseLate: phase === 'late',
+      eventCooldownSec: CONFIG.space.eventCooldownSec,
+      minorMorphMaxBetweenBosses: CONFIG.space.minorMorphMaxBetweenBosses,
+      rng: () => Math.random(),
+    })
+    if (spaceConsumed) {
+      pendingSpaceEventAt = spaceConsumed.pendingSpaceEventAt
+      queuedSpaceEventId = spaceConsumed.queuedSpaceEventId
+      lastSpaceEventAt = spaceConsumed.lastSpaceEventAt
+      minorMorphsSinceBoss = spaceConsumed.minorMorphsSinceBoss
+      // Task 5: applySpaceEvent(layout, seats, tables, queuedSpaceEventId, rng)
     }
 
     let targetId = state.targetId
