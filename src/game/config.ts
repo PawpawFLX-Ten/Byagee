@@ -216,6 +216,33 @@ export const CONFIG: GameConfig = {
     tableMargin: 1.0,
     doorExclusionRadius: 2.0,
   },
+  acoustics: {
+    roomGateNeighbor: 0.3,
+    roomGateFar: 0.1,
+    floorFactorSameRoom: 0.8,
+    closedDoorMute: 0.5,
+  },
+  space: {
+    eventCooldownSec: 120,
+    eventCooldownMinSec: 90,
+    firstEventDelayAfterBossDemoteMs: 800,
+    minorMorphMaxBetweenBosses: 1,
+  },
+  chaser: {
+    faceRadius: 1.2,
+    maxCountLate: 2,
+    knockbackDist: 2.2,
+    staggerSec: 0.8,
+    baseLoudness: 0.9,
+    walkSpeed: 2.4,
+    neighborThreatShareToSpawn: 0.45,
+  },
+  hideLatch: {
+    holdSec: 0.4,
+    latchDurationSec: 6,
+    searchEscalateSec: 8,
+    interactRadius: 1.35,
+  },
 }
 
 export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag', 'poop', 'civility'] as const

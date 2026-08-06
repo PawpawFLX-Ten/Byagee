@@ -17,7 +17,35 @@ export interface FoodSpot {
   approach: [number, number, number]
 }
 
-export type NpcRole = 'normal' | 'boss'
+export type NpcRole = 'normal' | 'boss' | 'chaser'
+
+export type RoomId = string
+
+export interface SpaceOpening {
+  id: string
+  fromRoom: RoomId
+  toRoom: RoomId
+  /** World position of door center */
+  position: [number, number, number]
+  latchedUntil: number
+}
+
+export interface SpaceRoom {
+  id: RoomId
+  /** AABB-ish bounds for membership tests (y ignored or floor band) */
+  min: [number, number]
+  max: [number, number]
+  floor: number
+}
+
+export type SpaceEventId = 'A1' | 'A2' | 'A3' | 'A4' | 'C1' | 'C2' | 'C3' | 'C4' | 'C5'
+
+export interface SpaceEventDef {
+  id: SpaceEventId
+  kind: 'A' | 'C'
+  inFirstRewardPool: boolean
+  weightLate: number
+}
 
 export type TableShape = 'round' | 'rect' | 'oval'
 
@@ -73,6 +101,11 @@ export interface NpcState {
   /** Consecutive low-progress walk ticks — used to unstick jams */
   stuckTicks: number
   role: NpcRole
+  roomId: RoomId
+  /** Chaser: cannot face-smack until this time */
+  staggerUntil: number
+  /** Chaser AI target player pursuit */
+  chaseTarget: boolean
   scale: number
   mouthHp: number
   mouthHpMax: number
@@ -130,6 +163,37 @@ export interface PropsConfig {
   doorExclusionRadius: number
 }
 
+export interface AcousticsConfig {
+  roomGateNeighbor: number
+  roomGateFar: number
+  floorFactorSameRoom: number
+  closedDoorMute: number
+}
+
+export interface SpaceConfig {
+  eventCooldownSec: number
+  eventCooldownMinSec: number
+  firstEventDelayAfterBossDemoteMs: number
+  minorMorphMaxBetweenBosses: number
+}
+
+export interface ChaserConfig {
+  faceRadius: number
+  maxCountLate: number
+  knockbackDist: number
+  staggerSec: number
+  baseLoudness: number
+  walkSpeed: number
+  neighborThreatShareToSpawn: number
+}
+
+export interface HideLatchConfig {
+  holdSec: number
+  latchDurationSec: number
+  searchEscalateSec: number
+  interactRadius: number
+}
+
 export interface GameConfig {
   maxHp: number
   softThreat: number
@@ -169,4 +233,8 @@ export interface GameConfig {
   civilityShoutLine: string
   donation: DonationConfig
   props: PropsConfig
+  acoustics: AcousticsConfig
+  space: SpaceConfig
+  chaser: ChaserConfig
+  hideLatch: HideLatchConfig
 }
