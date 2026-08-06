@@ -85,7 +85,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_tools: '执法工具（请务必读完再丢人）',
     briefing_nausea: '降低恶心音效（吧唧更闷、更礼貌）',
     briefing_go: '出警 · 开始制裁',
-    briefing_foot: 'WASD 移动 · 空格跳跃跨人 · 拖拽转镜 · Tab 换目标 · 噪音越大掉血越狠',
+    briefing_foot: 'WASD 移动 · 短按空格跳跃 · 长按空格躲桌下/闩门 · 拖拽转镜 · Tab 换目标 · 噪音越大掉血越狠',
 
     // === HUD ===
     hud_hp: 'HP',
@@ -93,7 +93,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     hud_selfNoise: '自噪音',
     hud_pauseTitle: '暂停 (Esc)',
     hud_nauseaShort: '降恶心音',
-    hud_hint: 'WASD · 拖拽转镜 · Tab 换目标 · 1拍 2胶条 3吼 4塞嘴',
+    hud_hint: 'WASD · 拖拽转镜 · Tab 换目标 · 长按空格躲藏/闩门 · 1拍 2胶条 3吼 4塞嘴',
     hud_survived: '存活',
     hud_deathTitle: '吧唧致死',
     hud_deathRestart: '文明侠亦有殉职之日。按 R 再出警',
@@ -130,6 +130,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     guide_1: '靠近绕桌觅食的吧唧者——文明需要距离。',
     guide_2: '按 1：挥手拍玩具抽脸。短促有效。',
     guide_3: '2 贴胶条 · 3 怒吼「闭嘴」· 4 塞嘴大招。',
+    guide_4: '长按空格：桌下躲藏或门前闩门；短按跳跃。',
+
+    // === Hide / latch hints ===
+    hint_hide: '桌下/柜旁长按空格躲藏；移动即起身',
+    hint_latch: '门前长按空格闩门，阻隔隔壁噪音',
 
     // === Prop toast ===
     prop_heal: '回血 +',
@@ -222,7 +227,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_tools: 'Toolsets - Please act with no shame after reading',
     briefing_nausea: 'Wearing headset so you don\'t hear Byagee',
     briefing_go: 'Yo yo yo!',
-    briefing_foot: 'WASD movement · Space for Jump · Drag with left-click change camera · Tab for Aiming · The noisier, the more destructive this dining hall is',
+    briefing_foot: 'WASD movement · Tap Space to jump · Hold Space to hide under table / latch door · Drag camera · Tab to aim · Louder = more HP damage',
 
     // === HUD ===
     hud_hp: 'HP',
@@ -230,7 +235,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     hud_selfNoise: 'SelfNoise',
     hud_pauseTitle: 'Pause (Esc)',
     hud_nauseaShort: 'Less Nausea',
-    hud_hint: 'WASD · Drag · Tab to Aim  · 1 Slap · 2 Tape · 3 Shout · 4 Dildo',
+    hud_hint: 'WASD · Drag · Tab · Hold Space hide/latch · 1 Slap · 2 Tape · 3 Shout · 4 Dildo',
     hud_survived: 'Survived',
     hud_deathTitle: 'Byagee to Die',
     hud_deathRestart: 'Civilization can fail. Press R to reincarnate.',
@@ -267,6 +272,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     guide_1: 'Approach the Byageee Mouth-ers circling the tables — civility needs distance.',
     guide_2: 'Press 1: Slap toy to the face. Quick and effective.',
     guide_3: '2 Tape · 3 Shout «Shut up» · 4 Mouth Dildoing ultimate.',
+    guide_4: 'Hold Space: hide under tables or latch doors; tap to jump.',
+
+    // === Hide / latch hints ===
+    hint_hide: 'Hold Space near furniture to hide; move to stand up',
+    hint_latch: 'Hold Space at a door to latch it and muffle neighbor noise',
 
     // === Prop toast ===
     prop_heal: 'HP +',
@@ -359,7 +369,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_tools: 'Gereedschap - Schaam je niet na het lezen',
     briefing_nausea: 'Koptelefoon zodat je Byageee niet hoort',
     briefing_go: 'Yo yo yo!',
-    briefing_foot: 'WASD bewegen · Spatie voor Sprong · Sleep voor camera · Tab voor Richting · Hoe luider, hoe destructiever deze eetzaal is',
+    briefing_foot: 'WASD bewegen · Spatie tik = sprong · Spatie vasthouden = verstoppen/sluiten · Sleep camera · Tab richting · Hoe luider, hoe destructiever',
 
     // === HUD ===
     hud_hp: 'HP',
@@ -367,7 +377,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     hud_selfNoise: 'EigenGeluid',
     hud_pauseTitle: 'Pauze (Esc)',
     hud_nauseaShort: 'Minder Misselijk',
-    hud_hint: 'WASD · Sleep · Tab voor Richting · 1 Klap · 2 Plak · 3 Schreeuw · 4 Dildo',
+    hud_hint: 'WASD · Sleep · Tab · Spatie vast verstop/sluit · 1 Klap · 2 Plak · 3 Schreeuw · 4 Dildo',
     hud_survived: 'Overleefd',
     hud_deathTitle: 'Byagee Dood',
     hud_deathRestart: 'Beschaving kan falen. Druk R om te reïncarneren.',
@@ -404,6 +414,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     guide_1: 'Nader de Byageee Mouth-ers die om de tafels cirkelen — beschaving heeft afstand nodig.',
     guide_2: 'Druk 1: Klap speelgoed in het gezicht. Snel en effectief.',
     guide_3: '2 Plak · 3 Schreeuw «Bek dicht» · 4 Mondprop ultieme.',
+    guide_4: 'Spatie vasthouden: verstop onder tafels of vergrendel deuren; tik om te springen.',
+
+    // === Hide / latch hints ===
+    hint_hide: 'Houd Spatie vast bij meubels om te verstoppen; beweeg om op te staan',
+    hint_latch: 'Houd Spatie vast bij een deur om te vergrendelen en geluid te dempen',
 
     // === Prop toast ===
     prop_heal: 'HP +',

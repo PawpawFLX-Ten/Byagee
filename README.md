@@ -20,6 +20,8 @@ npm run dev
 | WASD | 移动 |
 | 拖拽 | 旋转镜头 |
 | Tab | 切换目标 |
+| 空格（短按） | 跳跃 |
+| 空格（长按） | 桌下躲藏 / 门前闩门 |
 | 1 | 拍 |
 | 2 | 胶条 |
 | 3 | 喇叭 |
@@ -84,3 +86,21 @@ npm run build
 - **摇杆移动修复**：`TouchControls` 的 `useEffect` 依赖数组缺少 `briefingDone`，导致 briefing 结束后摇杆永不初始化。加入 `briefingDone` 依赖 + effect 内守卫，修复移动端无法移动的致命 bug。
 - **技能卡移动端重做**：6 个方形带文字按钮（底部居中横排）→ 6 个圆形纯图标按钮（底部右侧 2×3 网格），54px 直径，冷却/锁定为右下角徽章。隐藏 `kbd` 和技能名文字，减少视觉杂乱。
 - **触摸操作按钮重排**：跳跃/切换从右侧底部纵向堆叠 → 移到技能网格正上方横向排列，所有操作按钮集中在右下角，右拇指自然覆盖。
+
+## Space Director
+
+- **空间导演（SpaceDirector）**：首 Boss 击败后奖励式解锁空间事件（扩建新房 A 类 / 原地变形 C 类），后续稀疏随机触发；HUD toast 显示事件名（`spaceEvent_A1`–`C5`）。
+- **多房间声学**：威胁按房间衰减；闩门阻隔隔壁噪音；同层跨楼略 muffling，高处无额外减伤。
+- **追杀客（chaser）**：惩罚躲清静房；贴脸强制吧唧；NPC 标签 `npc_chaser`；拍击可击退。
+- **躲藏与闩门**：短按空格跳跃；家具旁长按躲桌下（移动起身）；门前长按闩门 ~6s。
+- **氛围升级**：动态灯光、吧唧雾、角色细节、Bloom/Outline 后处理（移动端质量门控）。
+- **i18n**：空间事件、躲藏/闩门提示（`hint_hide` / `hint_latch`）、开屏/HUD 长按空格说明、引导 `guide_4`。
+
+### 回滚标签
+
+```text
+checkpoint/pre-space-director — 功能开发前可玩版本
+checkpoint/space-director-task-N — 各任务还原点（N=1…11）
+```
+
+检出示例：`git checkout checkpoint/space-director-task-10`

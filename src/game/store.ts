@@ -186,6 +186,7 @@ function guideForElapsed(elapsed: number): string | null {
   if (elapsed < 3.5) return t('guide_1')
   if (elapsed < 7) return t('guide_2')
   if (elapsed < 11) return t('guide_3')
+  if (elapsed < 15) return t('guide_4')
   return null
 }
 
