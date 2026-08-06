@@ -1,6 +1,7 @@
 import {
   knockbackFrom,
   moveWithCollision,
+  type LayoutBounds,
   type ObstacleCollider,
   type XZ,
 } from './collision'
@@ -14,6 +15,7 @@ export type ChaserStepOpts = {
   playerHidden?: boolean
   hideEscalated?: boolean
   playerRoomId?: RoomId
+  bounds?: LayoutBounds
 }
 
 export type ChaserSpawnCtx = {
@@ -137,6 +139,7 @@ function wanderFurniture(
   tables: TableDef[],
   obstacles: ObstacleCollider[],
   dt: number,
+  bounds?: LayoutBounds,
 ): NpcState {
   const table = nearestTable(npc.position, tables)
   const cx = table.position[0]
@@ -161,6 +164,7 @@ function wanderFurniture(
     [],
     undefined,
     obstacles,
+    bounds,
   )
   return {
     ...npc,
@@ -185,6 +189,7 @@ export function applyChaserKnockback(
     staggerSec?: number
     others?: XZ[]
     obstacles?: ObstacleCollider[]
+    bounds?: LayoutBounds
   },
 ): NpcState {
   const dist = options?.dist ?? CONFIG.chaser.knockbackDist
@@ -199,6 +204,7 @@ export function applyChaserKnockback(
     getRuntimeSpace().tables,
     others,
     obstacles,
+    options?.bounds,
   )
 
   const moved = Math.hypot(x - npc.position[0], z - npc.position[2])
@@ -275,13 +281,13 @@ export function stepChaser(
     latchedOnPath(layout, next.roomId, playerRoomId, now)
 
   if (pathBlocked) {
-    return wanderFurniture(next, tables, obstacles, dt)
+    return wanderFurniture(next, tables, obstacles, dt, opts.bounds)
   }
 
   const playerHidden = opts.playerHidden ?? false
   const hideEscalated = opts.hideEscalated ?? false
   if (playerHidden && !hideEscalated) {
-    return wanderFurniture(next, tables, obstacles, dt)
+    return wanderFurniture(next, tables, obstacles, dt, opts.bounds)
   }
 
   const face = inFaceRadius(next, playerPos)
@@ -329,6 +335,7 @@ export function stepChaser(
     [],
     undefined,
     obstacles,
+    opts.bounds,
   )
 
   return {

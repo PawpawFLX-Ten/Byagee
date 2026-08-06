@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EVENTS,
   consumePendingSpaceEvent,
+  maybeScheduleInterBossMinorMorph,
   onBossDemotedForSpace,
   scheduleFirstReward,
 } from '../spaceDirector'
@@ -89,5 +90,42 @@ describe('spaceDirector store hooks', () => {
     if (result!.queuedSpaceEventId === 'C5') {
       expect(result!.minorMorphsSinceBoss).toBe(1)
     }
+  })
+
+  it('schedules inter-boss C5 when cooldown allows after first space event', () => {
+    const now = 300_000
+    const result = maybeScheduleInterBossMinorMorph({
+      bossesCleared: 1,
+      pendingSpaceEventAt: null,
+      queuedSpaceEventId: null,
+      lastSpaceEventAt: now - 200_000,
+      minorMorphsSinceBoss: 0,
+      now,
+      eventCooldownSec: CONFIG.space.eventCooldownSec,
+      minorMorphMaxBetweenBosses: CONFIG.space.minorMorphMaxBetweenBosses,
+      pendingMinorOnly: false,
+    })
+    expect(result).toEqual({ pendingSpaceEventAt: now, pendingMinorOnly: true })
+  })
+
+  it('consume with pendingMinorOnly always queues C5', () => {
+    const now = 300_000
+    const result = consumePendingSpaceEvent({
+      pendingSpaceEventAt: now - 1,
+      queuedSpaceEventId: null,
+      lastSpaceEventAt: now - 200_000,
+      minorMorphsSinceBoss: 0,
+      now,
+      phaseLate: false,
+      eventCooldownSec: CONFIG.space.eventCooldownSec,
+      minorMorphMaxBetweenBosses: CONFIG.space.minorMorphMaxBetweenBosses,
+      pendingMinorOnly: true,
+      rng: () => 0,
+    })
+    expect(result).toMatchObject({
+      queuedSpaceEventId: 'C5',
+      minorMorphsSinceBoss: 1,
+      pendingMinorOnly: false,
+    })
   })
 })

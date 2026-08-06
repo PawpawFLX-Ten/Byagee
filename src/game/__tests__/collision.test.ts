@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { CHAR_RADIUS, resolveObstaclesCollision, resolveTablesCollision } from '../collision'
+import {
+  clampToLayout,
+  layoutBoundsFromLayout,
+  resolveObstaclesCollision,
+  resolveTablesCollision,
+} from '../collision'
+import { applySpaceEvent } from '../spaceApply'
+import { createInitialLayout } from '../spaceLayout'
+import { CONFIG } from '../config'
 
 describe('resolveTablesCollision', () => {
   it('pushes a point out of the round table AABB/circle', () => {
@@ -32,5 +40,36 @@ describe('resolveObstaclesCollision', () => {
     const [x, z] = resolveObstaclesCollision(3, 3, obstacles)
     expect(x).toBe(3)
     expect(z).toBe(3)
+  })
+})
+
+describe('clampToLayout', () => {
+  it('allows points inside an A1 expansion room beyond ±4.48', () => {
+    const base = createInitialLayout()
+    const applied = applySpaceEvent({
+      layout: base,
+      tables: [...CONFIG.tables],
+      seatPositions: [...CONFIG.seatPositions],
+      foodSpots: [...CONFIG.foodSpots],
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A1',
+      rng: () => 0.5,
+    })
+    const bounds = layoutBoundsFromLayout(applied.layout, 0)
+    const newRoom = applied.layout.rooms.find((r) => r.id !== 'r0')
+    expect(newRoom).toBeTruthy()
+    const cx = (newRoom!.min[0] + newRoom!.max[0]) / 2
+    const cz = (newRoom!.min[1] + newRoom!.max[1]) / 2
+    expect(Math.abs(cx)).toBeGreaterThan(4.48)
+    const [x, z] = clampToLayout(cx, cz, bounds)
+    expect(x).toBeCloseTo(cx, 5)
+    expect(z).toBeCloseTo(cz, 5)
+  })
+
+  it('clamps far outside points back into the layout union', () => {
+    const bounds = layoutBoundsFromLayout(createInitialLayout(), 0)
+    const [x, z] = clampToLayout(50, 50, bounds)
+    expect(Math.abs(x)).toBeLessThanOrEqual(5.5)
+    expect(Math.abs(z)).toBeLessThanOrEqual(5.5)
   })
 })

@@ -28,8 +28,10 @@ import {
   roomIdAt,
   type SpaceLayoutState,
 } from './spaceLayout'
+import { layoutBoundsFromLayout } from './collision'
 import {
   consumePendingSpaceEvent,
+  maybeScheduleInterBossMinorMorph,
   onBossDemotedForSpace,
 } from './spaceDirector'
 import { applySpaceEvent, roomIdForSeatIndex } from './spaceApply'
@@ -132,6 +134,7 @@ export interface GameStore {
   playerRoomId: RoomId
   bossesCleared: number
   pendingSpaceEventAt: number | null
+  pendingMinorOnly: boolean
   queuedSpaceEventId: SpaceEventId | null
   lastSpaceEventAt: number
   minorMorphsSinceBoss: number
@@ -251,6 +254,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerRoomId: 'r0',
   bossesCleared: 0,
   pendingSpaceEventAt: null,
+  pendingMinorOnly: false,
   queuedSpaceEventId: null,
   lastSpaceEventAt: 0,
   minorMorphsSinceBoss: 0,
@@ -309,6 +313,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerRoomId: 'r0',
       bossesCleared: 0,
       pendingSpaceEventAt: null,
+      pendingMinorOnly: false,
       queuedSpaceEventId: null,
       lastSpaceEventAt: 0,
       minorMorphsSinceBoss: 0,
@@ -362,6 +367,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerRoomId: 'r0',
       bossesCleared: 0,
       pendingSpaceEventAt: null,
+      pendingMinorOnly: false,
       queuedSpaceEventId: null,
       lastSpaceEventAt: 0,
       minorMorphsSinceBoss: 0,
@@ -495,6 +501,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let propSeq = state.propSeq
     let bossesCleared = state.bossesCleared
     let pendingSpaceEventAt = state.pendingSpaceEventAt
+    let pendingMinorOnly = state.pendingMinorOnly
     let queuedSpaceEventId = state.queuedSpaceEventId
     let lastSpaceEventAt = state.lastSpaceEventAt
     let minorMorphsSinceBoss = state.minorMorphsSinceBoss
@@ -504,6 +511,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let runtimeFoodSpots = state.runtimeFoodSpots
     let maxNpcs = state.maxNpcs
     let spaceEventToast = state.spaceEventToast
+    const layoutBounds = layoutBoundsFromLayout(layout, 0)
 
     // Resolve windup → apply skill with knockback
     if (skillAction && now >= skillAction.until) {
@@ -577,7 +585,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const elapsedSec = (now - state.startedAt) / 1000
     const phase = getPhase(elapsedSec)
-    const tickResult = tickNpcs(npcs, now, elapsedSec, dt, state.playerPos, layout.obstacles)
+    const tickResult = tickNpcs(
+      npcs,
+      now,
+      elapsedSec,
+      dt,
+      state.playerPos,
+      layout.obstacles,
+      layoutBounds,
+    )
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
     const playerHidden = state.playerHidden
@@ -596,6 +612,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             playerHidden,
             hideEscalated,
             playerRoomId,
+            bounds: layoutBounds,
           })
         : n,
     )
@@ -745,6 +762,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const alive = hp > 0
 
+    // Inter-boss minor morph (C5) once per cooldown window
+    const interBoss = maybeScheduleInterBossMinorMorph({
+      bossesCleared,
+      pendingSpaceEventAt,
+      queuedSpaceEventId,
+      lastSpaceEventAt,
+      minorMorphsSinceBoss,
+      now,
+      eventCooldownSec: CONFIG.space.eventCooldownSec,
+      minorMorphMaxBetweenBosses: CONFIG.space.minorMorphMaxBetweenBosses,
+      pendingMinorOnly,
+    })
+    if (interBoss) {
+      pendingSpaceEventAt = interBoss.pendingSpaceEventAt
+      pendingMinorOnly = interBoss.pendingMinorOnly
+    }
+
     // SpaceDirector: pick queued event when due (Task 5 applies geometry)
     const spaceConsumed = consumePendingSpaceEvent({
       pendingSpaceEventAt,
@@ -755,6 +789,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       phaseLate: phase === 'late',
       eventCooldownSec: CONFIG.space.eventCooldownSec,
       minorMorphMaxBetweenBosses: CONFIG.space.minorMorphMaxBetweenBosses,
+      pendingMinorOnly,
       rng: () => Math.random(),
     })
     if (spaceConsumed) {
@@ -762,6 +797,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       queuedSpaceEventId = spaceConsumed.queuedSpaceEventId
       lastSpaceEventAt = spaceConsumed.lastSpaceEventAt
       minorMorphsSinceBoss = spaceConsumed.minorMorphsSinceBoss
+      pendingMinorOnly = spaceConsumed.pendingMinorOnly
     }
 
     if (queuedSpaceEventId) {
@@ -809,9 +845,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       })
 
-      let seatedCount = npcs.filter((n) => !n.exiting).length
-      while (seatedCount > maxNpcs && npcs.some((n) => !n.exiting && n.role !== 'boss')) {
-        const victim = npcs.find((n) => !n.exiting && n.role !== 'boss')
+      let seatedCount = npcs.filter(
+        (n) => !n.exiting && n.role !== 'chaser' && n.seatIndex >= 0,
+      ).length
+      while (
+        seatedCount > maxNpcs - npcs.filter((n) => n.role === 'chaser').length &&
+        npcs.some((n) => !n.exiting && n.role !== 'boss' && n.role !== 'chaser')
+      ) {
+        const victim = npcs.find(
+          (n) => !n.exiting && n.role !== 'boss' && n.role !== 'chaser',
+        )
         if (!victim) break
         npcs = npcs.map((n) =>
           n.id === victim.id
@@ -824,7 +867,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
               }
             : n,
         )
-        seatedCount = npcs.filter((n) => !n.exiting).length
+        seatedCount = npcs.filter(
+          (n) => !n.exiting && n.role !== 'chaser' && n.seatIndex >= 0,
+        ).length
       }
     }
 
@@ -870,6 +915,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       propSeq,
       bossesCleared,
       pendingSpaceEventAt,
+      pendingMinorOnly,
       queuedSpaceEventId,
       lastSpaceEventAt,
       minorMorphsSinceBoss,

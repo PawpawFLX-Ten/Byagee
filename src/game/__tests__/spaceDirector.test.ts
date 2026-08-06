@@ -73,4 +73,22 @@ describe('spaceDirector', () => {
     }
     expect(ids.has('C5')).toBe(true)
   })
+
+  it('never picks deferred upstairs events A4/C4', () => {
+    for (let i = 0; i < 200; i++) {
+      const id = pickSpaceEvent(() => Math.random(), {
+        isFirst: false,
+        late: true,
+        allowMinorMorph: true,
+      })
+      expect(id).not.toBe('A4')
+      expect(id).not.toBe('C4')
+    }
+  })
+
+  it('minorOnly always returns C5', () => {
+    expect(pickSpaceEvent(() => 0, { isFirst: false, late: true, minorOnly: true })).toBe(
+      'C5',
+    )
+  })
 })

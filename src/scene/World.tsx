@@ -9,7 +9,12 @@ import {
   Raycaster,
   Vector3,
 } from 'three'
-import { CHAR_RADIUS, moveWithCollision, separateFromOthers } from '../game/collision'
+import {
+  CHAR_RADIUS,
+  layoutBoundsFromLayout,
+  moveWithCollision,
+  separateFromOthers,
+} from '../game/collision'
 import { CONFIG } from '../game/config'
 import { inFaceRadius } from '../game/chaser'
 import {
@@ -617,6 +622,7 @@ export function Player() {
         mx /= len
         mz /= len
         const speed = CONFIG.playerSpeed
+        const bounds = layoutBoundsFromLayout(layout, 0)
         const [x, z] = moveWithCollision(
           ref.current.position.x,
           ref.current.position.z,
@@ -626,12 +632,14 @@ export function Player() {
           blockers,
           CHAR_RADIUS,
           isAirborne ? [] : obstacles,
+          bounds,
         )
         ref.current.position.x = x
         ref.current.position.z = z
         ref.current.rotation.y = Math.atan2(mx, mz)
       } else if (!isAirborne) {
         // Idle: still resolve overlap if NPCs walk into the player
+        const bounds = layoutBoundsFromLayout(layout, 0)
         const [x, z] = separateFromOthers(
           ref.current.position.x,
           ref.current.position.z,
@@ -639,6 +647,7 @@ export function Player() {
           tables,
           CHAR_RADIUS,
           obstacles,
+          bounds,
         )
         ref.current.position.x = x
         ref.current.position.z = z

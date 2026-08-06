@@ -6,13 +6,20 @@ export const EVENTS: SpaceEventDef[] = [
   { id: 'A1', kind: 'A', inFirstRewardPool: true, weightLate: 3 },
   { id: 'A2', kind: 'A', inFirstRewardPool: true, weightLate: 2 },
   { id: 'A3', kind: 'A', inFirstRewardPool: false, weightLate: 2 },
-  { id: 'A4', kind: 'A', inFirstRewardPool: false, weightLate: 1 },
+  { id: 'A4', kind: 'A', inFirstRewardPool: false, weightLate: 0 },
   { id: 'C1', kind: 'C', inFirstRewardPool: true, weightLate: 3 },
   { id: 'C2', kind: 'C', inFirstRewardPool: true, weightLate: 1 },
   { id: 'C3', kind: 'C', inFirstRewardPool: true, weightLate: 3 },
-  { id: 'C4', kind: 'C', inFirstRewardPool: false, weightLate: 2 },
+  { id: 'C4', kind: 'C', inFirstRewardPool: false, weightLate: 0 },
   { id: 'C5', kind: 'C', inFirstRewardPool: false, weightLate: 1 },
 ]
+
+/** Deferred until stair Y climb is implemented. */
+const DEFERRED_UPSTAIRS = new Set<SpaceEventId>(['A4', 'C4'])
+
+function isLiveEvent(e: SpaceEventDef): boolean {
+  return !DEFERRED_UPSTAIRS.has(e.id)
+}
 
 const FIRST_POOL_RARE = new Set<SpaceEventId>(['A2', 'C2'])
 
@@ -38,27 +45,33 @@ export type PickSpaceEventOpts = {
   late: boolean
   /** When false, C5 is excluded (minor morph cap between bosses). Defaults to true. */
   allowMinorMorph?: boolean
+  /** When true, only C5 is eligible (inter-boss minor morph). */
+  minorOnly?: boolean
 }
 
 export function pickSpaceEvent(
   rng: () => number,
   opts: PickSpaceEventOpts,
 ): SpaceEventId {
+  if (opts.minorOnly) return 'C5'
+
   const allowMinorMorph = opts.allowMinorMorph ?? true
   let pool: { id: SpaceEventId; weight: number }[]
 
   if (opts.isFirst) {
-    pool = EVENTS.filter((e) => e.inFirstRewardPool).map((e) => ({
+    pool = EVENTS.filter((e) => e.inFirstRewardPool && isLiveEvent(e)).map((e) => ({
       id: e.id,
       weight: weightForFirstPool(e.id),
     }))
   } else if (opts.late) {
-    pool = EVENTS.filter((e) => allowMinorMorph || e.id !== 'C5').map((e) => ({
-      id: e.id,
-      weight: e.weightLate,
-    }))
+    pool = EVENTS.filter((e) => isLiveEvent(e) && (allowMinorMorph || e.id !== 'C5')).map(
+      (e) => ({
+        id: e.id,
+        weight: e.weightLate,
+      }),
+    )
   } else {
-    pool = EVENTS.filter((e) => e.id !== 'C5').map((e) => ({
+    pool = EVENTS.filter((e) => isLiveEvent(e) && e.id !== 'C5').map((e) => ({
       id: e.id,
       weight: e.weightLate,
     }))
@@ -134,6 +147,7 @@ export type ConsumePendingSpaceEventInput = {
   phaseLate: boolean
   eventCooldownSec: number
   minorMorphMaxBetweenBosses: number
+  pendingMinorOnly?: boolean
   rng: () => number
 }
 
@@ -142,6 +156,46 @@ export type ConsumePendingSpaceEventResult = {
   queuedSpaceEventId: SpaceEventId
   lastSpaceEventAt: number
   minorMorphsSinceBoss: number
+  pendingMinorOnly: boolean
+}
+
+export type MaybeScheduleInterBossMinorMorphInput = {
+  bossesCleared: number
+  pendingSpaceEventAt: number | null
+  queuedSpaceEventId: SpaceEventId | null
+  lastSpaceEventAt: number
+  minorMorphsSinceBoss: number
+  now: number
+  eventCooldownSec: number
+  minorMorphMaxBetweenBosses: number
+  pendingMinorOnly: boolean
+}
+
+export type MaybeScheduleInterBossMinorMorphResult = {
+  pendingSpaceEventAt: number
+  pendingMinorOnly: true
+}
+
+/** Schedule a C5-only pick once between bosses when cooldown allows. */
+export function maybeScheduleInterBossMinorMorph(
+  input: MaybeScheduleInterBossMinorMorphInput,
+): MaybeScheduleInterBossMinorMorphResult | null {
+  if (input.bossesCleared < 1) return null
+  if (input.pendingSpaceEventAt !== null) return null
+  if (input.queuedSpaceEventId !== null) return null
+  if (input.pendingMinorOnly) return null
+  if (input.lastSpaceEventAt === 0) return null
+  if (input.minorMorphsSinceBoss >= input.minorMorphMaxBetweenBosses) return null
+  if (
+    !canFireSpaceEvent({
+      lastSpaceEventAt: input.lastSpaceEventAt,
+      now: input.now,
+      cooldownSec: input.eventCooldownSec,
+    })
+  ) {
+    return null
+  }
+  return { pendingSpaceEventAt: input.now, pendingMinorOnly: true }
 }
 
 /** Pick and queue a due space event; enforces cooldown and C5 morph cap. */
@@ -164,10 +218,14 @@ export function consumePendingSpaceEvent(
 
   const allowMinorMorph =
     input.minorMorphsSinceBoss < input.minorMorphMaxBetweenBosses
+  const minorOnly = input.pendingMinorOnly === true
+  if (minorOnly && !allowMinorMorph) return null
+
   const queuedSpaceEventId = pickSpaceEvent(input.rng, {
     isFirst: isFirstEvent,
     late: input.phaseLate,
     allowMinorMorph,
+    minorOnly,
   })
 
   let minorMorphsSinceBoss = input.minorMorphsSinceBoss
@@ -180,5 +238,6 @@ export function consumePendingSpaceEvent(
     queuedSpaceEventId,
     lastSpaceEventAt: input.now,
     minorMorphsSinceBoss,
+    pendingMinorOnly: false,
   }
 }

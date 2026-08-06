@@ -3,6 +3,7 @@ import {
   moveWithCollision,
   resolveWorldCollision,
   separateFromOthers,
+  type LayoutBounds,
   type ObstacleCollider,
   type TableCollider,
   type XZ,
@@ -128,6 +129,7 @@ export function tickNpcs(
   dt: number,
   playerPos?: [number, number, number],
   obstacles: ObstacleCollider[] = [],
+  bounds?: LayoutBounds,
 ): { npcs: NpcState[]; despawnIds: string[] } {
   const phase = getPhase(elapsedSec)
   const maxSmack = CONFIG.maxOverlappingSmackers[phase]
@@ -168,7 +170,7 @@ export function tickNpcs(
       )
       const mx = dirX * Math.min(step, dist)
       const mz = dirZ * Math.min(step, dist)
-      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles)
+      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles, bounds)
       return { ...next, position: [x, 0, z] as [number, number, number] }
     }
 
@@ -202,7 +204,7 @@ export function tickNpcs(
       if (dist < 0.28) {
         if (smacking < maxSmack) {
           smacking += 1
-          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles)
+          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles, bounds)
           return {
             ...next,
             status: 'smacking' as const,
@@ -249,6 +251,7 @@ export function tickNpcs(
         blockers,
         undefined,
         obstacles,
+        bounds,
       )
       const moved = Math.hypot(x - next.position[0], z - next.position[2])
       const stuckTicks =
@@ -327,7 +330,7 @@ export function tickNpcs(
       .filter((_, j) => j !== i)
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     if (playerPos) blockers.push({ x: playerPos[0], z: playerPos[2] })
-    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles)
+    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles, bounds)
     if (x === npc.position[0] && z === npc.position[2]) return npc
     return { ...npc, position: [x, 0, z] as [number, number, number] }
   })
