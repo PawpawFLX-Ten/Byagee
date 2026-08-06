@@ -6,7 +6,7 @@ import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
 import type { NpcState, SkillId } from '../game/types'
 
-const COLORS = ['#e07070', '#70a070', '#7070c0']
+const COLORS = ['#e07070', '#70a070', '#7070c0', '#c08050', '#80a0c0']
 const CHASER_COLOR = '#e04030'
 const HEAD_Y = 1.28
 const HIT_COLOR: Record<SkillId, string> = {
@@ -41,7 +41,9 @@ function NpcMesh({
   const flash = useRef<Mesh>(null)
   const wave = useRef<Group>(null)
   const isChaser = npc.role === 'chaser'
+  const variance = isChaser ? 1 : 0.94 + (npc.seatIndex % 5) * 0.035
   const bodyColor = isChaser ? CHASER_COLOR : COLORS[npc.seatIndex % COLORS.length]
+  const torsoWidth = isChaser ? 0.28 : 0.24 + (npc.seatIndex % 3) * 0.02
   const phase = useMemo(() => (isChaser ? npc.id.length * 1.3 : npc.seatIndex * 1.7), [npc.id, npc.seatIndex, isChaser])
   useGameStore((s) => s.lang) // re-render on language change
 
@@ -54,9 +56,11 @@ function NpcMesh({
       root.current.position.set(npc.position[0], 0, npc.position[2])
       root.current.rotation.y = npc.facing
       if (isChaser && npc.status === 'walking') {
-        root.current.position.y = Math.abs(Math.sin(t * 12)) * 0.06
+        root.current.position.y = Math.abs(Math.sin(t * 14)) * 0.09
+        root.current.rotation.x = Math.sin(t * 7) * 0.04
       } else {
         root.current.position.y = 0
+        root.current.rotation.x *= 0.9
       }
     }
 
@@ -167,11 +171,17 @@ function NpcMesh({
             : null
 
   return (
-    <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]} scale={npc.scale}>
-      <mesh position={[0, 0.42, 0]} castShadow>
-        <capsuleGeometry args={[0.26, 0.35, 4, 8]} />
+    <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]} scale={npc.scale * variance}>
+      <mesh position={[0, isChaser ? 0.48 : 0.42, 0]} castShadow>
+        <capsuleGeometry args={[torsoWidth, isChaser ? 0.42 : 0.35, 4, 8]} />
         <meshStandardMaterial color={bodyColor} />
       </mesh>
+      {isChaser && (
+        <mesh position={[0, 0.15, -0.12]} rotation={[0.25, 0, 0]}>
+          <boxGeometry args={[0.32, 0.08, 0.14]} />
+          <meshStandardMaterial color="#c03020" />
+        </mesh>
+      )}
 
       <group ref={head} position={[0, HEAD_Y, 0]}>
         {/* Cranium — lower half cut by mouth plane visually */}

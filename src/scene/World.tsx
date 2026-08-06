@@ -26,6 +26,7 @@ import { t } from '../game/i18n'
 import { useGameStore } from '../game/store'
 import { useInputStore } from '../game/inputStore'
 import type { SkillId } from '../game/types'
+import { CABINET_POSITIONS } from './Atmosphere'
 
 const WALL_LAYER_NAME = 'fade-wall'
 
@@ -235,14 +236,6 @@ export function Room() {
           <meshStandardMaterial color="#7a6a58" />
         </mesh>
       ))}
-      <ambientLight intensity={0.65} />
-      <hemisphereLight args={['#fff2e0', '#8a7a68', 0.45]} />
-      <directionalLight
-        castShadow
-        position={[4, 8, 3]}
-        intensity={1.05}
-        shadow-mapSize={[1024, 1024]}
-      />
     </group>
   )
 }
@@ -262,6 +255,20 @@ const FOOD_COLORS = [
 export function Tables() {
   const tables = useGameStore((s) => s.runtimeTables)
   const foodSpots = useGameStore((s) => s.runtimeFoodSpots)
+  const hitFx = useGameStore((s) => s.hitFx)
+  const foodGroup = useRef<Group>(null)
+
+  useFrame(() => {
+    if (!foodGroup.current) return
+    if (hitFx?.skillId === 'megaphone' && performance.now() < hitFx.until) {
+      const t = 1 - (hitFx.until - performance.now()) / 700
+      const shake = Math.sin(t * 55) * (1 - t) * 0.04
+      foodGroup.current.position.set(shake, 0, shake * 0.6)
+    } else {
+      foodGroup.current.position.set(0, 0, 0)
+    }
+  })
+
   return (
     <group>
       {tables.map((t) => {
@@ -308,6 +315,7 @@ export function Tables() {
         )
       })}
 
+      <group ref={foodGroup}>
       {foodSpots.map((food, i) => {
         const kind = i % 4
         return (
@@ -359,6 +367,7 @@ export function Tables() {
           </group>
         )
       })}
+      </group>
     </group>
   )
 }
@@ -446,7 +455,7 @@ const _up = new Vector3(0, 1, 0)
 function HandClapper({ swing }: { swing: number }) {
   return (
     <group
-      position={[0.35, 1.05, 0.25]}
+      position={[0.02, 0.2, 0.22]}
       rotation={[0.2, 0, -0.4 + swing]}
     >
       <mesh position={[0, 0.25, 0]}>
@@ -476,6 +485,7 @@ export function Player() {
   const alive = useGameStore((s) => s.alive)
   const briefingDone = useGameStore((s) => s.briefingDone)
   const skillAction = useGameStore((s) => s.skillAction)
+  const hitFx = useGameStore((s) => s.hitFx)
   const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
   const npcs = useGameStore((s) => s.npcs)
   const tables = useGameStore((s) => s.runtimeTables)
@@ -517,7 +527,7 @@ export function Player() {
       CONFIG.door.position,
       grounded,
       chaserFace,
-      [],
+      CABINET_POSITIONS,
       paused,
     )
 
@@ -637,6 +647,8 @@ export function Player() {
     // Arm / prop animation
     if (arm.current) {
       const now = performance.now()
+      const slapFromHit =
+        hitFx?.skillId === 'slap' && now < hitFx.until
       if (skillAction) {
         const skill = CONFIG.skills[skillAction.skillId]
         const t =
@@ -667,6 +679,12 @@ export function Player() {
         } else {
           arm.current.rotation.x = -0.3
         }
+      } else if (slapFromHit) {
+        const k = Math.max(0, Math.min(1, 1 - (hitFx.until - now) / 700))
+        const eased = 0.5 - 0.5 * Math.cos(k * Math.PI)
+        arm.current.rotation.y = -0.9 + eased * 1.8
+        arm.current.rotation.x = -0.2
+        arm.current.rotation.z = -0.35
       } else {
         arm.current.rotation.x *= 0.8
         arm.current.rotation.y *= 0.8
@@ -691,10 +709,26 @@ export function Player() {
   })
 
   const skillId: SkillId | null = skillAction?.skillId ?? null
+  const showSlapArm =
+    skillId === 'slap' ||
+    (hitFx?.skillId === 'slap' && performance.now() < hitFx.until)
   const shouting = performance.now() < shoutBannerUntil
 
   return (
-    <group ref={ref} position={[0, 0, 2.4]} scale={[1, playerHidden ? 0.55 : 1, 1]}>
+    <group
+      ref={ref}
+      position={[0, 0, 2.4]}
+      scale={[1, playerHidden ? 0.55 : 1, 1]}
+    >
+      {/* Legs */}
+      <mesh position={[-0.12, 0.22, 0]} castShadow>
+        <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
+        <meshStandardMaterial color="#2e5580" />
+      </mesh>
+      <mesh position={[0.12, 0.22, 0]} castShadow>
+        <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
+        <meshStandardMaterial color="#2e5580" />
+      </mesh>
       <mesh position={[0, 0.5, 0]} castShadow>
         <capsuleGeometry args={[0.28, 0.45, 4, 8]} />
         <meshStandardMaterial color="#3a6ea5" />
@@ -702,6 +736,11 @@ export function Player() {
       <mesh position={[0, 1.28, 0]} castShadow>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshStandardMaterial color="#f0d5b8" />
+      </mesh>
+      {/* Idle left arm */}
+      <mesh position={[-0.38, 0.88, 0.05]} rotation={[0.15, 0, 0.25]} castShadow>
+        <capsuleGeometry args={[0.07, 0.32, 4, 8]} />
+        <meshStandardMaterial color="#3a6ea5" />
       </mesh>
       <mesh position={[-0.1, 1.32, 0.24]}>
         <sphereGeometry args={[0.045, 8, 8]} />
@@ -720,8 +759,12 @@ export function Player() {
         </mesh>
       )}
 
-      <group ref={arm}>
-        {skillId === 'slap' && <HandClapper swing={0.2} />}
+      <group ref={arm} position={[0.32, 0.95, 0]}>
+        <mesh position={[0, -0.12, 0]} rotation={[0.1, 0, -0.35]} castShadow>
+          <capsuleGeometry args={[0.07, 0.34, 4, 8]} />
+          <meshStandardMaterial color="#3a6ea5" />
+        </mesh>
+        {showSlapArm && <HandClapper swing={0.2} />}
         {skillId === 'tape' && (
           <mesh position={[0.4, 1.1, 0.3]} rotation={[0.5, 0, 0.4]}>
             <boxGeometry args={[0.28, 0.08, 0.08]} />

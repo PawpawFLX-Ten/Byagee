@@ -10,7 +10,7 @@ const defaultProfile: DeviceProfile = {
   needsMobileHudFallback: false,
 }
 
-function detectDevice(): DeviceProfile {
+export function detectDevice(): DeviceProfile {
   if (typeof window === 'undefined' || typeof navigator === 'undefined')
     return defaultProfile
 

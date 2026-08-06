@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei'
 import { Vector3 } from 'three'
 import { useGameStore } from '../game/store'
 import { AudioDirector } from './AudioDirector'
+import { Atmosphere } from './Atmosphere'
 import { Npcs } from './Npcs'
 import { Props } from './Props'
 import { SkillFx } from './SkillFx'
@@ -97,9 +98,9 @@ export function GameCanvas() {
       style={{ width: '100%', height: '100%' }}
     >
       <color attach="background" args={['#d9cfc0']} />
-      <fog attach="fog" args={['#d9cfc0', 14, 32]} />
       <GameLoop />
       <AudioDirector />
+      <Atmosphere />
       <CameraFollow />
       <WallOcclusionFader />
       <Room />
