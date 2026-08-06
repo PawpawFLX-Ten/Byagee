@@ -1,6 +1,8 @@
 import {
+  knockbackFrom,
   moveWithCollision,
   type ObstacleCollider,
+  type XZ,
 } from './collision'
 import { CONFIG } from './config'
 import { getRuntimeSpace } from './runtimeSpace'
@@ -106,6 +108,53 @@ export function inFaceRadius(
   const dx = npc.position[0] - playerPos[0]
   const dz = npc.position[2] - playerPos[2]
   return Math.hypot(dx, dz) <= CONFIG.chaser.faceRadius
+}
+
+/** Chasers and in-transit walkers can be shoved; seated diners cannot. */
+export function isKnockbackTarget(npc: NpcState): boolean {
+  return npc.role === 'chaser' || npc.status === 'walking'
+}
+
+export function applyChaserKnockback(
+  npc: NpcState,
+  fromPos: [number, number, number],
+  now: number,
+  options?: {
+    dist?: number
+    staggerSec?: number
+    others?: XZ[]
+    obstacles?: ObstacleCollider[]
+  },
+): NpcState {
+  const dist = options?.dist ?? CONFIG.chaser.knockbackDist
+  const staggerSec = options?.staggerSec ?? CONFIG.chaser.staggerSec
+  const others = options?.others ?? []
+  const obstacles = options?.obstacles ?? []
+
+  const [x, z] = knockbackFrom(
+    fromPos,
+    npc.position,
+    dist,
+    getRuntimeSpace().tables,
+    others,
+    obstacles,
+  )
+
+  const moved = Math.hypot(x - npc.position[0], z - npc.position[2])
+  const hitObstacle = moved < dist * 0.45
+  const effectiveStagger = staggerSec + (hitObstacle ? 0.35 : 0)
+  const keepSilence = npc.status === 'silenced' || npc.status === 'sealed'
+
+  return {
+    ...npc,
+    position: [x, 0, z] as [number, number, number],
+    staggerUntil: now + effectiveStagger * 1000,
+    status: keepSilence ? npc.status : 'walking',
+    statusUntil: keepSilence ? npc.statusUntil : now + 60_000,
+    smackingSince: 0,
+    wobbleUntil: now + 500,
+    facing: Math.atan2(npc.position[0] - fromPos[0], npc.position[2] - fromPos[2]),
+  }
 }
 
 /** Build per-room threat parts from smacking NPCs (ungated, for spawn cheese detection). */

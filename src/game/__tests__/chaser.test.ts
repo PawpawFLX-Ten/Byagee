@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
 import { createInitialLayout } from '../spaceLayout'
 import {
+  applyChaserKnockback,
   chaserCap,
   createChaser,
   inFaceRadius,
@@ -181,5 +182,36 @@ describe('stepChaser', () => {
     const next = stepChaser(c, [4, 0, 0], layout, [], 0.1, 5000)
     expect(next.position[0]).toBeGreaterThan(0)
     expect(next.status).toBe('walking')
+  })
+})
+
+describe('applyChaserKnockback', () => {
+  const now = 10_000
+  const playerPos: [number, number, number] = [-2, 0, 0]
+
+  it('moves chaser away from attacker and sets staggerUntil', () => {
+    const c = stubChaser({
+      position: [0, 0, 0],
+      status: 'smacking',
+      smackingSince: now - 500,
+    })
+    const next = applyChaserKnockback(c, playerPos, now)
+    const moved = Math.hypot(next.position[0], next.position[2])
+    expect(moved).toBeGreaterThan(1)
+    expect(next.staggerUntil).toBe(now + CONFIG.chaser.staggerSec * 1000)
+    expect(next.status).toBe('walking')
+    expect(next.smackingSince).toBe(0)
+  })
+
+  it('preserves silenced status when shoved during AoE silence', () => {
+    const c = stubChaser({
+      position: [0, 0, 0],
+      status: 'silenced',
+      statusUntil: now + 1500,
+    })
+    const next = applyChaserKnockback(c, playerPos, now, { dist: 1.1, staggerSec: 0.4 })
+    expect(next.status).toBe('silenced')
+    expect(next.statusUntil).toBe(now + 1500)
+    expect(next.staggerUntil).toBe(now + 400)
   })
 })

@@ -433,7 +433,8 @@ export function applySilence(
   others: XZ[] = [],
 ): NpcState {
   let position = npc.position
-  if (attackerPos) {
+  const walkingNonSeated = npc.status === 'walking' && npc.role !== 'chaser'
+  if (attackerPos && (walkingNonSeated || npc.role === 'boss')) {
     const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, getRuntimeSpace().tables, others)
     position = [x, 0, z]
   }

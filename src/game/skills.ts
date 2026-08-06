@@ -1,9 +1,60 @@
 import { CONFIG } from './config'
+import { applyChaserKnockback, isKnockbackTarget } from './chaser'
 import { scaledSilence } from './difficulty'
 import { resolveBossHit } from './bossModules'
 import { cdMultiplier, rangeMultiplier } from './progression'
 import { distance3 } from './threat'
 import type { NpcState, SkillId } from './types'
+
+function applySkillKnockback(
+  npc: NpcState,
+  skillId: SkillId,
+  playerPos: [number, number, number],
+  now: number,
+  others: { x: number; z: number }[],
+): NpcState {
+  if (skillId === 'tape' || skillId === 'gag' || skillId === 'poop') return npc
+
+  if (skillId === 'megaphone' || skillId === 'civility') {
+    if (!isKnockbackTarget(npc)) return npc
+    return applyChaserKnockback(npc, playerPos, now, {
+      dist: CONFIG.chaser.knockbackDist * 0.5,
+      staggerSec: CONFIG.chaser.staggerSec * 0.5,
+      others,
+    })
+  }
+
+  return npc
+}
+
+function resolveSkillHit(
+  npc: NpcState,
+  skillId: SkillId,
+  applyStatus: 'silenced' | 'sealed',
+  effectiveDuration: number,
+  now: number,
+  playerPos: [number, number, number],
+  others: { x: number; z: number }[],
+  hitPower: number,
+  sealProp: 'tape' | 'gag' | null = null,
+): NpcState {
+  if (skillId === 'slap' && npc.role === 'chaser') {
+    return applyChaserKnockback(npc, playerPos, now, { others })
+  }
+
+  const hit = resolveBossHit(
+    npc,
+    applyStatus,
+    effectiveDuration,
+    now,
+    sealProp,
+    playerPos,
+    others,
+    hitPower,
+  ).npc
+
+  return applySkillKnockback(hit, skillId, playerPos, now, others)
+}
 
 export function pickTarget(
   npcs: NpcState[],
@@ -95,7 +146,16 @@ export function tryUseSkill(
       hit = true
       hitIds.push(npc.id)
       const others = npcs.filter((n) => n.id !== npc.id).map((n) => ({ x: n.position[0], z: n.position[2] }))
-      return resolveBossHit(npc, skill.applyStatus, effectiveDuration, now, null, playerPos, others, hitPower).npc
+      return resolveSkillHit(
+        npc,
+        skillId,
+        skill.applyStatus,
+        effectiveDuration,
+        now,
+        playerPos,
+        others,
+        hitPower,
+      )
     })
     if (!hit) {
       return {
@@ -114,7 +174,16 @@ export function tryUseSkill(
       hit = true
       hitIds.push(npc.id)
       const others = npcs.filter((n) => n.id !== npc.id).map((n) => ({ x: n.position[0], z: n.position[2] }))
-      return resolveBossHit(npc, skill.applyStatus, effectiveDuration, now, null, playerPos, others, hitPower).npc
+      return resolveSkillHit(
+        npc,
+        skillId,
+        skill.applyStatus,
+        effectiveDuration,
+        now,
+        playerPos,
+        others,
+        hitPower,
+      )
     })
     if (!hit) {
       return {
@@ -135,16 +204,16 @@ export function tryUseSkill(
         const others = npcs
           .filter((n) => n.id !== npc.id)
           .map((n) => ({ x: n.position[0], z: n.position[2] }))
-        return resolveBossHit(
+        return resolveSkillHit(
           npc,
+          skillId,
           skill.applyStatus,
           effectiveDuration,
           now,
-          null,
           playerPos,
           others,
           hitPower,
-        ).npc
+        )
       }
       return npc
     })
@@ -192,16 +261,17 @@ export function tryUseSkill(
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     next = next.map((n) =>
       n.id === target.id
-        ? resolveBossHit(
+        ? resolveSkillHit(
             n,
+            skillId,
             skill.applyStatus,
             effectiveDuration,
             now,
-            sealProp,
             playerPos,
             others,
             hitPower,
-          ).npc
+            sealProp,
+          )
         : n,
     )
   }
