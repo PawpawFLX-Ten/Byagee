@@ -163,6 +163,25 @@ export interface SkillDef {
 
 export type DifficultyPhase = 'early' | 'mid' | 'late'
 
+export interface RunStats {
+  skillHits: number
+  propsPicked: number
+  spaceEvents: number
+  chaserKnockbacks: number
+}
+
+export type AchievementId =
+  | 'first_boss'
+  | 'boss_slayer'
+  | 'survivor_5'
+  | 'survivor_10'
+  | 'survivor_20'
+  | 'chaser_slapper'
+  | 'quiet_room'
+  | 'prop_hoarder'
+  | 'slap_artist'
+  | 'max_level'
+
 export interface DonationConfig {
   afdianUrl: string
   kofiUrl: string
