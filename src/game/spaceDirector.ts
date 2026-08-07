@@ -1,27 +1,20 @@
 import { CONFIG } from './config'
 import type { SpaceEventDef, SpaceEventId } from './types'
 
-/** #1 pool: A1,C1,C3 common; A2/C2 rare; A3/A4/A5/C4/C6 excluded; C5 minor-only (late between bosses). */
+/** #1 pool: A1,C1,C3 common; A2/C2 rare; A3/A5/C6 uncommon late; A4/C4 upstairs late; C5 minor-only (late between bosses). */
 export const EVENTS: SpaceEventDef[] = [
   { id: 'A1', kind: 'A', inFirstRewardPool: true, weightLate: 3 },
   { id: 'A2', kind: 'A', inFirstRewardPool: true, weightLate: 2 },
   { id: 'A3', kind: 'A', inFirstRewardPool: false, weightLate: 2 },
-  { id: 'A4', kind: 'A', inFirstRewardPool: false, weightLate: 0 },
+  { id: 'A4', kind: 'A', inFirstRewardPool: false, weightLate: 2 },
   { id: 'A5', kind: 'A', inFirstRewardPool: false, weightLate: 2 },
   { id: 'C1', kind: 'C', inFirstRewardPool: true, weightLate: 3 },
   { id: 'C2', kind: 'C', inFirstRewardPool: true, weightLate: 1 },
   { id: 'C3', kind: 'C', inFirstRewardPool: true, weightLate: 3 },
-  { id: 'C4', kind: 'C', inFirstRewardPool: false, weightLate: 0 },
+  { id: 'C4', kind: 'C', inFirstRewardPool: false, weightLate: 2 },
   { id: 'C5', kind: 'C', inFirstRewardPool: false, weightLate: 1 },
   { id: 'C6', kind: 'C', inFirstRewardPool: false, weightLate: 2 },
 ]
-
-/** Deferred until stair Y climb is implemented. */
-const DEFERRED_UPSTAIRS = new Set<SpaceEventId>(['A4', 'C4'])
-
-function isLiveEvent(e: SpaceEventDef): boolean {
-  return !DEFERRED_UPSTAIRS.has(e.id)
-}
 
 const FIRST_POOL_RARE = new Set<SpaceEventId>(['A2', 'C2'])
 
@@ -61,19 +54,19 @@ export function pickSpaceEvent(
   let pool: { id: SpaceEventId; weight: number }[]
 
   if (opts.isFirst) {
-    pool = EVENTS.filter((e) => e.inFirstRewardPool && isLiveEvent(e)).map((e) => ({
+    pool = EVENTS.filter((e) => e.inFirstRewardPool).map((e) => ({
       id: e.id,
       weight: weightForFirstPool(e.id),
     }))
   } else if (opts.late) {
-    pool = EVENTS.filter((e) => isLiveEvent(e) && (allowMinorMorph || e.id !== 'C5')).map(
+    pool = EVENTS.filter((e) => (allowMinorMorph || e.id !== 'C5')).map(
       (e) => ({
         id: e.id,
         weight: e.weightLate,
       }),
     )
   } else {
-    pool = EVENTS.filter((e) => isLiveEvent(e) && e.id !== 'C5').map((e) => ({
+    pool = EVENTS.filter((e) => e.id !== 'C5').map((e) => ({
       id: e.id,
       weight: e.weightLate,
     }))

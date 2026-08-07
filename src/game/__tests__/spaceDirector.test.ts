@@ -89,16 +89,20 @@ describe('spaceDirector', () => {
     expect(ids.has('C5')).toBe(true)
   })
 
-  it('never picks deferred upstairs events A4/C4', () => {
-    for (let i = 0; i < 200; i++) {
+  it('late pool can pick A4 and C4 upstairs events', () => {
+    let sawA4 = false
+    let sawC4 = false
+    for (let i = 0; i < 400; i++) {
       const id = pickSpaceEvent(() => Math.random(), {
         isFirst: false,
         late: true,
         allowMinorMorph: true,
       })
-      expect(id).not.toBe('A4')
-      expect(id).not.toBe('C4')
+      if (id === 'A4') sawA4 = true
+      if (id === 'C4') sawC4 = true
     }
+    expect(sawA4).toBe(true)
+    expect(sawC4).toBe(true)
   })
 
   it('minorOnly always returns C5', () => {
