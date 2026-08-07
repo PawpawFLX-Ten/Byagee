@@ -232,6 +232,7 @@ export const CONFIG: GameConfig = {
     eventCooldownMinSec: 90,
     firstEventDelayAfterBossDemoteMs: 800,
     minorMorphMaxBetweenBosses: 1,
+    roomGap: 1,
   },
   chaser: {
     faceRadius: 1.2,

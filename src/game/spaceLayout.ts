@@ -1,4 +1,4 @@
-import type { RoomId, SpaceObstacle, SpaceOpening, SpaceRoom, SpaceStairs } from './types'
+import type { RoomId, RoomSide, SpaceObstacle, SpaceOpening, SpaceRoom, SpaceStairs } from './types'
 
 export interface SpaceLayoutState {
   rooms: SpaceRoom[]
@@ -169,6 +169,175 @@ export function addRoomConnected(
     obstacles: layout.obstacles,
     stairs: layout.stairs,
   }
+}
+
+const SIDE_ORDER: RoomSide[] = ['east', 'west', 'north', 'south']
+
+function roomMid(room: { min: [number, number]; max: [number, number] }): {
+  x: number
+  z: number
+} {
+  return {
+    x: (room.min[0] + room.max[0]) / 2,
+    z: (room.min[1] + room.max[1]) / 2,
+  }
+}
+
+/** Candidate AABB (min/max as [x,z]) for a w×d room attached to a side of `room`. */
+export function sideAabb(
+  room: { min: [number, number]; max: [number, number] },
+  side: RoomSide,
+  w: number,
+  d: number,
+  gap = 1,
+): { min: [number, number]; max: [number, number] } {
+  const mid = roomMid(room)
+  switch (side) {
+    case 'east':
+      return {
+        min: [room.max[0] + gap, mid.z - d / 2],
+        max: [room.max[0] + gap + w, mid.z + d / 2],
+      }
+    case 'west':
+      return {
+        min: [room.min[0] - gap - w, mid.z - d / 2],
+        max: [room.min[0] - gap, mid.z + d / 2],
+      }
+    case 'north':
+      return {
+        min: [mid.x - w / 2, room.min[1] - gap - d],
+        max: [mid.x + w / 2, room.min[1] - gap],
+      }
+    case 'south':
+      return {
+        min: [mid.x - w / 2, room.max[1] + gap],
+        max: [mid.x + w / 2, room.max[1] + gap + d],
+      }
+  }
+}
+
+function aabbOverlap(
+  a: { min: [number, number]; max: [number, number] },
+  b: { min: [number, number]; max: [number, number] },
+): boolean {
+  return (
+    a.min[0] < b.max[0] &&
+    a.max[0] > b.min[0] &&
+    a.min[1] < b.max[1] &&
+    a.max[1] > b.min[1]
+  )
+}
+
+/** Sides of `roomId` where a w×d room would not collide with existing rooms or obstacles. */
+export function availableSides(
+  layout: SpaceLayoutState,
+  roomId: RoomId,
+  w: number,
+  d: number,
+  gap = 1,
+): RoomSide[] {
+  const room = layout.rooms.find((r) => r.id === roomId)
+  if (!room) return []
+  const taken: { min: [number, number]; max: [number, number] }[] = [
+    ...layout.rooms,
+    ...layout.obstacles,
+  ]
+  return SIDE_ORDER.filter((side) => {
+    const cand = sideAabb(room, side, w, d, gap)
+    return !taken.some((t) => aabbOverlap(cand, t))
+  })
+}
+
+/** Door center on the shared wall segment for a side attachment. */
+export function sideDoorPosition(
+  room: { min: [number, number]; max: [number, number] },
+  side: RoomSide,
+  roomMin: [number, number],
+  roomMax: [number, number],
+): [number, number, number] {
+  const segX = (roomMin[0] + roomMax[0]) / 2
+  const segZ = (roomMin[1] + roomMax[1]) / 2
+  switch (side) {
+    case 'east':
+      return [room.max[0], 0, segZ]
+    case 'west':
+      return [room.min[0], 0, segZ]
+    case 'north':
+      return [segX, 0, room.min[1]]
+    case 'south':
+      return [segX, 0, room.max[1]]
+  }
+}
+
+function doorAabbFor(
+  position: [number, number, number],
+  side: RoomSide,
+): { min: [number, number]; max: [number, number] } {
+  const half = 0.7
+  const depth = 0.15
+  if (side === 'east' || side === 'west') {
+    return {
+      min: [position[0] - depth, position[2] - half],
+      max: [position[0] + depth, position[2] + half],
+    }
+  }
+  return {
+    min: [position[0] - half, position[2] - depth],
+    max: [position[0] + half, position[2] + depth],
+  }
+}
+
+/** Connect a new room on a specific side; a cabinet overlapping the door is replaced by it. */
+export function addRoomConnectedAt(
+  layout: SpaceLayoutState,
+  room: SpaceRoom,
+  openingId: string,
+  fromRoomId: RoomId,
+  side: RoomSide,
+): SpaceLayoutState {
+  const fromRoom = layout.rooms.find((r) => r.id === fromRoomId)
+  if (!fromRoom) return layout
+
+  const position = sideDoorPosition(fromRoom, side, room.min, room.max)
+  const opening: SpaceOpening = {
+    id: openingId,
+    fromRoom: fromRoomId,
+    toRoom: room.id,
+    position,
+    latchedUntil: 0,
+    lastLatchedAt: 0,
+  }
+
+  const doorAabb = doorAabbFor(position, side)
+  const obstacles = layout.obstacles.filter(
+    (o) => !(o.id.startsWith('cabinet-') && aabbOverlap(doorAabb, o)),
+  )
+
+  return {
+    rooms: [...layout.rooms, room],
+    openings: [...layout.openings, opening],
+    obstacles,
+    stairs: layout.stairs,
+  }
+}
+
+export type ConnectionPick = { roomId: RoomId; side: RoomSide }
+
+/** Pick a random available side for a w×d room; prefers r0, then room order; null when none. */
+export function pickConnection(
+  layout: SpaceLayoutState,
+  w: number,
+  d: number,
+  rng: () => number,
+  gap = 1,
+): ConnectionPick | null {
+  for (const room of layout.rooms) {
+    const sides = availableSides(layout, room.id, w, d, gap)
+    if (!sides.length) continue
+    const side = sides[Math.floor(rng() * sides.length)]!
+    return { roomId: room.id, side }
+  }
+  return null
 }
 
 /** World Y offset per floor band (matches Room mesh). */

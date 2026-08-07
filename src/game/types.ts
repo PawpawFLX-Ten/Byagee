@@ -30,6 +30,9 @@ export interface DinerConfig {
 
 export type RoomId = string
 
+/** Compass side a new room attaches to an existing room's wall. */
+export type RoomSide = 'east' | 'west' | 'north' | 'south'
+
 export interface SpaceOpening {
   id: string
   fromRoom: RoomId
@@ -237,6 +240,8 @@ export interface SpaceConfig {
   eventCooldownMinSec: number
   firstEventDelayAfterBossDemoteMs: number
   minorMorphMaxBetweenBosses: number
+  /** Gap between a new side room and its source room wall. */
+  roomGap: number
 }
 
 export interface ChaserConfig {
