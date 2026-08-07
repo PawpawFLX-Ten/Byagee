@@ -5,6 +5,7 @@ import { Select } from '@react-three/postprocessing'
 import type { Group, Mesh } from 'three'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
+import { CONFIG } from '../game/config'
 import { smackDamageDelayFor } from '../game/threat'
 import type { NpcArchetype, NpcState, SkillId } from '../game/types'
 
@@ -133,6 +134,7 @@ function NpcMeshImpl({
   const wave = useRef<Group>(null)
   const windup = useRef<Group>(null)
   const windupFill = useRef<Mesh>(null)
+  const pulseRing = useRef<Group>(null)
 
   // Static per-NPC config captured at render; per-frame data read live below.
   const npc = useGameStore.getState().npcs.find((n) => n.id === id)!
@@ -282,6 +284,21 @@ function NpcMeshImpl({
           color: { setHSL: (h: number, s: number, l: number) => void }
         }
         mat.color.setHSL(0.08 - fill * 0.08, 1, 0.5)
+      }
+    }
+
+    // Boss rage-pulse charge ring: grows while the burst charges.
+    if (pulseRing.current) {
+      const charging = live.role === 'boss' && live.pulseChargeUntil > now
+      pulseRing.current.visible = charging
+      if (charging) {
+        const p = 1 - (live.pulseChargeUntil - now) / CONFIG.boss.pulseChargeMs
+        pulseRing.current.scale.setScalar(0.4 + p * 1.5)
+        const mat = pulseRing.current.children[0] as unknown as {
+          material?: { opacity: number }
+        }
+        const ring = mat?.material
+        if (ring) ring.opacity = 0.5 + p * 0.5
       }
     }
   })
@@ -440,6 +457,16 @@ function NpcMeshImpl({
           >
              {t('npc_smacking')}
           </Text>
+        </Billboard>
+      </group>
+
+      {/* Boss rage-pulse charge ring */}
+      <group ref={pulseRing} position={[0, 1.7, 0]} visible={false}>
+        <Billboard>
+          <mesh>
+            <ringGeometry args={[0.3, 0.42, 20]} />
+            <meshBasicMaterial color="#ffd24a" transparent opacity={0.9} depthWrite={false} />
+          </mesh>
         </Billboard>
       </group>
 

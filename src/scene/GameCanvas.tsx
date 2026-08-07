@@ -68,6 +68,17 @@ function CameraFollow() {
     }
 
     controls.current.update()
+
+    // Boss rage-pulse impact shake — decays over ~500ms.
+    const now = performance.now()
+    for (const n of npcs) {
+      if (n.role === 'boss' && n.pulseFiredAt > 0 && now - n.pulseFiredAt < 500) {
+        const k = 0.5 - (now - n.pulseFiredAt) / 1000
+        camera.position.x += (Math.random() - 0.5) * k * 0.2
+        camera.position.y += (Math.random() - 0.5) * k * 0.14
+        break
+      }
+    }
   })
 
   return (
