@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CHAR_RADIUS,
   clampToLayout,
   layoutBoundsFromLayout,
+  moveWithCollision,
   resolveObstaclesCollision,
   resolveTablesCollision,
+  wallsFromLayout,
 } from '../collision'
+import { CONFIG } from '../config'
 import { applySpaceEvent } from '../spaceApply'
 import { createInitialLayout } from '../spaceLayout'
-import { CONFIG } from '../config'
 
 describe('resolveTablesCollision', () => {
   it('pushes a point out of the round table AABB/circle', () => {
@@ -103,5 +106,71 @@ describe('clampToLayout', () => {
     expect(x).toBeGreaterThan(roomX - 0.5)
     const centerX = (newRoom.min[0] + newRoom.max[0]) / 2
     expect(x).toBeLessThanOrEqual(centerX + 0.5)
+  })
+})
+
+describe('wallsFromLayout', () => {
+  it('splits the r0 north wall at the main door and east wall at the side door', () => {
+    const applied = applySpaceEvent({
+      layout: createInitialLayout(),
+      tables: [...CONFIG.tables],
+      seatPositions: [...CONFIG.seatPositions],
+      foodSpots: [...CONFIG.foodSpots],
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A1',
+      rng: () => 0, // east
+    })
+    const walls = wallsFromLayout(applied.layout, CONFIG.door.position)
+    // North wall has a gap at x=0 (main door): two z=-5 segments.
+    const northSegs = walls.filter((w) => w.max[1] > -5.5 && w.max[1] < -4.5)
+    expect(northSegs.length).toBe(2)
+    // East wall of r0 has a gap at z=0 (side door): two x=5 segments.
+    const r0East = walls.filter((w) => w.min[0] > 4.5 && w.min[0] < 5.5 && w.max[0] > 4.5)
+    expect(r0East.length).toBe(2)
+  })
+
+  it('blocks a point that crosses the wall away from the door gap', () => {
+    const applied = applySpaceEvent({
+      layout: createInitialLayout(),
+      tables: [...CONFIG.tables],
+      seatPositions: [...CONFIG.seatPositions],
+      foodSpots: [...CONFIG.foodSpots],
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A1',
+      rng: () => 0, // east, door at z=0
+    })
+    const bounds = layoutBoundsFromLayout(applied.layout, 0)
+    const walls = wallsFromLayout(applied.layout, CONFIG.door.position)
+    // Stepping into the east wall at z=2 (no door there) is pushed back to r0.
+    const [x1] = moveWithCollision(
+      4.7, 2, 0.3, 0,
+      [], [], CHAR_RADIUS, walls, bounds,
+    )
+    expect(x1).toBeLessThanOrEqual(5.21) // clamped back inside r0 bounds
+    // Stepping through at z=0 (the door gap) passes the wall line.
+    let cx2 = 4.7
+    for (let i = 0; i < 8; i++) {
+      ;[cx2] = moveWithCollision(cx2, 0, 0.3, 0, [], [], CHAR_RADIUS, walls, bounds)
+    }
+    expect(cx2).toBeGreaterThan(5.5)
+  })
+
+  it('keeps the main door gap passable on the r0 north wall', () => {
+    const layout = createInitialLayout()
+    const bounds = layoutBoundsFromLayout(layout, 0)
+    const walls = wallsFromLayout(layout, CONFIG.door.position)
+    // Through the main door gap (x=0) the z push passes the wall line.
+    const [x, z] = moveWithCollision(
+      0, -4.7, 0, -0.3,
+      [], [], CHAR_RADIUS, walls, bounds,
+    )
+    expect(x).toBeCloseTo(0, 1)
+    expect(z).toBeLessThan(-4.95)
+    // At x=2 (solid wall) the push is blocked before the wall line.
+    const [, bz] = moveWithCollision(
+      2, -4.7, 0, -0.3,
+      [], [], CHAR_RADIUS, walls, bounds,
+    )
+    expect(bz).toBeGreaterThan(-4.95)
   })
 })

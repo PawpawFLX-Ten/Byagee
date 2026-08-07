@@ -9,6 +9,7 @@ import { CONFIG } from './config'
 import { CHASER_ARCHETYPE, CHASER_BUILD } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import { latchedOnPath, roomIdAt, type SpaceLayoutState } from './spaceLayout'
+import { waypointToward } from './npcFsm'
 import { distance3, distanceAttenuation } from './threat'
 import type { DifficultyPhase, NpcState, RoomId, TableDef } from './types'
 
@@ -297,6 +298,9 @@ export function stepChaser(
   const playerRoomId =
     opts.playerRoomId ??
     roomIdAt(layout, playerPos[0], playerPos[2], 0)
+
+  // Pursuit goal: the player, or a door waypoint when they are in another room.
+  const goal = waypointToward(layout, next.position, playerPos) ?? playerPos
   const pathBlocked =
     next.roomId !== playerRoomId &&
     latchedOnPath(layout, next.roomId, playerRoomId, now)
@@ -332,8 +336,8 @@ export function stepChaser(
     next = { ...next, status: 'walking', smackingSince: 0 }
   }
 
-  const tx = playerPos[0] - next.position[0]
-  const tz = playerPos[2] - next.position[2]
+  const tx = goal[0] - next.position[0]
+  const tz = goal[2] - next.position[2]
   const dist = Math.hypot(tx, tz)
   const facing = Math.atan2(tx, tz)
 

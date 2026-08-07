@@ -35,7 +35,7 @@ function CameraFollow() {
 
   useFrame(() => {
     if (!controls.current) return
-    const { playerPos, npcs, targetId, layout, playerRoomId } = useGameStore.getState()
+    const { playerPos, npcs, targetId } = useGameStore.getState()
     _camDesired.set(playerPos[0], 1.1, playerPos[2])
     controls.current.target.lerp(_camDesired, 0.12)
 
@@ -69,33 +69,8 @@ function CameraFollow() {
 
     controls.current.update()
 
-    // Keep the camera inside the player's room and within reach:
-    // orbit never pushes it through a wall or into another room.
-    const room = layout.rooms.find((r) => r.id === playerRoomId)
-    if (room) {
-      const m = 0.55
-      camera.position.x = Math.min(
-        Math.max(camera.position.x, room.min[0] + m),
-        room.max[0] - m,
-      )
-      camera.position.z = Math.min(
-        Math.max(camera.position.z, room.min[1] + m),
-        room.max[1] - m,
-      )
-    }
-    const ddx = camera.position.x - playerPos[0]
-    const ddz = camera.position.z - playerPos[2]
-    const camDist = Math.hypot(ddx, ddz)
-    const maxDist = room
-      ? Math.max(
-          1.6,
-          Math.min(6.2, Math.min(room.max[0] - room.min[0], room.max[1] - room.min[1]) / 2 - 0.45),
-        )
-      : 6.2
-    if (camDist > maxDist) {
-      camera.position.x = playerPos[0] + (ddx / camDist) * maxDist
-      camera.position.z = playerPos[2] + (ddz / camDist) * maxDist
-    }
+    // Free orbit: walls fade via WallOcclusionFader instead of clamping the
+    // camera inside the player room.
 
     // Boss rage-pulse impact shake — decays over ~500ms.
     const now = performance.now()

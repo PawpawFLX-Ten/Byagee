@@ -124,6 +124,85 @@ export type ObstacleCollider = {
   max: [number, number]
 }
 
+/** Split [start,end] into segments with gaps (e.g. doors) removed. */
+export function splitSegments(
+  start: number,
+  end: number,
+  gaps: number[],
+  gapHalf: number,
+): [number, number][] {
+  const segs: [number, number][] = []
+  let cur = start
+  for (const g of [...gaps].sort((a, b) => a - b)) {
+    if (g - gapHalf > cur) segs.push([cur, g - gapHalf])
+    cur = Math.max(cur, g + gapHalf)
+  }
+  if (cur < end) segs.push([cur, end])
+  return segs
+}
+
+/** Solid wall segments for every ground-floor room, minus door gaps and the main door. */
+export function wallsFromLayout(
+  layout: SpaceLayoutState,
+  mainDoorPos: [number, number, number] = [0, 0, -4.9],
+): ObstacleCollider[] {
+  const walls: ObstacleCollider[] = []
+  const half = 0.7
+  const thick = 0.1
+  // A door sits on the source room's wall; the far room's wall is one
+  // roomGap away, so match gaps within the gap distance.
+  const gapTol = 1.1
+  for (const room of layout.rooms) {
+    if (room.floor !== 0) continue
+    const { min, max } = room
+    const doorGaps: Record<'n' | 's' | 'e' | 'w', number[]> = {
+      n: [],
+      s: [],
+      e: [],
+      w: [],
+    }
+    for (const o of layout.openings) {
+      if (o.fromRoom !== room.id && o.toRoom !== room.id) continue
+      if (Math.abs(o.position[2] - min[1]) < gapTol) doorGaps.n.push(o.position[0])
+      else if (Math.abs(o.position[2] - max[1]) < gapTol) doorGaps.s.push(o.position[0])
+      else if (Math.abs(o.position[0] - min[0]) < gapTol) doorGaps.w.push(o.position[2])
+      else if (Math.abs(o.position[0] - max[0]) < gapTol) doorGaps.e.push(o.position[2])
+    }
+    // Main entrance cuts the r0 north wall (door sits ~0.1 in front of it).
+    if (room.id === 'r0' && Math.abs(mainDoorPos[2] - min[1]) < 0.3) {
+      doorGaps.n.push(mainDoorPos[0])
+    }
+    const push = (start: number, end: number, axis: 'x' | 'z', fixed: number) => {
+      if (end - start <= 0) return
+      if (axis === 'x') {
+        walls.push({ min: [start, fixed - thick], max: [end, fixed + thick] })
+      } else {
+        walls.push({ min: [fixed - thick, start], max: [fixed + thick, end] })
+      }
+    }
+    for (const [s, e] of splitSegments(min[0], max[0], doorGaps.n, half)) push(s, e, 'x', min[1])
+    for (const [s, e] of splitSegments(min[0], max[0], doorGaps.s, half)) push(s, e, 'x', max[1])
+    for (const [s, e] of splitSegments(min[1], max[1], doorGaps.w, half)) push(s, e, 'z', min[0])
+    for (const [s, e] of splitSegments(min[1], max[1], doorGaps.e, half)) push(s, e, 'z', max[0])
+  }
+  return walls
+}
+
+/** Cache walls per layout object — layouts are immutable between space events. */
+const wallsCache = new WeakMap<SpaceLayoutState, ObstacleCollider[]>()
+
+export function cachedWallsFromLayout(
+  layout: SpaceLayoutState,
+  mainDoorPos: [number, number, number],
+): ObstacleCollider[] {
+  let walls = wallsCache.get(layout)
+  if (!walls) {
+    walls = wallsFromLayout(layout, mainDoorPos)
+    wallsCache.set(layout, walls)
+  }
+  return walls
+}
+
 export function resolveTableShapeCollision(
   x: number,
   z: number,

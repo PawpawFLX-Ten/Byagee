@@ -179,34 +179,45 @@ function microAdjust(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyA1(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 4, 6, input.rng)
+  const attach = attachRoom(input.layout, 6, 8, input.rng)
   if (!attach) return microAdjust(input)
 
-  const table: TableDef = {
-    id: `t-${attach.roomId}`,
-    shape: 'round',
-    position: [attach.center[0], 0, attach.center[1]],
-    half: { x: 0.85, z: 0.85 },
-    topY: 0.75,
+  const tables: TableDef[] = [
+    {
+      id: `t-${attach.roomId}a`,
+      shape: 'round',
+      position: [attach.center[0], 0, attach.center[1]],
+      half: { x: 0.85, z: 0.85 },
+      topY: 0.75,
+    },
+    {
+      id: `t-${attach.roomId}b`,
+      shape: 'rect',
+      position: [attach.center[0] + 2.3, 0, attach.center[1] + 2.4],
+      half: { x: 1.0, z: 0.6 },
+      topY: 0.75,
+    },
+  ]
+  let seatPositions = [...input.seatPositions]
+  let foodSpots = [...(input.foodSpots ?? [])]
+  let allTables = [...input.tables]
+  for (const [table, count] of [
+    [tables[0], 4],
+    [tables[1], 2],
+  ] as const) {
+    const bundled = appendTableBundle(allTables, seatPositions, foodSpots, table, count, input.rng)
+    allTables = bundled.tables
+    seatPositions = bundled.seatPositions
+    foodSpots = bundled.foodSpots
   }
-  const seatCount = 2 + Math.floor(input.rng() * 3)
-  const foodSpots = input.foodSpots ?? []
-  const bundled = appendTableBundle(
-    input.tables,
-    input.seatPositions,
-    foodSpots,
-    table,
-    seatCount,
-    input.rng,
-  )
 
   return {
     layout: attach.layout,
-    tables: bundled.tables,
-    seatPositions: bundled.seatPositions,
-    foodSpots: bundled.foodSpots,
-    maxNpcs: bundled.seatPositions.length,
-    doorMaxNpcs: bundled.seatPositions.length,
+    tables: allTables,
+    seatPositions,
+    foodSpots,
+    maxNpcs: seatPositions.length,
+    doorMaxNpcs: seatPositions.length,
   }
 }
 
@@ -226,8 +237,8 @@ function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
     pick.side,
   )
 
-  const endAabb = sideAabb(corridorAabb, pick.side, 4.5, 8, gap)
-  const sideFree = availableSides(newLayout, corridorId, 4.5, 8, gap).includes(pick.side)
+  const endAabb = sideAabb(corridorAabb, pick.side, 6, 10, gap)
+  const sideFree = availableSides(newLayout, corridorId, 6, 10, gap).includes(pick.side)
   if (!sideFree) return microAdjust(input)
 
   const roomId = nextRoomId(newLayout)
@@ -240,20 +251,37 @@ function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
   )
 
   const center = roomCenter(endAabb)
-  const table: TableDef = {
-    id: `t-${roomId}`,
-    shape: 'rect',
-    position: [center[0] - 0.25, 0, center[1]],
-    half: { x: 1.1, z: 0.75 },
-    topY: 0.75,
-  }
+  const tables: TableDef[] = [
+    {
+      id: `t-${roomId}a`,
+      shape: 'round',
+      position: [center[0] - 1.5, 0, center[1]],
+      half: { x: 0.85, z: 0.85 },
+      topY: 0.75,
+    },
+    {
+      id: `t-${roomId}b`,
+      shape: 'round',
+      position: [center[0] + 2, 0, center[1] + 2.8],
+      half: { x: 0.7, z: 0.7 },
+      topY: 0.75,
+    },
+  ]
   const foodSpots = input.foodSpots ?? []
-  const bundled = appendTableBundle(
+  let bundled = appendTableBundle(
     input.tables,
     input.seatPositions,
     foodSpots,
-    table,
-    3,
+    tables[0],
+    4,
+    input.rng,
+  )
+  bundled = appendTableBundle(
+    bundled.tables,
+    bundled.seatPositions,
+    bundled.foodSpots,
+    tables[1],
+    2,
     input.rng,
   )
 
@@ -268,22 +296,29 @@ function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyA3(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 8, 10, input.rng)
+  const attach = attachRoom(input.layout, 10, 12, input.rng)
   if (!attach) return microAdjust(input)
 
   const tables: TableDef[] = [
     {
       id: `t-${attach.roomId}a`,
       shape: 'oval',
-      position: [attach.center[0] - 1, 0, attach.center[1] - 1.5],
+      position: [attach.center[0] - 2.5, 0, attach.center[1] - 3],
       half: { x: 1.4, z: 0.6 },
       topY: 0.75,
     },
     {
       id: `t-${attach.roomId}b`,
       shape: 'rect',
-      position: [attach.center[0] + 1.5, 0, attach.center[1] + 2],
+      position: [attach.center[0] + 2.5, 0, attach.center[1]],
       half: { x: 1.2, z: 0.8 },
+      topY: 0.75,
+    },
+    {
+      id: `t-${attach.roomId}c`,
+      shape: 'round',
+      position: [attach.center[0], 0, attach.center[1] + 3.5],
+      half: { x: 0.85, z: 0.85 },
       topY: 0.75,
     },
   ]
@@ -373,7 +408,7 @@ function applyA4(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC1(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 4, 3, input.rng)
+  const attach = attachRoom(input.layout, 5, 4, input.rng)
   if (!attach) return microAdjust(input)
 
   const table: TableDef = {
@@ -404,20 +439,38 @@ function applyC1(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC2(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 3, 3, input.rng)
+  const attach = attachRoom(input.layout, 4, 4, input.rng)
   if (!attach) return microAdjust(input)
+
+  const table: TableDef = {
+    id: `t-${attach.roomId}`,
+    shape: 'round',
+    position: [attach.center[0], 0, attach.center[1]],
+    half: { x: 0.6, z: 0.6 },
+    topY: 0.75,
+  }
+  const foodSpots = input.foodSpots ?? []
+  const bundled = appendTableBundle(
+    input.tables,
+    input.seatPositions,
+    foodSpots,
+    table,
+    2,
+    input.rng,
+  )
 
   return {
     layout: attach.layout,
-    tables: input.tables,
-    seatPositions: input.seatPositions,
-    foodSpots: input.foodSpots ?? [],
-    maxNpcs: input.maxNpcs,
+    tables: bundled.tables,
+    seatPositions: bundled.seatPositions,
+    foodSpots: bundled.foodSpots,
+    maxNpcs: bundled.seatPositions.length,
+    doorMaxNpcs: bundled.seatPositions.length,
   }
 }
 
 function applyC3(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 5, 4, input.rng)
+  const attach = attachRoom(input.layout, 6, 5, input.rng)
   if (!attach) return microAdjust(input)
 
   const newLayout = {
@@ -426,13 +479,13 @@ function applyC3(input: ApplySpaceEventInput): ApplySpaceEventResult {
       ...attach.layout.obstacles,
       {
         id: `obs-pillar-${attach.roomId}-a`,
-        min: [attach.center[0] - 1.5, attach.center[1] + 0.5] as [number, number],
-        max: [attach.center[0] - 0.5, attach.center[1] + 1.5] as [number, number],
+        min: [attach.center[0] - 1.8, attach.center[1] + 1.2] as [number, number],
+        max: [attach.center[0] - 0.8, attach.center[1] + 2.2] as [number, number],
       },
       {
         id: `obs-pillar-${attach.roomId}-b`,
-        min: [attach.center[0] + 1, attach.center[1] - 2] as [number, number],
-        max: [attach.center[0] + 2, attach.center[1] - 1] as [number, number],
+        min: [attach.center[0] + 0.8, attach.center[1] + 1.2] as [number, number],
+        max: [attach.center[0] + 1.8, attach.center[1] + 2.2] as [number, number],
       },
     ],
   }
@@ -440,7 +493,7 @@ function applyC3(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const table: TableDef = {
     id: `t-${attach.roomId}`,
     shape: 'round',
-    position: [attach.center[0] - 0.2, 0, attach.center[1] + 0.4],
+    position: [attach.center[0], 0, attach.center[1] - 0.8],
     half: { x: 0.7, z: 0.7 },
     topY: 0.75,
   }
@@ -525,20 +578,38 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC5(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 2.5, 2.5, input.rng)
+  const attach = attachRoom(input.layout, 3.5, 3.5, input.rng)
   if (!attach) return microAdjust(input)
+
+  const table: TableDef = {
+    id: `t-${attach.roomId}`,
+    shape: 'round',
+    position: [attach.center[0], 0, attach.center[1]],
+    half: { x: 0.6, z: 0.6 },
+    topY: 0.75,
+  }
+  const foodSpots = input.foodSpots ?? []
+  const bundled = appendTableBundle(
+    input.tables,
+    input.seatPositions,
+    foodSpots,
+    table,
+    2,
+    input.rng,
+  )
 
   return {
     layout: attach.layout,
-    tables: input.tables,
-    seatPositions: input.seatPositions,
-    foodSpots: input.foodSpots ?? [],
-    maxNpcs: input.maxNpcs,
+    tables: bundled.tables,
+    seatPositions: bundled.seatPositions,
+    foodSpots: bundled.foodSpots,
+    maxNpcs: bundled.seatPositions.length,
+    doorMaxNpcs: bundled.seatPositions.length,
   }
 }
 
 function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 3.5, 5, input.rng)
+  const attach = attachRoom(input.layout, 5, 7, input.rng)
   if (!attach) return microAdjust(input)
 
   // Bar counter along the back wall — blocks pathing, not sound.
@@ -548,8 +619,8 @@ function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
       ...attach.layout.obstacles,
       {
         id: `obs-bar-${attach.roomId}`,
-        min: [attach.center[0] - 0.95, attach.center[1] - 2.3] as [number, number],
-        max: [attach.center[0] + 1.05, attach.center[1] - 1.4] as [number, number],
+        min: [attach.center[0] - 0.95, attach.center[1] - 3.2] as [number, number],
+        max: [attach.center[0] + 1.05, attach.center[1] - 2.3] as [number, number],
       },
     ],
   }
@@ -558,14 +629,14 @@ function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
     {
       id: `t-${attach.roomId}a`,
       shape: 'round',
-      position: [attach.center[0], 0, attach.center[1] - 0.8],
+      position: [attach.center[0], 0, attach.center[1] - 1],
       half: { x: 0.8, z: 0.8 },
       topY: 0.75,
     },
     {
       id: `t-${attach.roomId}b`,
       shape: 'round',
-      position: [attach.center[0], 0, attach.center[1] + 1.2],
+      position: [attach.center[0], 0, attach.center[1] + 1.5],
       half: { x: 0.7, z: 0.7 },
       topY: 0.75,
     },
@@ -598,7 +669,7 @@ function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC6(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const attach = attachRoom(input.layout, 5, 4, input.rng)
+  const attach = attachRoom(input.layout, 6, 5, input.rng)
   if (!attach) return microAdjust(input)
 
   const screenAt = (dx: number, dz: number) => ({
@@ -606,7 +677,7 @@ function applyC6(input: ApplySpaceEventInput): ApplySpaceEventResult {
     min: [attach.center[0] + dx - 0.6, attach.center[1] + dz - 0.6] as [number, number],
     max: [attach.center[0] + dx + 0.6, attach.center[1] + dz + 0.6] as [number, number],
   })
-  const screens = [screenAt(-1.8, 0), screenAt(0, 1.2), screenAt(1.8, -1.3)]
+  const screens = [screenAt(-2.4, 0), screenAt(0, 1.8), screenAt(2.2, -1.6)]
 
   const newLayout = {
     ...attach.layout,
@@ -616,7 +687,7 @@ function applyC6(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const table: TableDef = {
     id: `t-${attach.roomId}`,
     shape: 'round',
-    position: [attach.center[0], 0, attach.center[1] + 0.6],
+    position: [attach.center[0], 0, attach.center[1] - 0.6],
     half: { x: 0.7, z: 0.7 },
     topY: 0.75,
   }

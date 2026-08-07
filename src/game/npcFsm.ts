@@ -12,9 +12,51 @@ import { CONFIG } from './config'
 import { pickArchetype, pickBuild } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import { getPhase } from './difficulty'
+import { roomIdAt, type SpaceLayoutState } from './spaceLayout'
 import type { DifficultyPhase, FoodSpot, NpcState, SealProp } from './types'
 
 const STUCK_TICKS_BEFORE_REROUTE = 25
+
+/** Point just inside the far room of `opening`, so agents cross the wall gap. */
+function doorWaypoint(
+  layout: SpaceLayoutState,
+  opening: SpaceLayoutState['openings'][0],
+  fromRoomId: string,
+): [number, number, number] {
+  const from = layout.rooms.find((r) => r.id === fromRoomId)
+  const [px, , pz] = opening.position
+  if (from) {
+    if (Math.abs(px - from.max[0]) < 0.01) return [px + 1.2, 0, pz]
+    if (Math.abs(px - from.min[0]) < 0.01) return [px - 1.2, 0, pz]
+    if (Math.abs(pz - from.max[1]) < 0.01) return [px, 0, pz + 1.2]
+    if (Math.abs(pz - from.min[1]) < 0.01) return [px, 0, pz - 1.2]
+  }
+  return [px, 0, pz]
+}
+
+/**
+ * When the food target is in another room, return a door waypoint on the path.
+ * Chained rooms (corridor + end room) resolve tick by tick as roomId updates.
+ */
+export function waypointToward(
+  layout: SpaceLayoutState,
+  from: [number, number, number],
+  target: [number, number, number],
+): [number, number, number] | null {
+  const fromRoom = roomIdAt(layout, from[0], from[2], 0)
+  const targetRoom = roomIdAt(layout, target[0], target[2], 0)
+  if (fromRoom === targetRoom) return null
+  const direct = layout.openings.find(
+    (o) =>
+      (o.fromRoom === fromRoom && o.toRoom === targetRoom) ||
+      (o.fromRoom === targetRoom && o.toRoom === fromRoom),
+  )
+  const gate =
+    direct ??
+    layout.openings.find((o) => o.fromRoom === fromRoom || o.toRoom === fromRoom)
+  if (!gate) return null
+  return doorWaypoint(layout, gate, fromRoom)
+}
 
 function foodIndexInConfig(foodId: string): number {
   const idx = getRuntimeSpace().foodSpots.findIndex((f) => f.id === foodId)
@@ -136,6 +178,7 @@ export function tickNpcs(
   playerPos?: [number, number, number],
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
+  layout?: SpaceLayoutState,
 ): { npcs: NpcState[]; despawnIds: string[] } {
   const phase = getPhase(elapsedSec)
   const maxSmack = CONFIG.maxOverlappingSmackers[phase]
@@ -179,7 +222,11 @@ export function tickNpcs(
       const mx = dirX * Math.min(step, dist)
       const mz = dirZ * Math.min(step, dist)
       const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles, bounds)
-      return { ...next, position: [x, 0, z] as [number, number, number] }
+      return {
+        ...next,
+        position: [x, 0, z] as [number, number, number],
+        roomId: layout ? roomIdAt(layout, x, z, 0) : next.roomId,
+      }
     }
 
     if (next.status === 'walking' && next.foodId) {
@@ -206,8 +253,10 @@ export function tickNpcs(
       }
 
       const target = approachFor(food, foodIndexInConfig(food.id))
-      const dist = Math.hypot(target[0] - next.position[0], target[2] - next.position[2])
-      next.facing = Math.atan2(target[0] - next.position[0], target[2] - next.position[2])
+      const waypoint = layout ? waypointToward(layout, next.position, target) : null
+      const goal = waypoint ?? target
+      const dist = Math.hypot(goal[0] - next.position[0], goal[2] - next.position[2])
+      next.facing = Math.atan2(goal[0] - next.position[0], goal[2] - next.position[2])
 
       if (dist < 0.28) {
         if (smacking < maxSmack) {
@@ -235,7 +284,7 @@ export function tickNpcs(
       const step = CONFIG.npcWalkSpeed * dt
       const [dirX, dirZ] = steeredDirection(
         next.position[0], next.position[2],
-        target[0], target[2],
+        goal[0], goal[2],
         tables,
         obstacles,
       )
@@ -284,6 +333,7 @@ export function tickNpcs(
       return {
         ...next,
         position: [x, 0, z] as [number, number, number],
+        roomId: layout ? roomIdAt(layout, x, z, 0) : next.roomId,
         stuckTicks,
       }
     }

@@ -720,14 +720,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const elapsedSec = (now - state.startedAt) / 1000
     const phase = getPhase(elapsedSec)
+    // NPCs are guided through door gaps by waypointToward; only the player
+    // gets wall colliders (see World.tsx) to avoid per-tick full-wall cost.
+    const worldObstacles = layout.obstacles
     const tickResult = tickNpcs(
       npcs,
       now,
       elapsedSec,
       dt,
       state.playerPos,
-      layout.obstacles,
+      worldObstacles,
       layoutBounds,
+      layout,
     )
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
@@ -743,7 +747,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     npcs = npcs.map((n) =>
       n.role === 'chaser' && !n.exiting
-        ? stepChaser(n, state.playerPos, layout, layout.obstacles, dt, now, {
+        ? stepChaser(n, state.playerPos, layout, worldObstacles, dt, now, {
             playerHidden,
             hideEscalated,
             playerRoomId,

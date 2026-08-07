@@ -14,6 +14,8 @@ import {
   layoutBoundsFromLayout,
   moveWithCollision,
   separateFromOthers,
+  wallsFromLayout,
+  type ObstacleCollider,
 } from '../game/collision'
 import { CONFIG } from '../game/config'
 import { inFaceRadius } from '../game/chaser'
@@ -120,7 +122,7 @@ export function WallOcclusionFader() {
     }
     for (const m of expired) faded.current.delete(m)
 
-    // Occlusion is slow to change — one raycast per 3 frames is plenty.
+    // Occlusion is slow to change �?one raycast per 3 frames is plenty.
     frameCount.current += 1
     if (frameCount.current % 3 !== 0) return
 
@@ -503,7 +505,7 @@ function DoorModel({
     <group position={position} rotation={[0, rotY, 0]}>
       {/* Door sits flush against the wall: visuals offset 0.4 into the room. */}
       <group position={[0, 0, 0.4]}>
-      {/* Door frame — side pillars */}
+      {/* Door frame �?side pillars */}
       <mesh position={[-0.62, 1.1, -0.35]} castShadow>
         <boxGeometry args={[0.08, 2.2, 0.14]} />
         <meshStandardMaterial color="#8b6914" />
@@ -527,7 +529,7 @@ function DoorModel({
         <sphereGeometry args={[0.06, 8, 8]} />
         <meshStandardMaterial color="#d4a017" metalness={0.6} roughness={0.3} />
       </mesh>
-      {/* Couplet — 上联 (right side, +X): 天道酬勤 */}
+      {/* Couplet �?上联 (right side, +X): 天道酬勤 */}
       <group position={[0.82, 1.1, -0.35]}>
         <mesh>
           <planeGeometry args={[0.28, 1.8]} />
@@ -546,7 +548,7 @@ function DoorModel({
         </Text>
       </group>
 
-      {/* Couplet — 下联 (left side, -X): 地道的您 */}
+      {/* Couplet �?下联 (left side, -X): 地道的您 */}
       <group position={[-0.82, 1.1, -0.35]}>
         <mesh>
           <planeGeometry args={[0.28, 1.8]} />
@@ -659,6 +661,10 @@ export function Player() {
   }, [paused])
 
   const layoutBounds = useMemo(() => layoutBoundsFromLayout(layout, 0), [layout])
+  const wallObstacles = useMemo(
+    () => wallsFromLayout(layout, CONFIG.door.position),
+    [layout],
+  )
 
   useFrame((_, dt) => {
     if (!ref.current || !alive || !briefingDone || paused) return
@@ -733,7 +739,7 @@ export function Player() {
     }
     wasSpace.current = isSpace
 
-    // NPCs always collide — jumping through a crowd is not allowed.
+    // NPCs always collide �?jumping through a crowd is not allowed.
     const blockers = npcs.map((n) => ({
       x: n.position[0],
       z: n.position[2],
@@ -746,7 +752,7 @@ export function Player() {
       if (keys.has('KeyD') || keys.has('ArrowRight')) strafeInput += 1
       if (keys.has('KeyA') || keys.has('ArrowLeft')) strafeInput -= 1
 
-      // Touch joystick — additive to keyboard, clamped to [-1, 1]
+      // Touch joystick �?additive to keyboard, clamped to [-1, 1]
       forwardInput += touchMoveY
       strafeInput += touchMoveX
       forwardInput = Math.max(-1, Math.min(1, forwardInput))
@@ -778,7 +784,7 @@ export function Player() {
           runtimeTables,
           blockers,
           CHAR_RADIUS,
-          liveLayout.obstacles,
+          [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
           layoutBounds,
         )
         ref.current.position.x = x
@@ -792,7 +798,7 @@ export function Player() {
           blockers,
           runtimeTables,
           CHAR_RADIUS,
-          liveLayout.obstacles,
+          [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
           layoutBounds,
         )
         ref.current.position.x = x
