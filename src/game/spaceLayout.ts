@@ -468,3 +468,14 @@ export function agentYAt(
   if (ramp !== null) return ramp
   return floorY(floorFromPlayerY(currentY))
 }
+
+/** XZ of the stair end on a floor band: foot on floor 0, top on floor 1+. */
+export function stairEndPos(
+  layout: SpaceLayoutState,
+  stairs: SpaceStairs,
+  floor: number,
+): [number, number] {
+  if (floor <= 0) return [stairs.position[0], stairs.position[2]]
+  const top = stairTopCoord(layout, stairs)
+  return stairs.axis === 'x' ? [top, stairs.position[2]] : [stairs.position[0], top]
+}

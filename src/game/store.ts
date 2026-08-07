@@ -751,6 +751,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             playerHidden,
             hideEscalated,
             playerRoomId,
+            playerFloor,
             bounds: layoutBounds,
           })
         : n,

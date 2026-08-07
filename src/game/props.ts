@@ -1,5 +1,6 @@
 import { CONFIG } from './config'
 import { t } from './i18n'
+import { floorY } from './spaceLayout'
 import type { NpcState, PropState, PropType, TableDef } from './types'
 import type { SpaceLayoutState } from './spaceLayout'
 
@@ -31,8 +32,9 @@ export function pickPropType(hp: number, maxHp: number): PropType {
 
 /**
  * Sample a random floor position, avoiding tables, walls, and door.
- * Samples inside the union of floor-0 rooms when a layout is provided,
- * so expanded halls get props too. Rejection sampling with up to 20 retries.
+ * Samples inside the union of all rooms (any floor) when a layout is
+ * provided, so expanded halls and upstairs nooks get props too.
+ * Rejection sampling with up to 20 retries.
  */
 export function sampleFloorPosition(
   tables: TableDef[],
@@ -43,7 +45,7 @@ export function sampleFloorPosition(
   const tableMargin = CONFIG.props.tableMargin
   const doorR = CONFIG.props.doorExclusionRadius
 
-  const rooms = layout?.rooms.filter((r) => r.floor === 0) ?? []
+  const rooms = layout?.rooms ?? []
   let minX = -4.35 + margin
   let maxX = 4.35 - margin
   let minZ = -4.35 + margin
@@ -57,6 +59,19 @@ export function sampleFloorPosition(
   const insideAnyRoom = (x: number, z: number) => {
     if (rooms.length === 0) return true
     return rooms.some((r) => x >= r.min[0] + 0.2 && x <= r.max[0] - 0.2 && z >= r.min[1] + 0.2 && z <= r.max[1] - 0.2)
+  }
+  /** Highest floor band covering (x, z) — upstairs rooms win over r0. */
+  const floorAt = (x: number, z: number): number => {
+    let floor = 0
+    for (const r of rooms) {
+      if (
+        x >= r.min[0] + 0.2 && x <= r.max[0] - 0.2 &&
+        z >= r.min[1] + 0.2 && z <= r.max[1] - 0.2
+      ) {
+        floor = Math.max(floor, r.floor)
+      }
+    }
+    return floor
   }
 
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -81,17 +96,20 @@ export function sampleFloorPosition(
     }
     if (blocked) continue
 
-    return [x, CONFIG.props.floatHeight, z]
+    const floor = floorAt(x, z)
+    return [x, floorY(floor) + CONFIG.props.floatHeight, z]
   }
 
   // Fallback: center of primary room
   const cx = rooms.length ? (rooms[0].min[0] + rooms[0].max[0]) / 2 : 0
   const cz = rooms.length ? (rooms[0].min[1] + rooms[0].max[1]) / 2 : 0
-  return [cx, CONFIG.props.floatHeight, cz]
+  return [cx, floorY(floorAt(cx, cz)) + CONFIG.props.floatHeight, cz]
 }
 
 /**
  * Check if the player is within pickup radius of any non-fading prop.
+ * Pickup is floor-aware: a prop hovering over a different floor band
+ * cannot be collected by walking underneath it.
  */
 export function checkPickup(
   props: PropState[],
@@ -100,6 +118,7 @@ export function checkPickup(
 ): PropState | null {
   for (const prop of props) {
     if (prop.fadingSince !== null) continue
+    if (floorY(prop.position[1] > 1.2 ? 1 : 0) !== floorY(playerPos[1] > 1.2 ? 1 : 0)) continue
     const dx = prop.position[0] - playerPos[0]
     const dz = prop.position[2] - playerPos[2]
     if (Math.hypot(dx, dz) <= pickupRadius) {

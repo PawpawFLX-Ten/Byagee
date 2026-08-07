@@ -174,3 +174,59 @@ describe('wallsFromLayout', () => {
     expect(bz).toBeGreaterThan(-4.95)
   })
 })
+
+describe('floor-aware collision', () => {
+  function upstairsLayout() {
+    return applySpaceEvent({
+      layout: createInitialLayout(),
+      tables: [...CONFIG.tables],
+      seatPositions: [...CONFIG.seatPositions],
+      foodSpots: [...CONFIG.foodSpots],
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A4',
+      rng: () => 0.5,
+    })
+  }
+
+  it('wallsFromLayout builds floor-1 walls tagged with their floor', () => {
+    const applied = upstairsLayout()
+    const upper = applied.layout.rooms.find((r) => r.floor === 1)!
+    const walls = wallsFromLayout(applied.layout, CONFIG.door.position)
+    const upperWalls = walls.filter((w) => w.floor === 1)
+    expect(upperWalls.length).toBeGreaterThan(0)
+    // The north wall of the upper room exists as a solid segment (the
+    // stairwell opening is cross-floor, so no door gap is cut).
+    const northWall = upperWalls.find(
+      (w) => Math.abs(w.min[1] - upper.min[1]) <= 0.12 && Math.abs(w.max[1] - upper.min[1]) <= 0.12,
+    )
+    expect(northWall).toBeDefined()
+    // Stair foot sits inside the upper room — no wall segment covers it.
+    const stairs = applied.layout.stairs[0]!
+    const onStairFoot = upperWalls.some(
+      (w) =>
+        Math.abs(w.max[0] - stairs.position[0]) < 0.4 ||
+        Math.abs(w.min[0] - stairs.position[0]) < 0.4,
+    )
+    expect(onStairFoot).toBe(false)
+  })
+
+  it('floor-1 walls block floor-1 agents but not floor-0 agents', () => {
+    const applied = upstairsLayout()
+    const upper = applied.layout.rooms.find((r) => r.floor === 1)!
+    const walls = wallsFromLayout(applied.layout, CONFIG.door.position)
+    // Walk north into the upper room's north wall from inside the room.
+    const [, z0] = moveWithCollision(0, -3.2, 0, -0.3, [], [], CHAR_RADIUS, walls, undefined, 0)
+    expect(z0).toBeLessThanOrEqual(-3.5)
+    const [, z1] = moveWithCollision(0, -3.2, 0, -0.3, [], [], CHAR_RADIUS, walls, undefined, 1)
+    expect(z1).toBeGreaterThan(-3.4)
+    void upper
+  })
+
+  it('upstairs tables do not block floor-0 agents', () => {
+    const applied = upstairsLayout()
+    const [x0, z0] = resolveTablesCollision(0, 0, applied.tables, CHAR_RADIUS, 0)
+    expect([x0, z0]).toEqual([0, 0])
+    const [x1] = resolveTablesCollision(0, 0, applied.tables, CHAR_RADIUS, 1)
+    expect(Math.abs(x1)).toBeGreaterThan(0.01)
+  })
+})

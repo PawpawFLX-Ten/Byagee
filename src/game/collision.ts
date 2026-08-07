@@ -15,6 +15,23 @@ export type TableCollider = {
   half: { x: number; z: number }
 }
 
+export type ObstacleCollider = {
+  min: [number, number]
+  max: [number, number]
+  /** Floor band the collider lives on; undefined blocks every floor. */
+  floor?: number
+}
+
+/** Floor band of a world Y (matches spaceLayout.floorFromPlayerY). */
+export function floorOfY(y: number): number {
+  return y > 1.2 ? 1 : 0
+}
+
+/** Floor band of a table collider from its Y. */
+function floorOfTable(table: TableCollider): number {
+  return floorOfY(table.position[1])
+}
+
 export type LayoutBounds = {
   rooms: { min: [number, number]; max: [number, number] }[]
 }
@@ -119,11 +136,6 @@ export function clampToLayout(x: number, z: number, bounds: LayoutBounds): [numb
   return clampToAabb(x, z, best)
 }
 
-export type ObstacleCollider = {
-  min: [number, number]
-  max: [number, number]
-}
-
 /** Split [start,end] into segments with gaps (e.g. doors) removed. */
 export function splitSegments(
   start: number,
@@ -141,7 +153,7 @@ export function splitSegments(
   return segs
 }
 
-/** Solid wall segments for every ground-floor room, minus door gaps and the main door. */
+/** Solid wall segments for every room, minus door gaps and the main door. */
 export function wallsFromLayout(
   layout: SpaceLayoutState,
   mainDoorPos: [number, number, number] = [0, 0, -4.9],
@@ -153,7 +165,6 @@ export function wallsFromLayout(
   // roomGap away, so match gaps within the gap distance.
   const gapTol = 1.1
   for (const room of layout.rooms) {
-    if (room.floor !== 0) continue
     const { min, max } = room
     const doorGaps: Record<'n' | 's' | 'e' | 'w', number[]> = {
       n: [],
@@ -163,6 +174,12 @@ export function wallsFromLayout(
     }
     for (const o of layout.openings) {
       if (o.fromRoom !== room.id && o.toRoom !== room.id) continue
+      // Cross-floor openings are stairwells: the ramp passes under the
+      // wall band, so no door gap is cut (walls are floor-aware instead).
+      const other = layout.rooms.find((r) =>
+        r.id === (o.fromRoom === room.id ? o.toRoom : o.fromRoom),
+      )
+      if (other && other.floor !== room.floor) continue
       if (Math.abs(o.position[2] - min[1]) < gapTol) doorGaps.n.push(o.position[0])
       else if (Math.abs(o.position[2] - max[1]) < gapTol) doorGaps.s.push(o.position[0])
       else if (Math.abs(o.position[0] - min[0]) < gapTol) doorGaps.w.push(o.position[2])
@@ -175,9 +192,9 @@ export function wallsFromLayout(
     const push = (start: number, end: number, axis: 'x' | 'z', fixed: number) => {
       if (end - start <= 0) return
       if (axis === 'x') {
-        walls.push({ min: [start, fixed - thick], max: [end, fixed + thick] })
+        walls.push({ min: [start, fixed - thick], max: [end, fixed + thick], floor: room.floor })
       } else {
-        walls.push({ min: [fixed - thick, start], max: [fixed + thick, end] })
+        walls.push({ min: [fixed - thick, start], max: [fixed + thick, end], floor: room.floor })
       }
     }
     for (const [s, e] of splitSegments(min[0], max[0], doorGaps.n, half)) push(s, e, 'x', min[1])
@@ -208,7 +225,9 @@ export function resolveTableShapeCollision(
   z: number,
   table: TableCollider,
   radius = CHAR_RADIUS,
+  floor = 0,
 ): [number, number] {
+  if (floorOfTable(table) !== floor) return [x, z]
   const cx = table.position[0]
   const cz = table.position[2]
   const lx = x - cx
@@ -238,7 +257,9 @@ export function resolveObstacleCollision(
   z: number,
   obs: ObstacleCollider,
   radius = CHAR_RADIUS,
+  floor = 0,
 ): [number, number] {
+  if (obs.floor !== undefined && obs.floor !== floor) return [x, z]
   const cx = (obs.min[0] + obs.max[0]) / 2
   const cz = (obs.min[1] + obs.max[1]) / 2
   const hx = (obs.max[0] - obs.min[0]) / 2 + radius
@@ -259,11 +280,12 @@ export function resolveObstaclesCollision(
   z: number,
   obstacles: ObstacleCollider[],
   radius = CHAR_RADIUS,
+  floor = 0,
 ): [number, number] {
   let nx = x
   let nz = z
   for (const o of obstacles) {
-    ;[nx, nz] = resolveObstacleCollision(nx, nz, o, radius)
+    ;[nx, nz] = resolveObstacleCollision(nx, nz, o, radius, floor)
   }
   return [nx, nz]
 }
@@ -274,11 +296,12 @@ export function resolveWorldCollision(
   tables: TableCollider[],
   obstacles: ObstacleCollider[] = [],
   radius = CHAR_RADIUS,
+  floor = 0,
 ): [number, number] {
   let nx = x
   let nz = z
-  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius)
-  ;[nx, nz] = resolveObstaclesCollision(nx, nz, obstacles, radius)
+  ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius, floor)
+  ;[nx, nz] = resolveObstaclesCollision(nx, nz, obstacles, radius, floor)
   return [nx, nz]
 }
 
@@ -287,11 +310,12 @@ export function resolveTablesCollision(
   z: number,
   tables: TableCollider[],
   radius = CHAR_RADIUS,
+  floor = 0,
 ): [number, number] {
   let nx = x
   let nz = z
   for (const t of tables) {
-    ;[nx, nz] = resolveTableShapeCollision(nx, nz, t, radius)
+    ;[nx, nz] = resolveTableShapeCollision(nx, nz, t, radius, floor)
   }
   return [nx, nz]
 }
@@ -322,6 +346,7 @@ export function separateFromOthers(
   radius = CHAR_RADIUS,
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
+  floor = 0,
 ): [number, number] {
   let nx = x
   let nz = z
@@ -341,7 +366,7 @@ export function separateFromOthers(
       nz += (dz / d) * push
     }
   }
-  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor)
   return clampPosition(nx, nz, bounds)
 }
 
@@ -355,17 +380,18 @@ export function moveWithCollision(
   radius = CHAR_RADIUS,
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
+  floor = 0,
 ): [number, number] {
   let nx = x + dx
   let nz = z
-  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor)
   ;[nx, nz] = clampPosition(nx, nz, bounds)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds, floor)
 
   nz = nz + dz
-  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor)
   ;[nx, nz] = clampPosition(nx, nz, bounds)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds, floor)
   return [nx, nz]
 }
 
@@ -378,11 +404,12 @@ export function knockbackFrom(
   others: XZ[] = [],
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
+  floor = 0,
 ): [number, number] {
   let dx = to[0] - from[0]
   let dz = to[2] - from[2]
   const len = Math.hypot(dx, dz) || 1
   dx = (dx / len) * strength
   dz = (dz / len) * strength
-  return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles, bounds)
+  return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles, bounds, floor)
 }

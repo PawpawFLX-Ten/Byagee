@@ -11,6 +11,7 @@ import {
 } from 'three'
 import {
   CHAR_RADIUS,
+  floorOfY,
   layoutBoundsFromLayout,
   moveWithCollision,
   separateFromOthers,
@@ -19,7 +20,11 @@ import {
 } from '../game/collision'
 import { CONFIG } from '../game/config'
 import { inFaceRadius } from '../game/chaser'
-import { openingOrientation, type SpaceLayoutState } from '../game/spaceLayout'
+import {
+  agentYAt,
+  openingOrientation,
+  type SpaceLayoutState,
+} from '../game/spaceLayout'
 import {
   beginHold,
   buildProximityContext,
@@ -645,6 +650,7 @@ export function Player() {
   useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
+  const jumpBaseY = useRef(0)
   const latchMimeUntil = useRef(0)
   const wasSpace = useRef(false)
   const holdState = useRef(createHoldState())
@@ -728,6 +734,7 @@ export function Player() {
           !playerHidden &&
           now >= jumpCooldownUntil.current
         ) {
+          jumpBaseY.current = ref.current.position.y
           jumpUntil.current = now + 650
           jumpCooldownUntil.current = now + 900
         }
@@ -776,6 +783,7 @@ export function Player() {
         mx /= len
         mz /= len
         const speed = CONFIG.playerSpeed
+        const floor = floorOfY(ref.current.position.y)
         const [x, z] = moveWithCollision(
           ref.current.position.x,
           ref.current.position.z,
@@ -786,6 +794,7 @@ export function Player() {
           CHAR_RADIUS,
           [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
           layoutBounds,
+          floor,
         )
         ref.current.position.x = x
         ref.current.position.z = z
@@ -800,6 +809,7 @@ export function Player() {
           CHAR_RADIUS,
           [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
           layoutBounds,
+          floorOfY(ref.current.position.y),
         )
         ref.current.position.x = x
         ref.current.position.z = z
@@ -866,14 +876,25 @@ export function Player() {
       }
     }
 
-    // Jump arc / hide crouch height
+    // Jump arc / hide crouch height / stair ramp height
     if (isAirborne) {
       const jumpProgress = 1 - (jumpUntil.current - now) / 650
-      ref.current.position.y = Math.sin(jumpProgress * Math.PI) * 1.1
+      ref.current.position.y = jumpBaseY.current + Math.sin(jumpProgress * Math.PI) * 1.1
     } else if (playerHidden) {
-      ref.current.position.y = HIDE_CROUCH_Y
-    } else if (ref.current.position.y !== 0) {
-      ref.current.position.y = 0
+      const groundY = agentYAt(
+        liveLayout,
+        ref.current.position.x,
+        ref.current.position.z,
+        ref.current.position.y,
+      )
+      ref.current.position.y = groundY + HIDE_CROUCH_Y
+    } else {
+      ref.current.position.y = agentYAt(
+        liveLayout,
+        ref.current.position.x,
+        ref.current.position.z,
+        ref.current.position.y,
+      )
     }
 
     setPlayerPos(

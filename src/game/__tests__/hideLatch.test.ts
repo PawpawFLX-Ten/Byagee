@@ -140,6 +140,23 @@ describe('nearFurniture', () => {
     const cabinet: [number, number, number] = [-4.15, 0, 3.6]
     expect(nearFurniture([cabinet[0], 0, cabinet[2]], [], [cabinet])).toBe(true)
   })
+
+  it('upstairs tables are not hideable from the ground floor', () => {
+    const tables: TableDef[] = [
+      ...CONFIG.tables,
+      {
+        id: 't-up',
+        shape: 'round',
+        position: [0, 1.5, 0] as [number, number, number],
+        half: { x: 0.7, z: 0.7 },
+        topY: 0.75,
+      },
+    ]
+    // Ground-floor player at the upstairs table XZ — no hide prompt.
+    expect(nearFurniture([0, 0, 0], tables)).toBe(false)
+    // Upstairs player at the same XZ — hideable.
+    expect(nearFurniture([0, 1.5, 0], tables)).toBe(true)
+  })
 })
 
 describe('latchOpening', () => {
@@ -225,5 +242,27 @@ describe('nearestLatchTarget', () => {
     }
     const target = nearestLatchTarget([1, 0, 0.5], layout, CONFIG.door.position)
     expect(target?.id).toBe('door-near')
+  })
+
+  it('excludes cross-floor stairwell openings from latch targets', () => {
+    const layout = {
+      ...createInitialLayout(),
+      rooms: [
+        ...createInitialLayout().rooms,
+        { id: 'r1', min: [-3.5, -3.5], max: [3.5, 3.5], floor: 1 },
+      ],
+      openings: [
+        {
+          id: 'door-stairs',
+          fromRoom: 'r0',
+          toRoom: 'r1',
+          position: [0.5, 0, -3.2] as [number, number, number],
+          latchedUntil: 0,
+          lastLatchedAt: 0,
+        },
+      ],
+    }
+    const target = nearestLatchTarget([0.5, 0, -3.2], layout, CONFIG.door.position)
+    expect(target).toBeNull()
   })
 })

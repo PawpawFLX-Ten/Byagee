@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
 import { shouldSpawnProp, sampleFloorPosition, pickPropType, checkPickup, applyPropEffect } from '../props'
+import { createInitialLayout } from '../spaceLayout'
+import { applySpaceEvent } from '../spaceApply'
 import type { NpcState, PropState } from '../types'
 
 describe('props config', () => {
@@ -142,6 +144,37 @@ describe('checkPickup', () => {
     const prop: PropState = { id: 'p1', type: 'heal', position: [1, 0.5, 1], spawnedAt: 0, fadingSince: 5000 }
     const result = checkPickup([prop], [1, 0, 1], 0.8)
     expect(result).toBeNull()
+  })
+
+  it('does not pick up a prop on the other floor band', () => {
+    const prop: PropState = { id: 'p1', type: 'heal', position: [0, 2.0, 0], spawnedAt: 0, fadingSince: null }
+    expect(checkPickup([prop], [0, 0, 0], 0.8)).toBeNull()
+    expect(checkPickup([prop], [0, 1.5, 0], 0.8)?.id).toBe('p1')
+  })
+})
+
+describe('sampleFloorPosition upstairs', () => {
+  it('samples the upper floor at the right height when an A4 room exists', () => {
+    const applied = applySpaceEvent({
+      layout: createInitialLayout(),
+      tables: CONFIG.tables.map((t) => ({ ...t, half: { ...t.half } })),
+      seatPositions: CONFIG.seatPositions.map((s) => [...s] as [number, number, number]),
+      foodSpots: CONFIG.foodSpots.map((f) => ({
+        ...f,
+        plate: [...f.plate] as [number, number, number],
+        approach: [...f.approach] as [number, number, number],
+      })),
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A4',
+      rng: () => 0.5,
+    })
+    let sawUpstairs = false
+    for (let i = 0; i < 120; i++) {
+      const [, y] = sampleFloorPosition(applied.tables, CONFIG.door.position, applied.layout)
+      expect(y === CONFIG.props.floatHeight || Math.abs(y - 2.0) < 1e-6).toBe(true)
+      if (y > 1) sawUpstairs = true
+    }
+    expect(sawUpstairs).toBe(true)
   })
 })
 

@@ -135,7 +135,10 @@ export function nearFurniture(
   cabinets: [number, number, number][] = [],
 ): boolean {
   const radius = CONFIG.hideLatch.interactRadius
+  const floor = playerPos[1] > 1.2 ? 1 : 0
   for (const table of tables) {
+    // Only same-floor furniture is hideable (upstairs tables hover above).
+    if ((table.position[1] > 1.2 ? 1 : 0) !== floor) continue
     if (nearPoint(playerPos, table.position, radius)) return true
   }
   for (const cabinet of cabinets) {
@@ -154,6 +157,10 @@ export function nearestLatchTarget(
   let bestDist = Infinity
 
   for (const opening of layout.openings) {
+    // Stairwell openings span floors — nothing to latch onto a wall.
+    const fromRoom = layout.rooms.find((r) => r.id === opening.fromRoom)
+    const toRoom = layout.rooms.find((r) => r.id === opening.toRoom)
+    if (fromRoom && toRoom && fromRoom.floor !== toRoom.floor) continue
     const d = Math.hypot(
       playerPos[0] - opening.position[0],
       playerPos[2] - opening.position[2],

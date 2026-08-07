@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
-import { createInitialLayout } from '../spaceLayout'
+import { createInitialLayout, roomIdAtY } from '../spaceLayout'
+import { applySpaceEvent } from '../spaceApply'
 import {
   applyChaserKnockback,
   chaserCap,
@@ -261,6 +262,46 @@ describe('stepChaser', () => {
       playerRoomId: 'r0',
     })
     expect(next.position[0]).toBeGreaterThan(0)
+  })
+})
+
+describe('stepChaser upstairs', () => {
+  it('routes to the stair waypoint when the player is on the upper floor', () => {
+    const applied = applySpaceEvent({
+      layout: createInitialLayout(),
+      tables: CONFIG.tables.map((t) => ({ ...t, half: { ...t.half } })),
+      seatPositions: CONFIG.seatPositions.map((s) => [...s] as [number, number, number]),
+      foodSpots: CONFIG.foodSpots.map((f) => ({
+        ...f,
+        plate: [...f.plate] as [number, number, number],
+        approach: [...f.approach] as [number, number, number],
+      })),
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A4',
+      rng: () => 0.5,
+    })
+    const upper = applied.layout.rooms.find((r) => r.floor === 1)!
+    const playerPos: [number, number, number] = [2.5, 1.5, 2.5]
+    const chaser = stubChaser({ position: [-4, 0, 2], status: 'walking' })
+    // The chaser's fallback player room resolves through the player's Y.
+    const playerRoomId = roomIdAtY(applied.layout, playerPos[0], playerPos[2], playerPos[1])
+    expect(playerRoomId).toBe(upper.id)
+    let now = 5000
+    let next = chaser
+    for (let i = 0; i < 60; i++) {
+      now += 100
+      next = stepChaser(next, playerPos, applied.layout, [], 0.1, now, {
+        playerRoomId,
+        playerFloor: 1,
+      })
+    }
+    // Routes through the stairwell: climbs to the top (Y = 1.5) and then
+    // pursues the player on the upper floor.
+    expect(next.position[1]).toBeGreaterThan(1.2)
+    expect(
+      Math.hypot(next.position[0] - playerPos[0], next.position[2] - playerPos[2]),
+    ).toBeLessThan(2.5)
+    expect(next.position[0]).toBeGreaterThan(-3.5)
   })
 })
 

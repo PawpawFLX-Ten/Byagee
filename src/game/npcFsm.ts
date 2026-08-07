@@ -1,4 +1,5 @@
 import {
+  floorOfY,
   knockbackFrom,
   moveWithCollision,
   resolveWorldCollision,
@@ -12,18 +13,38 @@ import { CONFIG } from './config'
 import { pickArchetype, pickBuild } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import { getPhase } from './difficulty'
-import { roomIdAt, type SpaceLayoutState } from './spaceLayout'
+import {
+  agentYAt,
+  roomIdAtY,
+  stairEndPos,
+  type SpaceLayoutState,
+} from './spaceLayout'
 import type { DifficultyPhase, FoodSpot, NpcState, SealProp } from './types'
 
 const STUCK_TICKS_BEFORE_REROUTE = 25
 
-/** Point just inside the far room of `opening`, so agents cross the wall gap. */
+/** Point inside the destination room of `opening`, so agents cross the wall gap. */
 function doorWaypoint(
   layout: SpaceLayoutState,
   opening: SpaceLayoutState['openings'][0],
   fromRoomId: string,
 ): [number, number, number] {
   const from = layout.rooms.find((r) => r.id === fromRoomId)
+  const toId = opening.fromRoom === fromRoomId ? opening.toRoom : opening.fromRoom
+  const to = layout.rooms.find((r) => r.id === toId)
+  // Cross-floor openings are stairwells: the waypoint is the stair end on
+  // the destination side, so agents climb/descend the full ramp.
+  if (from && to && from.floor !== to.floor) {
+    const stairs = layout.stairs.find(
+      (s) =>
+        (s.fromRoom === opening.fromRoom && s.toRoom === opening.toRoom) ||
+        (s.fromRoom === opening.toRoom && s.toRoom === opening.fromRoom),
+    )
+    if (stairs) {
+      const end = stairEndPos(layout, stairs, to.floor)
+      return [end[0], 0, end[1]]
+    }
+  }
   const [px, , pz] = opening.position
   if (from) {
     if (Math.abs(px - from.max[0]) < 0.01) return [px + 1.2, 0, pz]
@@ -43,8 +64,8 @@ export function waypointToward(
   from: [number, number, number],
   target: [number, number, number],
 ): [number, number, number] | null {
-  const fromRoom = roomIdAt(layout, from[0], from[2], 0)
-  const targetRoom = roomIdAt(layout, target[0], target[2], 0)
+  const fromRoom = roomIdAtY(layout, from[0], from[2], from[1] ?? 0)
+  const targetRoom = roomIdAtY(layout, target[0], target[2], target[1] ?? 0)
   if (fromRoom === targetRoom) return null
   const direct = layout.openings.find(
     (o) =>
@@ -85,7 +106,7 @@ function approachFor(food: FoodSpot, foodIdx: number): [number, number, number] 
   const len = Math.hypot(ax, az) || 1
   const tx = -az / len
   const tz = ax / len
-  return [ax + tx * spread, 0, az + tz * spread]
+  return [ax + tx * spread, food.approach[1] ?? 0, az + tz * spread]
 }
 
 /** Look ahead in the movement direction; if a table blocks the path, steer around it. */
@@ -96,6 +117,7 @@ function steeredDirection(
   toZ: number,
   tables: TableCollider[],
   obstacles: ObstacleCollider[] = [],
+  floor = 0,
 ): [number, number] {
   const dx = toX - fromX
   const dz = toZ - fromZ
@@ -108,7 +130,7 @@ function steeredDirection(
   const lookAhead = Math.min(dist, 1.5)
   const probeX = fromX + dirX * lookAhead
   const probeZ = fromZ + dirZ * lookAhead
-  const [resolvedX, resolvedZ] = resolveWorldCollision(probeX, probeZ, tables, obstacles)
+  const [resolvedX, resolvedZ] = resolveWorldCollision(probeX, probeZ, tables, obstacles, undefined, floor)
 
   if (resolvedX === probeX && resolvedZ === probeZ) {
     return [dirX, dirZ] // path is clear, go straight
@@ -204,28 +226,35 @@ export function tickNpcs(
 
     if (next.exiting) {
       const door = CONFIG.door.position
-      const tx = door[0] - next.position[0]
-      const tz = door[2] - next.position[2]
-      const dist = Math.hypot(tx, tz)
-      next.facing = Math.atan2(tx, tz)
-      if (dist < 0.45 || now >= next.statusUntil) {
+      const doorDist = Math.hypot(
+        door[0] - next.position[0],
+        door[2] - next.position[2],
+      )
+      next.facing = Math.atan2(door[0] - next.position[0], door[2] - next.position[2])
+      if (doorDist < 0.45 || now >= next.statusUntil) {
         despawnIds.push(next.id)
         return next
       }
+      // Route through door/stair waypoints so upstairs NPCs can descend.
+      const waypoint = layout ? waypointToward(layout, next.position, door) : null
+      const goal = waypoint ?? door
+      const goalDist = Math.hypot(goal[0] - next.position[0], goal[2] - next.position[2])
       const step = CONFIG.npcWalkSpeed * dt
       const [dirX, dirZ] = steeredDirection(
         next.position[0], next.position[2],
-        door[0], door[2],
+        goal[0], goal[2],
         tables,
         obstacles,
+        floorOfY(next.position[1]),
       )
-      const mx = dirX * Math.min(step, dist)
-      const mz = dirZ * Math.min(step, dist)
-      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles, bounds)
+      const mx = dirX * Math.min(step, goalDist)
+      const mz = dirZ * Math.min(step, goalDist)
+      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles, bounds, floorOfY(next.position[1]))
+      const y = layout ? agentYAt(layout, x, z, next.position[1]) : 0
       return {
         ...next,
-        position: [x, 0, z] as [number, number, number],
-        roomId: layout ? roomIdAt(layout, x, z, 0) : next.roomId,
+        position: [x, y, z] as [number, number, number],
+        roomId: layout ? roomIdAtY(layout, x, z, y) : next.roomId,
       }
     }
 
@@ -258,16 +287,18 @@ export function tickNpcs(
       const dist = Math.hypot(goal[0] - next.position[0], goal[2] - next.position[2])
       next.facing = Math.atan2(goal[0] - next.position[0], goal[2] - next.position[2])
 
-      if (dist < 0.28) {
+      // Arrive only at the final target — a waypoint just means "keep going".
+      if (dist < 0.28 && !waypoint) {
         if (smacking < maxSmack) {
           smacking += 1
-          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles, bounds)
+          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles, bounds, floorOfY(target[1]))
+          const y = layout ? agentYAt(layout, x, z, target[1] ?? 0) : target[1] ?? 0
           return {
             ...next,
             status: 'smacking' as const,
             statusUntil: now + smackBurst(phase),
-            position: [x, 0, z] as [number, number, number],
-            facing: facingToward([x, 0, z], food.plate),
+            position: [x, y, z] as [number, number, number],
+            facing: facingToward([x, y, z], food.plate),
             stuckTicks: 0,
             smackingSince: now,
           }
@@ -287,6 +318,7 @@ export function tickNpcs(
         goal[0], goal[2],
         tables,
         obstacles,
+        floorOfY(next.position[1]),
       )
       let mx = dirX * Math.min(step, dist)
       let mz = dirZ * Math.min(step, dist)
@@ -294,7 +326,7 @@ export function tickNpcs(
       // If blocked, slide along table perimeter instead of pushing into the jam
       if (next.stuckTicks > 12) {
         const slide = step * 1.1
-        const around = perimeterSlide(next.position[0], next.position[2], slide, next.seatIndex)
+        const around = perimeterSlide(next.position[0], next.position[2], slide, next.seatIndex, floorOfY(next.position[1]))
         mx = around[0] - next.position[0]
         mz = around[1] - next.position[2]
       }
@@ -309,6 +341,7 @@ export function tickNpcs(
         undefined,
         obstacles,
         bounds,
+        floorOfY(next.position[1]),
       )
       const moved = Math.hypot(x - next.position[0], z - next.position[2])
       const stuckTicks =
@@ -320,20 +353,22 @@ export function tickNpcs(
         const alt = pickFood(npcs, next.id, claimed, next.foodId)
         claimed.add(alt.id)
         const altApproach = approachFor(alt, foodIndexInConfig(alt.id))
+        const y = layout ? agentYAt(layout, x, z, next.position[1]) : 0
         return {
           ...next,
           foodId: alt.id,
           stuckTicks: 0,
           statusUntil: now + 8000,
           facing: facingToward(next.position, altApproach),
-          position: [x, 0, z] as [number, number, number],
+          position: [x, y, z] as [number, number, number],
         }
       }
 
+      const y = layout ? agentYAt(layout, x, z, next.position[1]) : 0
       return {
         ...next,
-        position: [x, 0, z] as [number, number, number],
-        roomId: layout ? roomIdAt(layout, x, z, 0) : next.roomId,
+        position: [x, y, z] as [number, number, number],
+        roomId: layout ? roomIdAtY(layout, x, z, y) : next.roomId,
         stuckTicks,
       }
     }
@@ -388,9 +423,10 @@ export function tickNpcs(
       .filter((_, j) => j !== i)
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     if (playerPos) blockers.push({ x: playerPos[0], z: playerPos[2] })
-    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles, bounds)
+    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles, bounds, floorOfY(npc.position[1]))
     if (x === npc.position[0] && z === npc.position[2]) return npc
-    return { ...npc, position: [x, 0, z] as [number, number, number] }
+    const y = layout ? agentYAt(layout, x, z, npc.position[1]) : 0
+    return { ...npc, position: [x, y, z] as [number, number, number] }
   })
 
   return { npcs: nextList, despawnIds }
@@ -402,8 +438,9 @@ function perimeterSlide(
   z: number,
   step: number,
   seatIndex: number,
+  floor = 0,
 ): [number, number] {
-  const table = nearestTable(x, z)
+  const table = nearestTable(x, z, floor)
   const dir = seatIndex % 2 === 0 ? 1 : -1
   const cx = table.position[0]
   const cz = table.position[2]
@@ -417,10 +454,11 @@ function perimeterSlide(
   return [x + dir * step, cz + Math.sign(lz || 1) * hz]
 }
 
-function nearestTable(x: number, z: number): TableCollider {
+function nearestTable(x: number, z: number, floor = 0): TableCollider {
   let best = getRuntimeSpace().tables[0]
   let bestD = Infinity
   for (const t of getRuntimeSpace().tables) {
+    if (floorOfY(t.position[1]) !== floor) continue
     const d = Math.hypot(x - t.position[0], z - t.position[2])
     if (d < bestD) {
       bestD = d
@@ -496,8 +534,8 @@ export function applySilence(
   let position = npc.position
   const walkingNonSeated = npc.status === 'walking' && npc.role !== 'chaser'
   if (attackerPos && (walkingNonSeated || npc.role === 'boss')) {
-    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, getRuntimeSpace().tables, others)
-    position = [x, 0, z]
+    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, getRuntimeSpace().tables, others, undefined, undefined, floorOfY(npc.position[1]))
+    position = [x, npc.position[1], z]
   }
   return {
     ...npc,

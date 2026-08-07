@@ -1,4 +1,5 @@
 import {
+  floorOfY,
   knockbackFrom,
   moveWithCollision,
   type LayoutBounds,
@@ -8,7 +9,12 @@ import {
 import { CONFIG } from './config'
 import { CHASER_ARCHETYPE, CHASER_BUILD } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
-import { latchedOnPath, roomIdAt, type SpaceLayoutState } from './spaceLayout'
+import {
+  agentYAt,
+  latchedOnPath,
+  roomIdAtY,
+  type SpaceLayoutState,
+} from './spaceLayout'
 import { waypointToward } from './npcFsm'
 import { distance3, distanceAttenuation } from './threat'
 import type { DifficultyPhase, NpcState, RoomId, TableDef } from './types'
@@ -17,6 +23,7 @@ export type ChaserStepOpts = {
   playerHidden?: boolean
   hideEscalated?: boolean
   playerRoomId?: RoomId
+  playerFloor?: number
   bounds?: LayoutBounds
 }
 
@@ -138,22 +145,6 @@ export function inFaceRadius(
   return Math.hypot(dx, dz) <= CONFIG.chaser.faceRadius
 }
 
-function nearestTable(
-  pos: [number, number, number],
-  tables: TableDef[],
-): TableDef {
-  let best = tables[0]
-  let bestD = Infinity
-  for (const t of tables) {
-    const d = Math.hypot(pos[0] - t.position[0], pos[2] - t.position[2])
-    if (d < bestD) {
-      bestD = d
-      best = t
-    }
-  }
-  return best
-}
-
 function wanderFurniture(
   npc: NpcState,
   tables: TableDef[],
@@ -162,7 +153,9 @@ function wanderFurniture(
   bounds?: LayoutBounds,
   layout?: SpaceLayoutState,
 ): NpcState {
-  const table = nearestTable(npc.position, tables)
+  const floor = floorOfY(npc.position[1])
+  const sameFloor = tables.filter((t) => floorOfY(t.position[1]) === floor)
+  const table = (sameFloor.length ? sameFloor : tables)[0] ?? tables[0]!
   const cx = table.position[0]
   const cz = table.position[2]
   const orbitR = Math.max(table.half.x, table.half.z) + 0.75
@@ -186,14 +179,16 @@ function wanderFurniture(
     undefined,
     obstacles,
     bounds,
+    floor,
   )
+  const y = layout ? agentYAt(layout, x, z, npc.position[1]) : 0
   return {
     ...npc,
-    position: [x, 0, z] as [number, number, number],
+    position: [x, y, z] as [number, number, number],
     facing: Math.atan2(mx, mz),
     status: 'walking',
     smackingSince: 0,
-    roomId: layout ? roomIdAt(layout, x, z, 0) : npc.roomId,
+    roomId: layout ? roomIdAtY(layout, x, z, y) : npc.roomId,
   }
 }
 
@@ -227,6 +222,7 @@ export function applyChaserKnockback(
     others,
     obstacles,
     options?.bounds,
+    floorOfY(npc.position[1]),
   )
 
   const moved = Math.hypot(x - npc.position[0], z - npc.position[2])
@@ -236,7 +232,7 @@ export function applyChaserKnockback(
 
   return {
     ...npc,
-    position: [x, 0, z] as [number, number, number],
+    position: [x, npc.position[1], z] as [number, number, number],
     staggerUntil: now + effectiveStagger * 1000,
     status: keepSilence ? npc.status : 'walking',
     statusUntil: keepSilence ? npc.statusUntil : now + 60_000,
@@ -297,7 +293,7 @@ export function stepChaser(
   const { tables } = getRuntimeSpace()
   const playerRoomId =
     opts.playerRoomId ??
-    roomIdAt(layout, playerPos[0], playerPos[2], 0)
+    roomIdAtY(layout, playerPos[0], playerPos[2], playerPos[1] ?? 0)
 
   // Pursuit goal: the player, or a door waypoint when they are in another room.
   const goal = waypointToward(layout, next.position, playerPos) ?? playerPos
@@ -365,12 +361,14 @@ export function stepChaser(
     undefined,
     obstacles,
     opts.bounds,
+    floorOfY(next.position[1]),
   )
+  const y = layout ? agentYAt(layout, x, z, next.position[1]) : 0
 
   return {
     ...next,
-    position: [x, 0, z] as [number, number, number],
+    position: [x, y, z] as [number, number, number],
     facing,
-    roomId: roomIdAt(layout, x, z, 0),
+    roomId: layout ? roomIdAtY(layout, x, z, y) : next.roomId,
   }
 }

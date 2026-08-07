@@ -95,3 +95,79 @@ describe('npc cross-room walking with walls', () => {
     expect(walker.position[0]).toBeGreaterThan(6)
   })
 })
+
+describe('npc upstairs walking', () => {
+  function upstairs() {
+    return applySpaceEvent({
+      layout: createInitialLayout(),
+      tables: CONFIG.tables.map((t) => ({ ...t, half: { ...t.half } })),
+      seatPositions: CONFIG.seatPositions.map((s) => [...s] as [number, number, number]),
+      foodSpots: CONFIG.foodSpots.map((f) => ({
+        ...f,
+        plate: [...f.plate] as [number, number, number],
+        approach: [...f.approach] as [number, number, number],
+      })),
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A4',
+      rng: () => 0.5,
+    })
+  }
+
+  it('climbs the ramp to an upstairs seat without Y teleports', () => {
+    resetRuntimeSpace()
+    const applied = upstairs()
+    setRuntimeSpace({
+      tables: applied.tables,
+      seatPositions: applied.seatPositions,
+      foodSpots: applied.foodSpots,
+      maxNpcs: applied.maxNpcs,
+    })
+    const foodId = `food-${CONFIG.foodSpots.length}`
+    let npcs = createNpcs(0).map((n, i) =>
+      i === 0
+        ? {
+            ...n,
+            status: 'walking' as const,
+            position: [...CONFIG.door.position] as [number, number, number],
+            foodId,
+            statusUntil: 999999,
+          }
+        : { ...n, status: 'idle' as const, statusUntil: 999999, foodId: null },
+    )
+    const bounds = layoutBoundsFromLayout(applied.layout, 0)
+    const walls = wallsFromLayout(applied.layout, CONFIG.door.position)
+    const obstacles = [...applied.layout.obstacles, ...walls]
+    let now = 0
+    let reached = false
+    let prevY = 0
+    let maxRise = 0
+    for (let i = 0; i < 900; i++) {
+      now += 100
+      const result = tickNpcs(
+        npcs, now, 30, 0.1,
+        [0, 0, 0],
+        obstacles,
+        bounds,
+        applied.layout,
+      )
+      npcs = result.npcs
+      const walker = npcs[0]!
+      maxRise = Math.max(maxRise, Math.abs(walker.position[1] - prevY))
+      prevY = walker.position[1]
+      if (walker.status === 'smacking') {
+        reached = true
+        break
+      }
+    }
+    expect(reached).toBe(true)
+    const walker = npcs[0]!
+    expect(walker.position[1]).toBeGreaterThan(1.2)
+    expect(maxRise).toBeLessThan(0.4)
+  })
+
+  it('waypoint toward an upstairs seat is the stair top', () => {
+    const applied = upstairs()
+    const wp = waypointToward(applied.layout, [0, 0, -4.5], applied.seatPositions[CONFIG.seatPositions.length]!)
+    expect(wp).toEqual([0.5, 0, -0.8])
+  })
+})
