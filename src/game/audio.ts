@@ -1,8 +1,20 @@
 import type { SkillId } from './types'
 import { distance3 } from './threat'
+import { CONFIG } from './config'
 import { t, getLang } from './i18n'
 
 /** Procedural SFX — no external audio assets. */
+
+/**
+ * Reverb send for the player's current room: small rooms are punchier,
+ * big halls stay dry. Pure — unit-tested.
+ */
+export function reverbAmountForArea(area: number): number {
+  const wet =
+    CONFIG.audio.reverbWetMax -
+    Math.max(0, area - CONFIG.audio.reverbAreaAtMax) * CONFIG.audio.reverbSlope
+  return Math.min(CONFIG.audio.reverbWetMax, Math.max(CONFIG.audio.reverbMin, wet))
+}
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null

@@ -252,6 +252,12 @@ export const CONFIG: GameConfig = {
     archetypeWeights: { tophat: 20, bowler: 15, chef: 15, cap: 25, bun: 15, none: 10 },
     buildWeights: { slim: 25, normal: 50, stout: 25 },
   },
+  audio: {
+    reverbWetMax: 0.34,
+    reverbAreaAtMax: 16,
+    reverbSlope: 0.0031,
+    reverbMin: 0.08,
+  },
 }
 
 export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag', 'poop', 'civility'] as const

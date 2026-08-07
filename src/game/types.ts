@@ -230,6 +230,17 @@ export interface HideLatchConfig {
   interactRadius: number
 }
 
+export interface AudioConfig {
+  /** Reverb send at the punchiest room area. */
+  reverbWetMax: number
+  /** Room area (m²) at which wet send hits its max. */
+  reverbAreaAtMax: number
+  /** Wet send per m² beyond reverbAreaAtMax. */
+  reverbSlope: number
+  /** Floor for wet send — big halls stay dry. */
+  reverbMin: number
+}
+
 export interface GameConfig {
   maxHp: number
   softThreat: number
@@ -274,4 +285,5 @@ export interface GameConfig {
   chaser: ChaserConfig
   hideLatch: HideLatchConfig
   diner: DinerConfig
+  audio: AudioConfig
 }
