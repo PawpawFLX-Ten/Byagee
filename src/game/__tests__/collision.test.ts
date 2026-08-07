@@ -10,7 +10,7 @@ import {
 } from '../collision'
 import { CONFIG } from '../config'
 import { applySpaceEvent } from '../spaceApply'
-import { createInitialLayout } from '../spaceLayout'
+import { createInitialLayout, stairCollidersFromLayout } from '../spaceLayout'
 
 describe('resolveTablesCollision', () => {
   it('pushes a point out of the round table AABB/circle', () => {
@@ -228,5 +228,22 @@ describe('floor-aware collision', () => {
     expect([x0, z0]).toEqual([0, 0])
     const [x1] = resolveTablesCollision(0, 0, applied.tables, CHAR_RADIUS, 1)
     expect(Math.abs(x1)).toBeGreaterThan(0.01)
+  })
+
+  it('stair wedges block agents off the surface but let climbers pass', () => {
+    const applied = upstairsLayout()
+    const colliders = stairCollidersFromLayout(applied.layout)
+    expect(colliders.length).toBeGreaterThanOrEqual(1)
+    const mid: [number, number] = [0.5, -2.0] // mid-ramp (surface 0.75)
+    // A floor-0 walker crossing the mid-ramp is pushed out (no Y teleport).
+    const [x0, z0] = resolveObstaclesCollision(mid[0], mid[1], colliders, CHAR_RADIUS, 0, 0)
+    expect(x0 !== mid[0] || z0 !== mid[1]).toBe(true)
+    // A climber pinned to the surface passes through.
+    const [x1, z1] = resolveObstaclesCollision(mid[0], mid[1], colliders, CHAR_RADIUS, 0, 0.75)
+    expect([x1, z1]).toEqual(mid)
+    // A floor-1 agent at the stair foot is blocked (can't jump off the loft).
+    const foot: [number, number] = [0.5, -3.2]
+    const [fz] = resolveObstaclesCollision(foot[0], foot[1], colliders, CHAR_RADIUS, 1, 1.5)
+    expect(Math.abs(fz - foot[1])).toBeGreaterThan(0.01)
   })
 })

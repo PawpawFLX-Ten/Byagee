@@ -23,6 +23,7 @@ import { inFaceRadius } from '../game/chaser'
 import {
   agentYAt,
   openingOrientation,
+  stairCollidersFromLayout,
   stairEndPos,
   type SpaceLayoutState,
 } from '../game/spaceLayout'
@@ -706,7 +707,10 @@ export function Player() {
 
   const layoutBounds = useMemo(() => layoutBoundsFromLayout(layout, 0), [layout])
   const wallObstacles = useMemo(
-    () => wallsFromLayout(layout, CONFIG.door.position),
+    () => [
+      ...wallsFromLayout(layout, CONFIG.door.position),
+      ...stairCollidersFromLayout(layout),
+    ],
     [layout],
   )
 
@@ -833,6 +837,7 @@ export function Player() {
           [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
           layoutBounds,
           floor,
+          ref.current.position.y,
         )
         ref.current.position.x = x
         ref.current.position.z = z
@@ -848,6 +853,7 @@ export function Player() {
           [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
           layoutBounds,
           floorOfY(ref.current.position.y),
+          ref.current.position.y,
         )
         ref.current.position.x = x
         ref.current.position.z = z

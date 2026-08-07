@@ -64,7 +64,7 @@ export function shouldSpawnChaser(ctx: ChaserSpawnCtx): boolean {
   const cap = chaserCap(ctx.phase)
   if (ctx.chaserCount >= cap) return false
 
-  // Chasers don't use seats — only seated/traveling diners count toward the
+  // Chasers don't use seats —?only seated/traveling diners count toward the
   // population cap. Otherwise a full late-game hall would never see a chaser.
   if (
     ctx.totalNpcCount !== undefined &&
@@ -180,6 +180,7 @@ function wanderFurniture(
     obstacles,
     bounds,
     floor,
+    npc.position[1],
   )
   const y = layout ? agentYAt(layout, x, z, npc.position[1]) : 0
   return {
@@ -223,6 +224,7 @@ export function applyChaserKnockback(
     obstacles,
     options?.bounds,
     floorOfY(npc.position[1]),
+    npc.position[1],
   )
 
   const moved = Math.hypot(x - npc.position[0], z - npc.position[2])
@@ -362,6 +364,7 @@ export function stepChaser(
     obstacles,
     opts.bounds,
     floorOfY(next.position[1]),
+    next.position[1],
   )
   const y = layout ? agentYAt(layout, x, z, next.position[1]) : 0
 

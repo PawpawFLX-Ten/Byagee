@@ -118,6 +118,7 @@ function steeredDirection(
   tables: TableCollider[],
   obstacles: ObstacleCollider[] = [],
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   const dx = toX - fromX
   const dz = toZ - fromZ
@@ -130,13 +131,13 @@ function steeredDirection(
   const lookAhead = Math.min(dist, 1.5)
   const probeX = fromX + dirX * lookAhead
   const probeZ = fromZ + dirZ * lookAhead
-  const [resolvedX, resolvedZ] = resolveWorldCollision(probeX, probeZ, tables, obstacles, undefined, floor)
+  const [resolvedX, resolvedZ] = resolveWorldCollision(probeX, probeZ, tables, obstacles, undefined, floor, agentY)
 
   if (resolvedX === probeX && resolvedZ === probeZ) {
     return [dirX, dirZ] // path is clear, go straight
   }
 
-  // Path is blocked — steer toward the collision resolution direction
+  // Path is blocked �?steer toward the collision resolution direction
   const deflectX = resolvedX - probeX
   const deflectZ = resolvedZ - probeZ
   const deflectLen = Math.hypot(deflectX, deflectZ)
@@ -246,10 +247,11 @@ export function tickNpcs(
         tables,
         obstacles,
         floorOfY(next.position[1]),
+        next.position[1],
       )
       const mx = dirX * Math.min(step, goalDist)
       const mz = dirZ * Math.min(step, goalDist)
-      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles, bounds, floorOfY(next.position[1]))
+      const [x, z] = moveWithCollision(next.position[0], next.position[2], mx, mz, tables, blockers, undefined, obstacles, bounds, floorOfY(next.position[1]), next.position[1])
       const y = layout ? agentYAt(layout, x, z, next.position[1]) : 0
       return {
         ...next,
@@ -287,11 +289,11 @@ export function tickNpcs(
       const dist = Math.hypot(goal[0] - next.position[0], goal[2] - next.position[2])
       next.facing = Math.atan2(goal[0] - next.position[0], goal[2] - next.position[2])
 
-      // Arrive only at the final target — a waypoint just means "keep going".
+      // Arrive only at the final target �?a waypoint just means "keep going".
       if (dist < 0.28 && !waypoint) {
         if (smacking < maxSmack) {
           smacking += 1
-          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles, bounds, floorOfY(target[1]))
+          const [x, z] = separateFromOthers(target[0], target[2], blockers, tables, undefined, obstacles, bounds, floorOfY(target[1]), target[1] ?? 0)
           const y = layout ? agentYAt(layout, x, z, target[1] ?? 0) : target[1] ?? 0
           return {
             ...next,
@@ -319,6 +321,7 @@ export function tickNpcs(
         tables,
         obstacles,
         floorOfY(next.position[1]),
+        next.position[1],
       )
       let mx = dirX * Math.min(step, dist)
       let mz = dirZ * Math.min(step, dist)
@@ -342,6 +345,7 @@ export function tickNpcs(
         obstacles,
         bounds,
         floorOfY(next.position[1]),
+        next.position[1],
       )
       const moved = Math.hypot(x - next.position[0], z - next.position[2])
       const stuckTicks =
@@ -423,7 +427,7 @@ export function tickNpcs(
       .filter((_, j) => j !== i)
       .map((n) => ({ x: n.position[0], z: n.position[2] }))
     if (playerPos) blockers.push({ x: playerPos[0], z: playerPos[2] })
-    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles, bounds, floorOfY(npc.position[1]))
+    const [x, z] = separateFromOthers(npc.position[0], npc.position[2], blockers, tables, undefined, obstacles, bounds, floorOfY(npc.position[1]), npc.position[1])
     if (x === npc.position[0] && z === npc.position[2]) return npc
     const y = layout ? agentYAt(layout, x, z, npc.position[1]) : 0
     return { ...npc, position: [x, y, z] as [number, number, number] }
@@ -534,7 +538,7 @@ export function applySilence(
   let position = npc.position
   const walkingNonSeated = npc.status === 'walking' && npc.role !== 'chaser'
   if (attackerPos && (walkingNonSeated || npc.role === 'boss')) {
-    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, getRuntimeSpace().tables, others, undefined, undefined, floorOfY(npc.position[1]))
+    const [x, z] = knockbackFrom(attackerPos, npc.position, 0.55, getRuntimeSpace().tables, others, undefined, undefined, floorOfY(npc.position[1]), npc.position[1])
     position = [x, npc.position[1], z]
   }
   return {

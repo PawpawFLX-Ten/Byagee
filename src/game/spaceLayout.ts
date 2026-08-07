@@ -479,3 +479,41 @@ export function stairEndPos(
   const top = stairTopCoord(layout, stairs)
   return stairs.axis === 'x' ? [top, stairs.position[2]] : [stairs.position[0], top]
 }
+
+/** Ramp surface height at (x, z) for one stair, or null outside its footprint. */
+export function stairSurface(
+  layout: SpaceLayoutState,
+  stairs: SpaceStairs,
+): (x: number, z: number) => number | null {
+  const aabb = stairAabb(layout, stairs)
+  const foot = stairFootCoord(stairs)
+  return (x, z) => {
+    if (x < aabb.min[0] || x > aabb.max[0] || z < aabb.min[1] || z > aabb.max[1]) return null
+    const coord = stairs.axis === 'x' ? x : z
+    const t = Math.abs(coord - foot) / stairs.length
+    return Math.max(0, Math.min(1, t)) * FLOOR_ELEVATION
+  }
+}
+
+export type StairCollider = {
+  min: [number, number]
+  max: [number, number]
+  /** Ramp surface height probe; agents off the surface are pushed out. */
+  rampHeight?: (x: number, z: number) => number | null
+}
+
+/**
+ * Solid-wedge colliders for every stair ramp. The ramp is a 0→1.5m wedge:
+ * agents whose Y deviates from the surface (side/top/foot entries) are
+ * blocked, while climbers pinned to the surface pass through.
+ */
+export function stairCollidersFromLayout(layout: SpaceLayoutState): StairCollider[] {
+  return layout.stairs.map((st) => {
+    const aabb = stairAabb(layout, st)
+    return {
+      min: aabb.min,
+      max: aabb.max,
+      rampHeight: stairSurface(layout, st),
+    }
+  })
+}

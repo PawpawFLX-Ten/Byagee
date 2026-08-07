@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
 import { createChaser } from '../chaser'
 import { useGameStore } from '../store'
+import { availableSides, hopDistance, roomIdAtY } from '../spaceLayout'
 
 /**
  * Quality gates: smoke, performance, stress, concurrency.
@@ -81,7 +82,7 @@ function runFrames(frames: number, dt = DT, startNow = 1_000_000): number {
 }
 
 function forceSpaceEvent(
-  eventId: 'A1' | 'A2' | 'A3' | 'A5' | 'C1' | 'C2' | 'C3' | 'C5' | 'C6',
+  eventId: 'A1' | 'A2' | 'A3' | 'A4' | 'A5' | 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6',
   now: number,
 ) {
   useGameStore.setState({
@@ -403,6 +404,69 @@ describe('concurrency: interleaved player actions during events', () => {
         const seat = s.runtimeSeats[n.seatIndex]
         expect(seat).toBeDefined()
       }
+    })
+  })
+})
+
+describe('upstairs events in long runs', () => {
+  it('A4/C4 keep the layout navigable with reachable seats and no Y teleports', () => {
+    withSeededRng(53, () => {
+      const store = useGameStore.getState()
+      store.beginMission(11_000_000)
+      let now = 11_000_000
+
+      forceSpaceEvent('A4', now)
+      for (let i = 0; i < 60; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const s1 = useGameStore.getState()
+      const upper1 = s1.layout.rooms.find((r) => r.floor === 1)
+      expect(upper1).toBeDefined()
+      expect(s1.layout.stairs.length).toBeGreaterThanOrEqual(1)
+      expect(hopDistance(s1.layout, 'r0', upper1!.id)).toBe(1)
+      // The floating upstairs room must not eat ground-floor expansion sides.
+      expect(availableSides(s1.layout, 'r0', 4, 6)).toHaveLength(4)
+
+      forceSpaceEvent('C4', now)
+      for (let i = 0; i < 60; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const s2 = useGameStore.getState()
+      expect(s2.layout.rooms.filter((r) => r.floor === 1).length).toBeGreaterThanOrEqual(2)
+      expect(s2.layout.stairs.length).toBeGreaterThanOrEqual(2)
+
+      // Every seat resolves to a reachable room.
+      for (let i = 0; i < s2.runtimeSeats.length; i++) {
+        const seat = s2.runtimeSeats[i]!
+        const roomId = roomIdAtY(s2.layout, seat[0], seat[2], seat[1])
+        expect(hopDistance(s2.layout, 'r0', roomId), `seat ${i} reachable`).not.toBe(Infinity)
+      }
+
+      // Longer run: walking NPCs keep finite positions and never teleport in Y.
+      const prevY = new Map<string, number>()
+      for (let i = 0; i < 3600; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+        const s = useGameStore.getState()
+        if (i % 240 === 0) assertSanity(i)
+        for (const n of s.npcs) {
+          if (n.status !== 'walking') {
+            prevY.delete(n.id)
+            continue
+          }
+          const prev = prevY.get(n.id)
+          if (prev !== undefined) {
+            expect(
+              Math.abs(n.position[1] - prev),
+              `npc ${n.id} Y jump @${i}`,
+            ).toBeLessThan(0.35)
+          }
+          prevY.set(n.id, n.position[1])
+        }
+      }
+      assertSanity(3600)
     })
   })
 })

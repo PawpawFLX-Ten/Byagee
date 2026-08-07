@@ -20,7 +20,12 @@ export type ObstacleCollider = {
   max: [number, number]
   /** Floor band the collider lives on; undefined blocks every floor. */
   floor?: number
+  /** Ramp surface height probe; agents off the surface are pushed out. */
+  rampHeight?: (x: number, z: number) => number | null
 }
+
+/** Agents within this Y distance of a ramp surface are "on the stairs". */
+export const RAMP_SURFACE_TOL = 0.35
 
 /** Floor band of a world Y (matches spaceLayout.floorFromPlayerY). */
 export function floorOfY(y: number): number {
@@ -258,6 +263,7 @@ export function resolveObstacleCollision(
   obs: ObstacleCollider,
   radius = CHAR_RADIUS,
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   if (obs.floor !== undefined && obs.floor !== floor) return [x, z]
   const cx = (obs.min[0] + obs.max[0]) / 2
@@ -267,6 +273,12 @@ export function resolveObstacleCollision(
   const lx = x - cx
   const lz = z - cz
   if (Math.abs(lx) <= hx && Math.abs(lz) <= hz) {
+    // Ramp wedges: agents standing ON the surface pass; anyone off the
+    // surface (side/top/foot entries) is pushed out of the stair volume.
+    if (obs.rampHeight) {
+      const h = obs.rampHeight(x, z)
+      if (h !== null && Math.abs(agentY - h) <= RAMP_SURFACE_TOL) return [x, z]
+    }
     const dx = hx - Math.abs(lx)
     const dz = hz - Math.abs(lz)
     if (dx < dz) return [cx + Math.sign(lx || 1) * hx, z]
@@ -281,11 +293,12 @@ export function resolveObstaclesCollision(
   obstacles: ObstacleCollider[],
   radius = CHAR_RADIUS,
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   let nx = x
   let nz = z
   for (const o of obstacles) {
-    ;[nx, nz] = resolveObstacleCollision(nx, nz, o, radius, floor)
+    ;[nx, nz] = resolveObstacleCollision(nx, nz, o, radius, floor, agentY)
   }
   return [nx, nz]
 }
@@ -297,11 +310,12 @@ export function resolveWorldCollision(
   obstacles: ObstacleCollider[] = [],
   radius = CHAR_RADIUS,
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   let nx = x
   let nz = z
   ;[nx, nz] = resolveTablesCollision(nx, nz, tables, radius, floor)
-  ;[nx, nz] = resolveObstaclesCollision(nx, nz, obstacles, radius, floor)
+  ;[nx, nz] = resolveObstaclesCollision(nx, nz, obstacles, radius, floor, agentY)
   return [nx, nz]
 }
 
@@ -347,6 +361,7 @@ export function separateFromOthers(
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   let nx = x
   let nz = z
@@ -366,7 +381,7 @@ export function separateFromOthers(
       nz += (dz / d) * push
     }
   }
-  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor, agentY)
   return clampPosition(nx, nz, bounds)
 }
 
@@ -381,17 +396,18 @@ export function moveWithCollision(
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   let nx = x + dx
   let nz = z
-  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor, agentY)
   ;[nx, nz] = clampPosition(nx, nz, bounds)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds, floor)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds, floor, agentY)
 
   nz = nz + dz
-  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor)
+  ;[nx, nz] = resolveWorldCollision(nx, nz, tables, obstacles, radius, floor, agentY)
   ;[nx, nz] = clampPosition(nx, nz, bounds)
-  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds, floor)
+  ;[nx, nz] = separateFromOthers(nx, nz, others, tables, radius, obstacles, bounds, floor, agentY)
   return [nx, nz]
 }
 
@@ -405,11 +421,12 @@ export function knockbackFrom(
   obstacles: ObstacleCollider[] = [],
   bounds?: LayoutBounds,
   floor = 0,
+  agentY = 0,
 ): [number, number] {
   let dx = to[0] - from[0]
   let dz = to[2] - from[2]
   const len = Math.hypot(dx, dz) || 1
   dx = (dx / len) * strength
   dz = (dz / len) * strength
-  return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles, bounds, floor)
+  return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles, bounds, floor, agentY)
 }

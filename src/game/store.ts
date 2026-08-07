@@ -30,6 +30,7 @@ import {
   hopDistance,
   latchedOnPath,
   roomIdAt,
+  stairCollidersFromLayout,
   withFurniture,
   type SpaceLayoutState,
 } from './spaceLayout'
@@ -722,7 +723,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const phase = getPhase(elapsedSec)
     // NPCs are guided through door gaps by waypointToward; only the player
     // gets wall colliders (see World.tsx) to avoid per-tick full-wall cost.
-    const worldObstacles = layout.obstacles
+    // Stair ramps are solid wedges — they block agents on every floor.
+    const worldObstacles = [
+      ...layout.obstacles,
+      ...stairCollidersFromLayout(layout),
+    ]
     const tickResult = tickNpcs(
       npcs,
       now,
