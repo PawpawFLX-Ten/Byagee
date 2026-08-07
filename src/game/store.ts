@@ -45,14 +45,25 @@ import {
   type RuntimeSpaceState,
 } from './runtimeSpace'
 import { computeThreat, hpDrainPerSec } from './threat'
+import {
+  checkAchievements,
+  computeScore,
+  loadBestRecord,
+  loadUnlockedAchievements,
+  saveBestRecord,
+  saveUnlockedAchievements,
+  type BestRecord,
+} from './achievements'
 import { titleForTime } from './titles'
 import { t, setLang, getLang, type Lang } from './i18n'
 import type {
+  AchievementId,
   DifficultyPhase,
   FoodSpot,
   NpcState,
   PropState,
   RoomId,
+  RunStats,
   SkillId,
   SpaceEventId,
   TableDef,
@@ -147,6 +158,12 @@ export interface GameStore {
   layout: SpaceLayoutState
   playerRoomId: RoomId
   bossesCleared: number
+  stats: RunStats
+  unlockedThisRun: AchievementId[]
+  achievementQueue: AchievementId[]
+  best: BestRecord | null
+  isNewBest: boolean
+  lastScore: number
   pendingSpaceEventAt: number | null
   pendingMinorOnly: boolean
   queuedSpaceEventId: SpaceEventId | null
@@ -173,6 +190,7 @@ export interface GameStore {
   tick: (dt: number, now: number) => void
   clearToast: () => void
   clearSpaceEventToast: () => void
+  shiftAchievementToast: () => void
   setReduceNausea: (on: boolean) => void
   togglePause: () => void
 }
@@ -182,6 +200,9 @@ let npcSeq = 0
 let lastDoorEventAt = 0
 let nextBossAtElapsed = CONFIG.boss.intervalSec
 let chaserThreatAccumMs = 0
+
+/** Cross-run unlocked achievements — persists across missions. */
+const unlockedAchievements = loadUnlockedAchievements()
 
 // Cached layout bounds — layout is immutable and only changes on space events.
 let cachedBoundsLayout: SpaceLayoutState | null = null
@@ -282,6 +303,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   layout: createInitialLayout(),
   playerRoomId: 'r0',
   bossesCleared: 0,
+  stats: { skillHits: 0, propsPicked: 0, spaceEvents: 0, chaserKnockbacks: 0 },
+  unlockedThisRun: [],
+  achievementQueue: [],
+  best: loadBestRecord(),
+  isNewBest: false,
+  lastScore: 0,
   pendingSpaceEventAt: null,
   pendingMinorOnly: false,
   queuedSpaceEventId: null,
@@ -343,6 +370,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       layout: createInitialLayout(),
       playerRoomId: 'r0',
       bossesCleared: 0,
+      stats: { skillHits: 0, propsPicked: 0, spaceEvents: 0, chaserKnockbacks: 0 },
+      unlockedThisRun: [],
+      achievementQueue: [],
+      best: loadBestRecord(),
+      isNewBest: false,
+      lastScore: 0,
       pendingSpaceEventAt: null,
       pendingMinorOnly: false,
       queuedSpaceEventId: null,
@@ -399,6 +432,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       layout: createInitialLayout(),
       playerRoomId: 'r0',
       bossesCleared: 0,
+      stats: { skillHits: 0, propsPicked: 0, spaceEvents: 0, chaserKnockbacks: 0 },
+      unlockedThisRun: [],
+      achievementQueue: [],
+      best: loadBestRecord(),
+      isNewBest: false,
+      lastScore: 0,
       pendingSpaceEventAt: null,
       pendingMinorOnly: false,
       queuedSpaceEventId: null,
@@ -458,6 +497,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearToast: () => set({ toast: null }),
   clearSpaceEventToast: () => set({ spaceEventToast: null }),
+
+  shiftAchievementToast: () =>
+    set((s) => ({
+      achievementQueue: s.achievementQueue.slice(1),
+    })),
 
   setReduceNausea: (on) => set({ reduceNausea: on }),
 
@@ -556,6 +600,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let nextPropAt = state.nextPropAt
     let propSeq = state.propSeq
     let bossesCleared = state.bossesCleared
+    let stats = state.stats
     let pendingSpaceEventAt = state.pendingSpaceEventAt
     let pendingMinorOnly = state.pendingMinorOnly
     let queuedSpaceEventId = state.queuedSpaceEventId
@@ -605,7 +650,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const resolvedSmacker = result.hitIds.some((id) =>
           npcs.find((n) => n.id === id)?.status === 'smacking',
         )
+        const chaserStaggerBefore = new Map<string, number>()
+        for (const n of npcs) {
+          if (n.role === 'chaser') chaserStaggerBefore.set(n.id, n.staggerUntil)
+        }
         npcs = result.npcs
+        stats = {
+          ...stats,
+          skillHits: stats.skillHits + result.hitIds.length,
+          chaserKnockbacks:
+            stats.chaserKnockbacks +
+            result.hitIds.filter((id) => {
+              const hit = npcs.find((n) => n.id === id)
+              return (
+                hit?.role === 'chaser' &&
+                hit.staggerUntil > (chaserStaggerBefore.get(id) ?? 0)
+              )
+            }).length,
+        }
         // Keep original reserved cooldown, don't reset from tryUseSkill
         selfNoise = result.selfNoise
         selfNoiseUntil =
@@ -835,6 +897,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hp = effect.hp
       toast = { id: fxSeq++, text: effect.toastText, until: now + 2000 }
       props = props.map((p) => (p.id === pickedUp.id ? { ...p, fadingSince: now } : p))
+      stats = { ...stats, propsPicked: stats.propsPicked + 1 }
     }
 
     // --- Remove fully faded props ---
@@ -902,6 +965,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       syncRuntimeFromStore(runtimeTables, runtimeSeats, runtimeFoodSpots, maxNpcs)
       spaceEventToast = queuedSpaceEventId
       queuedSpaceEventId = null
+      stats = { ...stats, spaceEvents: stats.spaceEvents + 1 }
 
       const invalidSet = new Set(applied.invalidSeatIndices ?? [])
       const remap = applied.seatIndexRemap
@@ -976,6 +1040,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
         null
     }
 
+    // --- Score + achievements ---
+    let lastScore = state.lastScore
+    let isNewBest = state.isNewBest
+    let best = state.best
+    if (!alive && state.alive) {
+      lastScore = computeScore({
+        elapsedSec,
+        skillHits: stats.skillHits,
+        bossesCleared,
+        propsPicked: stats.propsPicked,
+        spaceEvents: stats.spaceEvents,
+        chaserKnockbacks: stats.chaserKnockbacks,
+        level,
+      })
+      if (!best || lastScore > best.score) {
+        isNewBest = true
+        best = { score: lastScore, survivalSec: Math.floor(elapsedSec), bossesCleared }
+        saveBestRecord(best)
+      }
+    }
+    let unlockedThisRun = state.unlockedThisRun
+    let achievementQueue = state.achievementQueue
+    const newly = checkAchievements(
+      {
+        elapsedSec,
+        skillHits: stats.skillHits,
+        bossesCleared,
+        propsPicked: stats.propsPicked,
+        spaceEvents: stats.spaceEvents,
+        chaserKnockbacks: stats.chaserKnockbacks,
+        level,
+      },
+      unlockedAchievements,
+    )
+    if (newly.length > 0) {
+      for (const id of newly) unlockedAchievements.add(id)
+      saveUnlockedAchievements([...unlockedAchievements])
+      unlockedThisRun = [...unlockedThisRun, ...newly]
+      achievementQueue = [...achievementQueue, ...newly]
+    }
+
     set({
       elapsedSec,
       phase,
@@ -1010,6 +1115,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextPropAt,
       propSeq,
       bossesCleared,
+      stats,
+      unlockedThisRun,
+      achievementQueue,
+      best,
+      isNewBest,
+      lastScore,
       pendingSpaceEventAt,
       pendingMinorOnly,
       queuedSpaceEventId,

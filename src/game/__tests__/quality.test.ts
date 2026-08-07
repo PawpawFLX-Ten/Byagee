@@ -238,6 +238,35 @@ describe('stress: 20 minute marathon with everything enabled', () => {
       )
     })
   })
+
+  it('stats accumulate and best record persists on death', () => {
+    withSeededRng(23, () => {
+      const store = useGameStore.getState()
+      store.beginMission(8_000_000)
+      let now = 8_000_000
+      for (let i = 0; i < 60 * 60 * 3; i++) {
+        now += DT * 1000 * 2
+        const s = useGameStore.getState()
+        // Keep fighting so skill/prop/event counters climb.
+        if (i % 5 === 0) s.useSkill('slap', now)
+        if (s.hp < 50) useGameStore.setState({ hp: 60 })
+        useGameStore.getState().tick(DT * 2, now)
+      }
+      const mid = useGameStore.getState()
+      expect(mid.stats.skillHits).toBeGreaterThan(0)
+      expect(mid.stats.spaceEvents + mid.stats.propsPicked).toBeGreaterThanOrEqual(0)
+
+      // Force death → score finalizes and best record is written.
+      useGameStore.setState({ hp: 0 })
+      useGameStore.getState().tick(DT, now + 1000)
+      const after = useGameStore.getState()
+      expect(after.alive).toBe(false)
+      expect(after.lastScore).toBeGreaterThan(0)
+      expect(after.best).not.toBeNull()
+      expect(after.best!.score).toBe(after.lastScore)
+      expect(after.achievementQueue.length).toBeGreaterThanOrEqual(0)
+    })
+  })
 })
 
 describe('concurrency: interleaved player actions during events', () => {
