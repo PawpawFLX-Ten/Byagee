@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useShallow } from 'zustand/react/shallow'
 import { Billboard, Text } from '@react-three/drei'
 import { Select } from '@react-three/postprocessing'
@@ -13,6 +13,10 @@ import type { NpcArchetype, NpcState, SkillId } from '../game/types'
 const COLORS = ['#e07070', '#70a070', '#7070c0', '#c08050', '#80a0c0']
 const CHASER_COLOR = '#e04030'
 const HEAD_Y = 1.28
+/** Distance LOD: hide fine face parts beyond this (camera-to-NPC meters). */
+const FACE_DETAIL_DIST = 13
+/** Hide hats / belly / belt beyond this — far silhouettes stay cheap. */
+const HAT_DETAIL_DIST = 20
 const HIT_COLOR: Record<SkillId, string> = {
   slap: '#ffdd66',
   tape: '#e8e8e8',
@@ -122,9 +126,13 @@ function NpcMeshImpl({
   hit: boolean
   hitSkill: SkillId | null
 }) {
+  const { camera } = useThree()
   const root = useRef<Group>(null)
   const head = useRef<Group>(null)
   const jaw = useRef<Group>(null)
+  const faceDetail = useRef<Group>(null)
+  const hatDetail = useRef<Group>(null)
+  const bodyDetail = useRef<Group>(null)
   const upperLip = useRef<Mesh>(null)
   const lowerLip = useRef<Mesh>(null)
   const tongue = useRef<Mesh>(null)
@@ -160,6 +168,18 @@ function NpcMeshImpl({
     const t = clock.elapsedTime + phase
     const smacking = live.status === 'smacking'
     const now = performance.now()
+
+    // Distance LOD: fine face/hat detail only pays off nearby.
+    if (faceDetail.current) {
+      const dist = Math.hypot(
+        camera.position.x - live.position[0],
+        camera.position.y - live.position[1],
+        camera.position.z - live.position[2],
+      )
+      faceDetail.current.visible = dist < FACE_DETAIL_DIST
+      if (hatDetail.current) hatDetail.current.visible = dist < HAT_DETAIL_DIST
+      if (bodyDetail.current) bodyDetail.current.visible = dist < HAT_DETAIL_DIST
+    }
 
     if (root.current) {
       root.current.position.set(live.position[0], live.position[1], live.position[2])
@@ -324,18 +344,20 @@ function NpcMeshImpl({
         <capsuleGeometry args={[torsoWidth, isChaser ? 0.42 : 0.35, 4, 8]} />
         <meshStandardMaterial color={bodyColor} />
       </mesh>
-      {npc.build === 'stout' && (
-        <mesh position={[0, 0.26, 0.2]} castShadow>
-          <sphereGeometry args={[0.13, 12, 12]} />
-          <meshStandardMaterial color={bodyColor} />
-        </mesh>
-      )}
-      {isChaser && (
-        <mesh position={[0, 0.15, -0.12]} rotation={[0.25, 0, 0]}>
-          <boxGeometry args={[0.32, 0.08, 0.14]} />
-          <meshStandardMaterial color="#c03020" />
-        </mesh>
-      )}
+      <group ref={bodyDetail}>
+        {npc.build === 'stout' && (
+          <mesh position={[0, 0.26, 0.2]} castShadow>
+            <sphereGeometry args={[0.13, 12, 12]} />
+            <meshStandardMaterial color={bodyColor} />
+          </mesh>
+        )}
+        {isChaser && (
+          <mesh position={[0, 0.15, -0.12]} rotation={[0.25, 0, 0]}>
+            <boxGeometry args={[0.32, 0.08, 0.14]} />
+            <meshStandardMaterial color="#c03020" />
+          </mesh>
+        )}
+      </group>
 
       <group ref={head} position={[0, HEAD_Y, 0]}>
         {/* Cranium — lower half cut by mouth plane visually */}
@@ -344,6 +366,7 @@ function NpcMeshImpl({
           <meshStandardMaterial color="#f2d2b0" />
         </mesh>
 
+        <group ref={faceDetail}>
         <mesh position={[-0.12, 0.1, 0.28]}>
           <sphereGeometry args={[0.055, 8, 8]} />
           <meshStandardMaterial color="#1a1a1a" />
@@ -415,8 +438,11 @@ function NpcMeshImpl({
             </mesh>
           )}
         </group>
+        </group>
 
-        <DinerSilhouette archetype={npc.archetype} color={bodyColor} />
+        <group ref={hatDetail}>
+          <DinerSilhouette archetype={npc.archetype} color={bodyColor} />
+        </group>
       </group>
 
       {npc.id === useGameStore.getState().targetId && (
