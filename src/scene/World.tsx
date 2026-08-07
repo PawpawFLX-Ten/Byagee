@@ -249,7 +249,9 @@ export function Room() {
           </group>
         )
       })}
-      {layout.obstacles.map((obs) => {
+      {layout.obstacles
+        .filter((obs) => !obs.id.startsWith('cabinet-'))
+        .map((obs) => {
         const w = obs.max[0] - obs.min[0]
         const d = obs.max[1] - obs.min[1]
         const cx = (obs.min[0] + obs.max[0]) / 2

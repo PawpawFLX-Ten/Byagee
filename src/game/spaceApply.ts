@@ -1,5 +1,6 @@
 import {
   addRoomConnected,
+  firstNonCabinetObstacle,
   floorFromPlayerY,
   floorY,
   roomIdAt,
@@ -521,11 +522,11 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
 
 function applyC5(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const layout = cloneLayout(input.layout)
-  if (layout.obstacles.length > 0) {
-    const obs = layout.obstacles[0]
+  const target = firstNonCabinetObstacle(layout.obstacles)
+  if (target) {
     const nudge = input.rng() > 0.5 ? 0.4 : -0.4
-    obs.min = [obs.min[0] + nudge, obs.min[1] + nudge]
-    obs.max = [obs.max[0] + nudge, obs.max[1] + nudge]
+    target.min = [target.min[0] + nudge, target.min[1] + nudge]
+    target.max = [target.max[0] + nudge, target.max[1] + nudge]
   } else {
     const room = primaryRoom(layout)
     room.min = [room.min[0] + 0.3, room.min[1] + 0.3]

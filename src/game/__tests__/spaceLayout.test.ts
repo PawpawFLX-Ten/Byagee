@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   addRoomConnected,
+  CABINET_OBSTACLES,
   createInitialLayout,
+  firstNonCabinetObstacle,
   hopDistance,
   latchedOnPath,
   roomIdAt,
   floorFromPlayerY,
+  withFurniture,
 } from '../spaceLayout'
 
 describe('spaceLayout', () => {
@@ -16,6 +19,21 @@ describe('spaceLayout', () => {
     expect(L.rooms[0].id).toBe('r0')
     expect(L.obstacles).toEqual([])
     expect(L.stairs).toEqual([])
+  })
+
+  it('withFurniture adds four wall-cabinet colliders', () => {
+    const L = withFurniture(createInitialLayout())
+    expect(L.obstacles).toHaveLength(CABINET_OBSTACLES.length)
+    for (const o of L.obstacles) {
+      expect(o.id.startsWith('cabinet-')).toBe(true)
+    }
+  })
+
+  it('firstNonCabinetObstacle skips cabinets', () => {
+    const L = withFurniture(createInitialLayout())
+    expect(firstNonCabinetObstacle(L.obstacles)).toBeNull()
+    L.obstacles.push({ id: 'obs-0', min: [0, 0], max: [1, 1] })
+    expect(firstNonCabinetObstacle(L.obstacles)?.id).toBe('obs-0')
   })
 
   it('after adding adjacent room, hopDistance is 1', () => {

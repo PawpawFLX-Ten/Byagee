@@ -24,6 +24,29 @@ export function createInitialLayout(): SpaceLayoutState {
   }
 }
 
+/** Wall cabinets — static colliders (1.0 × 0.5 world footprint) for hide spots. */
+export const CABINET_OBSTACLES: SpaceObstacle[] = [
+  { id: 'cabinet-n', min: [3.1, -5], max: [4.1, -4.5] },
+  { id: 'cabinet-s', min: [-4.1, 4.5], max: [-3.1, 5] },
+  { id: 'cabinet-w', min: [-5, -4.1], max: [-4.5, -3.1] },
+  { id: 'cabinet-e', min: [4.5, 3.1], max: [5, 4.1] },
+]
+
+/** Initial layout plus cabinet colliders (start of every mission). */
+export function withFurniture(layout: SpaceLayoutState): SpaceLayoutState {
+  return {
+    ...layout,
+    obstacles: [...CABINET_OBSTACLES],
+  }
+}
+
+/** First non-cabinet obstacle, or null when only cabinets exist. */
+export function firstNonCabinetObstacle(
+  obstacles: SpaceObstacle[],
+): SpaceObstacle | null {
+  return obstacles.find((o) => !o.id.startsWith('cabinet-')) ?? null
+}
+
 function containsRoom(room: SpaceRoom, x: number, z: number): boolean {
   return x >= room.min[0] && x <= room.max[0] && z >= room.min[1] && z <= room.max[1]
 }

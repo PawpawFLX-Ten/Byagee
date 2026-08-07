@@ -29,6 +29,7 @@ import {
   hopDistance,
   latchedOnPath,
   roomIdAt,
+  withFurniture,
   type SpaceLayoutState,
 } from './spaceLayout'
 import { layoutBoundsFromLayout } from './collision'
@@ -367,7 +368,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextPropAt: CONFIG.props.spawnIntervalSec,
       propSeq: 0,
       paused: false,
-      layout: createInitialLayout(),
+      layout: withFurniture(createInitialLayout()),
       playerRoomId: 'r0',
       bossesCleared: 0,
       stats: { skillHits: 0, propsPicked: 0, spaceEvents: 0, chaserKnockbacks: 0 },
@@ -429,7 +430,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextPropAt: CONFIG.props.spawnIntervalSec,
       propSeq: 0,
       paused: false,
-      layout: createInitialLayout(),
+      layout: withFurniture(createInitialLayout()),
       playerRoomId: 'r0',
       bossesCleared: 0,
       stats: { skillHits: 0, propsPicked: 0, spaceEvents: 0, chaserKnockbacks: 0 },
