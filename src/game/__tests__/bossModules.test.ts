@@ -16,6 +16,8 @@ function boss(partial: Partial<NpcState> = {}): NpcState {
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'boss',
+    archetype: 'tophat',
+    build: 'stout',
     roomId: 'r0',
     staggerUntil: 0,
     chaseTarget: false,

@@ -19,6 +19,15 @@ export interface FoodSpot {
 
 export type NpcRole = 'normal' | 'boss' | 'chaser'
 
+export type NpcArchetype = 'none' | 'tophat' | 'bowler' | 'chef' | 'cap' | 'bun'
+export type NpcBuild = 'slim' | 'normal' | 'stout'
+
+export interface DinerConfig {
+  /** Weighted random silhouette assignment for normal diners. */
+  archetypeWeights: Record<NpcArchetype, number>
+  buildWeights: Record<NpcBuild, number>
+}
+
 export type RoomId = string
 
 export interface SpaceOpening {
@@ -116,6 +125,10 @@ export interface NpcState {
   /** Consecutive low-progress walk ticks — used to unstick jams */
   stuckTicks: number
   role: NpcRole
+  /** Silhouette headwear — static per NPC, visual only. */
+  archetype: NpcArchetype
+  /** Silhouette body build — static per NPC, visual only. */
+  build: NpcBuild
   roomId: RoomId
   /** Chaser: cannot face-smack until this time */
   staggerUntil: number
@@ -260,4 +273,5 @@ export interface GameConfig {
   space: SpaceConfig
   chaser: ChaserConfig
   hideLatch: HideLatchConfig
+  diner: DinerConfig
 }

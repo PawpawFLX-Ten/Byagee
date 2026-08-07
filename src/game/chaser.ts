@@ -6,6 +6,7 @@ import {
   type XZ,
 } from './collision'
 import { CONFIG } from './config'
+import { CHASER_ARCHETYPE, CHASER_BUILD } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import { latchedOnPath, roomIdAt, type SpaceLayoutState } from './spaceLayout'
 import { distance3, distanceAttenuation } from './threat'
@@ -97,6 +98,8 @@ export function createChaser(
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'chaser',
+    archetype: CHASER_ARCHETYPE,
+    build: CHASER_BUILD,
     roomId,
     staggerUntil: 0,
     chaseTarget: true,

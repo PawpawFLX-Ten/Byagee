@@ -15,6 +15,8 @@ function stubNpc(partial: Partial<NpcState> & { id: string }): NpcState {
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'normal',
+    archetype: 'none',
+    build: 'normal',
     roomId: 'r0',
     staggerUntil: 0,
     chaseTarget: false,

@@ -1,4 +1,5 @@
 import { CONFIG } from './config'
+import { BOSS_ARCHETYPE, BOSS_BUILD } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import { applySilence } from './npcFsm'
 import { distance3 } from './threat'
@@ -41,6 +42,8 @@ export function createBossNpc(
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'boss',
+    archetype: BOSS_ARCHETYPE,
+    build: BOSS_BUILD,
     roomId: 'r0',
     staggerUntil: 0,
     chaseTarget: false,

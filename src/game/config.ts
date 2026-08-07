@@ -248,6 +248,10 @@ export const CONFIG: GameConfig = {
     searchEscalateSec: 8,
     interactRadius: 1.35,
   },
+  diner: {
+    archetypeWeights: { tophat: 20, bowler: 15, chef: 15, cap: 25, bun: 15, none: 10 },
+    buildWeights: { slim: 25, normal: 50, stout: 25 },
+  },
 }
 
 export const SKILL_ORDER = ['slap', 'tape', 'megaphone', 'gag', 'poop', 'civility'] as const

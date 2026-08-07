@@ -1,4 +1,5 @@
 import { CONFIG } from './config'
+import { pickArchetype, pickBuild } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import type { NpcState } from './types'
 import type { SpaceLayoutState } from './spaceLayout'
@@ -108,6 +109,8 @@ export function createNormalFromDoor(
     wobbleUntil: 0,
     stuckTicks: 0,
     role: 'normal',
+    archetype: pickArchetype(),
+    build: pickBuild(),
     roomId,
     staggerUntil: 0,
     chaseTarget: false,

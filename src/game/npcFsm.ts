@@ -9,6 +9,7 @@ import {
   type XZ,
 } from './collision'
 import { CONFIG } from './config'
+import { pickArchetype, pickBuild } from './archetype'
 import { getRuntimeSpace } from './runtimeSpace'
 import { getPhase } from './difficulty'
 import type { DifficultyPhase, FoodSpot, NpcState, SealProp } from './types'
@@ -104,6 +105,8 @@ export function createNpcs(now: number): NpcState[] {
       wobbleUntil: 0,
       stuckTicks: 0,
       role: 'normal',
+      archetype: pickArchetype(),
+      build: pickBuild(),
       roomId: 'r0',
       staggerUntil: 0,
       chaseTarget: false,
