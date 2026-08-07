@@ -34,7 +34,7 @@ import {
   withFurniture,
   type SpaceLayoutState,
 } from './spaceLayout'
-import { layoutBoundsFromLayout } from './collision'
+import { layoutBoundsFromLayout, type ObstacleCollider } from './collision'
 import {
   consumePendingSpaceEvent,
   maybeScheduleInterBossMinorMorph,
@@ -220,6 +220,20 @@ function boundsForLayout(layout: SpaceLayoutState): ReturnType<typeof layoutBoun
     cachedLayoutBounds = layoutBoundsFromLayout(layout, 0)
   }
   return cachedLayoutBounds ?? layoutBoundsFromLayout(layout, 0)
+}
+
+// NPC obstacle list derives from the immutable layout — cache per layout so
+// ticks reuse the same arrays and closures instead of allocating each frame.
+const obstacleCache = new WeakMap<SpaceLayoutState, ObstacleCollider[]>()
+
+/** layout.obstacles + stair wedges; identical until the next space event. */
+function obstaclesForLayout(layout: SpaceLayoutState): ObstacleCollider[] {
+  let cached = obstacleCache.get(layout)
+  if (!cached) {
+    cached = [...layout.obstacles, ...stairCollidersFromLayout(layout)]
+    obstacleCache.set(layout, cached)
+  }
+  return cached
 }
 
 function failText(reason: string): string {
@@ -730,10 +744,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // NPCs are guided through door gaps by waypointToward; only the player
     // gets wall colliders (see World.tsx) to avoid per-tick full-wall cost.
     // Stair ramps are solid wedges — they block agents on every floor.
-    const worldObstacles = [
-      ...layout.obstacles,
-      ...stairCollidersFromLayout(layout),
-    ]
+    const worldObstacles = obstaclesForLayout(layout)
     const tickResult = tickNpcs(
       npcs,
       now,
@@ -786,13 +797,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : n,
     )
 
-    const roomFloor = (roomId: RoomId) =>
-      layout.rooms.find((r) => r.id === roomId)?.floor ?? 0
+    const roomFloor = new Map(
+      layout.rooms.map((r) => [r.id, r.floor] as const),
+    )
 
     const threat = computeThreat(npcs, state.playerPos, selfNoise, now, elapsedSec, {
       playerRoomId,
       npcRoomId: (npc) => npc.roomId,
-      npcFloor: (npc) => roomFloor(npc.roomId),
+      npcFloor: (npc) => roomFloor.get(npc.roomId) ?? 0,
       playerFloor,
       hopDistance: (npcRoom) => hopDistance(layout, playerRoomId, npcRoom),
       latchedOnPath: (npcRoom) => latchedOnPath(layout, playerRoomId, npcRoom, now),

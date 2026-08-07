@@ -189,6 +189,37 @@ describe('performance: tick cost under load', () => {
       assertSanity(3300)
     })
   })
+
+  it('stays fast with upstairs rooms and stair wedges at full population', () => {
+    withSeededRng(17, () => {
+      const store = useGameStore.getState()
+      store.beginMission(6_000_000)
+      let now = 6_000_000
+      // Expand + upstairs + bar so NPCs walk ramps and cross floors.
+      for (const id of ['A4', 'C4', 'A1', 'A5'] as const) {
+        forceSpaceEvent(id, now)
+        for (let i = 0; i < 60; i++) {
+          now += DT * 1000
+          useGameStore.getState().tick(DT, now)
+        }
+      }
+      // Long enough for door traffic into the upstairs seats.
+      for (let i = 0; i < 60 * 60 * 2; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const s = useGameStore.getState()
+      expect(s.layout.stairs.length).toBeGreaterThanOrEqual(2)
+      const t0 = performance.now()
+      for (let i = 0; i < 3000; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const perTick = (performance.now() - t0) / 3000
+      expect(perTick).toBeLessThan(3)
+      assertSanity(60 * 60 * 2 + 3000)
+    })
+  })
 })
 
 describe('stress: 20 minute marathon with everything enabled', () => {
@@ -380,8 +411,12 @@ describe('concurrency: interleaved player actions during events', () => {
           if (o) s.applyLatch(o.id, now)
         }
         if (i % 500 === 0 && now % 2 === 0) {
-          const pick = ['A1', 'A2', 'A3', 'C1', 'C2', 'C3'][i % 6] as const
+          // Mix ground expansions, morphs and upstairs events in the storm.
+          const pick = ['A1', 'A2', 'A3', 'A5', 'C1', 'C2', 'C3', 'C5', 'C6'][i % 9] as const
           forceSpaceEvent(pick, now)
+        }
+        if (i % 700 === 0 && now % 2 === 1) {
+          forceSpaceEvent(i % 1400 === 700 ? 'A4' : 'C4', now)
         }
         useGameStore.getState().tick(DT, now)
         if (i % 400 === 0) assertSanity(i)

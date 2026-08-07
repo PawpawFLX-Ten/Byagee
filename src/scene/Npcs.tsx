@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useShallow } from 'zustand/react/shallow'
 import { Billboard, Text } from '@react-three/drei'
 import { Select } from '@react-three/postprocessing'
 import type { Group, Mesh } from 'three'
@@ -507,14 +508,17 @@ function NpcMeshImpl({
 const NpcMesh = memo(NpcMeshImpl)
 
 export function Npcs() {
-  const ids = useGameStore((s) => s.npcs.map((n) => n.id).join(','))
+  // useShallow: the id list only changes on spawn/despawn, so the parent
+  // does not re-render every tick (npcs array is rebuilt each tick).
+  const ids = useGameStore(
+    useShallow((s) => s.npcs.map((n) => n.id)),
+  )
   const hitFx = useGameStore((s) => s.hitFx)
   const hitSet = useMemo(() => new Set(hitFx?.npcIds ?? []), [hitFx])
-  const idList = ids.length ? ids.split(',') : []
 
   return (
     <group>
-      {idList.map((id) => (
+      {ids.map((id) => (
         <NpcMesh
           key={id}
           id={id}

@@ -762,8 +762,11 @@ export function Player() {
   }, [paused])
 
   const layoutBounds = useMemo(() => layoutBoundsFromLayout(layout, 0), [layout])
+  // Walls + stair wedges + fixed obstacles — merged once per layout instead
+  // of spreading three arrays every frame during movement.
   const wallObstacles = useMemo(
     () => [
+      ...layout.obstacles,
       ...wallsFromLayout(layout, CONFIG.door.position),
       ...stairCollidersFromLayout(layout),
     ],
@@ -891,7 +894,7 @@ export function Player() {
           runtimeTables,
           blockers,
           CHAR_RADIUS,
-          [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
+          wallObstacles as ObstacleCollider[],
           layoutBounds,
           floor,
           ref.current.position.y,
@@ -907,7 +910,7 @@ export function Player() {
           blockers,
           runtimeTables,
           CHAR_RADIUS,
-          [...liveLayout.obstacles, ...wallObstacles] as ObstacleCollider[],
+          wallObstacles as ObstacleCollider[],
           layoutBounds,
           floorOfY(ref.current.position.y),
           ref.current.position.y,
