@@ -33,7 +33,7 @@ export const CONFIG: GameConfig = {
     { id: 't-oval', shape: 'oval', position: [0.2, 0, 2.0], half: { x: 1.6, z: 0.65 }, topY: 0.75 },
   ],
   door: {
-    position: [0, 0, -4.48],
+    position: [0, 0, -4.9],
     maxNpcs: 10,
     startNpcCount: 3,
     timedIntervalSec: 16,

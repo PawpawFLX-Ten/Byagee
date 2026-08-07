@@ -410,6 +410,8 @@ export function Door() {
   const p = CONFIG.door.position
   return (
     <group position={[p[0], 0, p[2]]}>
+      {/* Door sits flush against the wall: visuals offset 0.4 into the room. */}
+      <group position={[0, 0, 0.4]}>
       {/* Door frame — side pillars */}
       <mesh position={[-0.62, 1.1, -0.35]} castShadow>
         <boxGeometry args={[0.08, 2.2, 0.14]} />
@@ -470,6 +472,7 @@ export function Door() {
         >
           {t('couplet_left').replace(/ /g, '').split('').join('\n')}
         </Text>
+      </group>
       </group>
     </group>
   )
