@@ -36,7 +36,7 @@ function CameraFollow() {
   useFrame(() => {
     if (!controls.current) return
     const { playerPos, npcs, targetId } = useGameStore.getState()
-    _camDesired.set(playerPos[0], 1.1, playerPos[2])
+    _camDesired.set(playerPos[0], playerPos[1] + 1.1, playerPos[2])
     controls.current.target.lerp(_camDesired, 0.12)
 
     // Soft yaw assist: gently rotate orbit toward highest-priority smacker

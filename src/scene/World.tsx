@@ -23,6 +23,7 @@ import { inFaceRadius } from '../game/chaser'
 import {
   agentYAt,
   openingOrientation,
+  stairEndPos,
   type SpaceLayoutState,
 } from '../game/spaceLayout'
 import {
@@ -38,7 +39,7 @@ import {
 import { t } from '../game/i18n'
 import { useGameStore, HIT_FX_MS } from '../game/store'
 import { useInputStore } from '../game/inputStore'
-import type { SkillId } from '../game/types'
+import type { SkillId, SpaceStairs } from '../game/types'
 import { CABINET_POSITIONS } from './Atmosphere'
 
 const WALL_LAYER_NAME = 'fade-wall'
@@ -142,7 +143,7 @@ export function WallOcclusionFader() {
 
     const playerPos = useGameStore.getState().playerPos
     from.copy(camera.position)
-    to.set(playerPos[0], 1.2, playerPos[2])
+    to.set(playerPos[0], playerPos[1] + 1.2, playerPos[2])
     dir.subVectors(to, from)
     const dist = dir.length()
     if (dist < 0.01) return
@@ -302,6 +303,7 @@ function RoomWalls({
 
 export function Room() {
   const layout = useGameStore((s) => s.layout)
+  const hasUpstairs = layout.rooms.some((r) => r.floor > 0)
   return (
     <group>
       {layout.rooms.map((room) => {
@@ -317,25 +319,28 @@ export function Room() {
               <planeGeometry args={[w + 0.3, d + 0.3]} />
               <meshStandardMaterial color={floorColor} />
             </mesh>
-            {room.floor === 0 && <RoomWalls room={room} layout={layout} />}
-            {room.floor === 0 && room.id === 'r0' && (
-              <>
-                <mesh position={[0, 2.45, 0]}>
-                  <boxGeometry args={[w - 0.11, 0.08, d - 0.11]} />
-                  <meshStandardMaterial
-                    color="#6e5a42"
-                    transparent
-                    opacity={0.22}
-                    depthWrite={false}
-                  />
-                </mesh>
-                <WallArt />
-              </>
+            <RoomWalls room={room} layout={layout} />
+            {room.id === 'r0' && <WallArt />}
+            {room.floor === 0 && room.id === 'r0' && !hasUpstairs && (
+              <mesh position={[0, 2.45, 0]}>
+                <boxGeometry args={[w - 0.11, 0.08, d - 0.11]} />
+                <meshStandardMaterial
+                  color="#6e5a42"
+                  transparent
+                  opacity={0.22}
+                  depthWrite={false}
+                />
+              </mesh>
             )}
             {room.floor > 0 && (
               <mesh position={[0, 0.05, 0]}>
                 <boxGeometry args={[w, 0.1, d]} />
-                <meshStandardMaterial color="#a09080" />
+                <meshStandardMaterial
+                  color="#a09080"
+                  transparent
+                  opacity={0.5}
+                  depthWrite={false}
+                />
               </mesh>
             )}
           </group>
@@ -356,8 +361,36 @@ export function Room() {
         )
       })}
       {layout.stairs.map((st) => (
-        <mesh key={st.id} position={[st.position[0], 0.75, st.position[2]]} rotation={[0, Math.PI / 4, 0]}>
-          <boxGeometry args={[1.2, 1.5, 2.4]} />
+        <Stairs key={st.id} layout={layout} st={st} />
+      ))}
+    </group>
+  )
+}
+
+const STAIR_STEPS = 8
+
+/** Stepped staircase: rises from the foot (y=0) to the top (y=1.5). */
+function Stairs({ layout, st }: { layout: SpaceLayoutState; st: SpaceStairs }) {
+  const [topX, topZ] = stairEndPos(layout, st, 1)
+  const dir =
+    st.axis === 'x'
+      ? Math.sign(topX - st.position[0]) || 1
+      : Math.sign(topZ - st.position[2]) || 1
+  const rise = 1.5 / STAIR_STEPS
+  const depth = st.length / STAIR_STEPS
+  const along = st.axis === 'x'
+    ? ([depth, 0.2, st.width] as [number, number, number])
+    : ([st.width, 0.2, depth] as [number, number, number])
+  const steps = Array.from({ length: STAIR_STEPS }, (_, i) => {
+    const x = st.axis === 'x' ? st.position[0] + dir * depth * (i + 0.5) : st.position[0]
+    const z = st.axis === 'z' ? st.position[2] + dir * depth * (i + 0.5) : st.position[2]
+    return { x, z, y: rise * (i + 0.5) }
+  })
+  return (
+    <group>
+      {steps.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]} castShadow receiveShadow>
+          <boxGeometry args={along} />
           <meshStandardMaterial color="#7a6a58" />
         </mesh>
       ))}
@@ -580,19 +613,24 @@ export function Door() {
   const lang = useGameStore((s) => s.lang)
   const layout = useGameStore((s) => s.layout)
   const p = CONFIG.door.position
+  const floorOf = (id: string) =>
+    layout.rooms.find((r) => r.id === id)?.floor ?? 0
   return (
     <group>
       {/* Main north door (static entrance) */}
       <DoorModel position={[p[0], 0, p[2]]} rotY={0} lang={lang} />
-      {/* Space-event doors: x-constant walls span z, so they rotate 90°. */}
-      {layout.openings.map((o) => (
-        <DoorModel
-          key={o.id}
-          position={o.position}
-          rotY={openingOrientation(layout, o) === 'eastwest' ? Math.PI / 2 : 0}
-          lang={lang}
-        />
-      ))}
+      {/* Space-event doors: x-constant walls span z, so they rotate 90°.
+          Cross-floor stairwell openings get no door model. */}
+      {layout.openings
+        .filter((o) => floorOf(o.fromRoom) === floorOf(o.toRoom))
+        .map((o) => (
+          <DoorModel
+            key={o.id}
+            position={o.position}
+            rotY={openingOrientation(layout, o) === 'eastwest' ? Math.PI / 2 : 0}
+            lang={lang}
+          />
+        ))}
     </group>
   )
 }

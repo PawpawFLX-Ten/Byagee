@@ -161,13 +161,12 @@ function NpcMeshImpl({
     const now = performance.now()
 
     if (root.current) {
-      root.current.position.set(live.position[0], 0, live.position[2])
+      root.current.position.set(live.position[0], live.position[1], live.position[2])
       root.current.rotation.y = live.facing
       if (isChaser && live.status === 'walking') {
-        root.current.position.y = Math.abs(Math.sin(t * 14)) * 0.09
+        root.current.position.y = live.position[1] + Math.abs(Math.sin(t * 14)) * 0.09
         root.current.rotation.x = Math.sin(t * 7) * 0.04
       } else {
-        root.current.position.y = 0
         root.current.rotation.x *= 0.9
       }
     }

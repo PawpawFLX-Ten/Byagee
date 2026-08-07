@@ -46,7 +46,7 @@ export function SkillFx() {
         ring.current.visible = true
         ring.current.position.set(
           hitFx.playerPos[0],
-          1.0,
+          hitFx.playerPos[1] + 1.0,
           hitFx.playerPos[2],
         )
         const isCivility = hitFx.skillId === 'civility'
@@ -65,7 +65,7 @@ export function SkillFx() {
         cone.current.visible = true
         cone.current.position.set(
           hitFx.playerPos[0],
-          1.0,
+          hitFx.playerPos[1] + 1.0,
           hitFx.playerPos[2],
         )
         const s = 0.5 + t * 4
@@ -78,7 +78,7 @@ export function SkillFx() {
       if (hitFx.skillId === 'slap' && hand.current && liveTargets[0]) {
         hand.current.visible = true
         const p = liveTargets[0].position
-        hand.current.position.set(p[0], 1.35 + t * 0.2, p[2])
+        hand.current.position.set(p[0], p[1] + 1.35 + t * 0.2, p[2])
         hand.current.rotation.z = -0.6 + t * 1.4
         hand.current.scale.setScalar(1.2 - t * 0.4)
       } else if (hand.current) {
@@ -93,7 +93,10 @@ export function SkillFx() {
         const tgt = liveTargets[0].position
         const px = hitFx.playerPos[0] + (tgt[0] - hitFx.playerPos[0]) * progress
         const pz = hitFx.playerPos[2] + (tgt[2] - hitFx.playerPos[2]) * progress
-        const py = 1.0 + Math.sin(progress * Math.PI) * 0.8
+        const py =
+          hitFx.playerPos[1] +
+          (tgt[1] - hitFx.playerPos[1]) * progress +
+          Math.sin(progress * Math.PI) * 0.8
         projectile.current.position.set(px, py, pz)
         projectile.current.scale.setScalar(0.7 + progress * 0.5)
       } else if (projectile.current) {
@@ -113,7 +116,7 @@ export function SkillFx() {
         if (elapsed < 1500 && elapsed >= 0) {
           const playerPos = useGameStore.getState().playerPos
           levelRing.current.visible = true
-          levelRing.current.position.set(playerPos[0], 1.0, playerPos[2])
+          levelRing.current.position.set(playerPos[0], playerPos[1] + 1.0, playerPos[2])
           const t = elapsed / 1500
           const s = 0.5 + t * 6
           levelRing.current.scale.set(s, s, s)
@@ -238,7 +241,7 @@ function PlungerItem({ id }: { id: string }) {
   useFrame(() => {
     const npc = useGameStore.getState().npcs.find((n) => n.id === id)
     if (ref.current && npc) {
-      ref.current.position.set(npc.position[0], 0, npc.position[2])
+      ref.current.position.set(npc.position[0], npc.position[1], npc.position[2])
     }
   })
   return (
