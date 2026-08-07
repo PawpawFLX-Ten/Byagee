@@ -8,6 +8,7 @@ import {
   firstNonCabinetObstacle,
   hopDistance,
   latchedOnPath,
+  openingOrientation,
   pickConnection,
   roomIdAt,
   floorFromPlayerY,
@@ -198,7 +199,43 @@ describe('spaceLayout', () => {
     expect(fallback!.roomId).not.toBe('r0')
   })
 
+  it('openingOrientation is eastwest for x-constant walls and northsouth for z-constant walls', () => {
+    const east = addRoomConnectedAt(
+      createInitialLayout(),
+      { id: 'r1', min: [6, -3], max: [10, 3], floor: 0 },
+      'door-1',
+      'r0',
+      'east',
+    )
+    expect(openingOrientation(east, east.openings[0]!)).toBe('eastwest')
+    const west = addRoomConnectedAt(
+      createInitialLayout(),
+      { id: 'r1', min: [-10, -3], max: [-6, 3], floor: 0 },
+      'door-1',
+      'r0',
+      'west',
+    )
+    expect(openingOrientation(west, west.openings[0]!)).toBe('eastwest')
+    const north = addRoomConnectedAt(
+      createInitialLayout(),
+      { id: 'r1', min: [-2, -12], max: [2, -6], floor: 0 },
+      'door-1',
+      'r0',
+      'north',
+    )
+    expect(openingOrientation(north, north.openings[0]!)).toBe('northsouth')
+    const south = addRoomConnectedAt(
+      createInitialLayout(),
+      { id: 'r1', min: [-2, 6], max: [2, 12], floor: 0 },
+      'door-1',
+      'r0',
+      'south',
+    )
+    expect(openingOrientation(south, south.openings[0]!)).toBe('northsouth')
+  })
+
   it('pickConnection returns null when every candidate zone is blocked', () => {
+
     const L = withFurniture(createInitialLayout())
     const zones: [number, number, number, number][] = [
       [6, -12, 16, 12],

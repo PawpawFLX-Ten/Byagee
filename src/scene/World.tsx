@@ -17,6 +17,7 @@ import {
 } from '../game/collision'
 import { CONFIG } from '../game/config'
 import { inFaceRadius } from '../game/chaser'
+import { openingOrientation, type SpaceLayoutState } from '../game/spaceLayout'
 import {
   beginHold,
   buildProximityContext,
@@ -37,6 +38,25 @@ const WALL_LAYER_NAME = 'fade-wall'
 /** Vertical drop when hiding under furniture (with Y-scale 0.55). */
 const HIDE_CROUCH_Y = 0.42
 const LATCH_MIME_MS = 380
+/** Half-width of a door gap carved out of a wall. */
+const DOOR_GAP_HALF = 0.7
+
+/** Split [start,end] into segments with door gaps removed. */
+function splitSegments(
+  start: number,
+  end: number,
+  gaps: number[],
+  gapHalf: number,
+): [number, number][] {
+  const segs: [number, number][] = []
+  let cur = start
+  for (const g of [...gaps].sort((a, b) => a - b)) {
+    if (g - gapHalf > cur) segs.push([cur, g - gapHalf])
+    cur = Math.max(cur, g + gapHalf)
+  }
+  if (cur < end) segs.push([cur, end])
+  return segs
+}
 
 function Wall({
   position,
@@ -184,9 +204,97 @@ export function WallArt() {
   )
 }
 
+function RoomWalls({
+  room,
+  layout,
+}: {
+  room: { id: string; min: [number, number]; max: [number, number]; floor: number }
+  layout: SpaceLayoutState
+}) {
+  const { min, max } = room
+  const cx = (min[0] + max[0]) / 2
+  const cz = (min[1] + max[1]) / 2
+  const doors = layout.openings.filter(
+    (o) => o.fromRoom === room.id || o.toRoom === room.id,
+  )
+  const northDoorX = doors
+    .filter((o) => Math.abs(o.position[2] - min[1]) < 0.01)
+    .map((o) => o.position[0])
+  const southDoorX = doors
+    .filter((o) => Math.abs(o.position[2] - max[1]) < 0.01)
+    .map((o) => o.position[0])
+  const westDoorZ = doors
+    .filter((o) => Math.abs(o.position[0] - min[0]) < 0.01)
+    .map((o) => o.position[2])
+  const eastDoorZ = doors
+    .filter((o) => Math.abs(o.position[0] - max[0]) < 0.01)
+    .map((o) => o.position[2])
+
+  const walls: {
+    key: string
+    position: [number, number, number]
+    args: [number, number, number]
+    color: string
+    accentColor: string
+  }[] = []
+  for (const [s, e] of splitSegments(min[0], max[0], northDoorX, DOOR_GAP_HALF)) {
+    const len = e - s
+    walls.push({
+      key: `n-${s}`,
+      position: [s + len / 2 - cx, 1.2, min[1] - 0.14 - cz],
+      args: [len + 0.3, 2.4, 0.18],
+      color: '#9a8268',
+      accentColor: '#6b5a45',
+    })
+  }
+  for (const [s, e] of splitSegments(min[0], max[0], southDoorX, DOOR_GAP_HALF)) {
+    const len = e - s
+    walls.push({
+      key: `s-${s}`,
+      position: [s + len / 2 - cx, 1.2, max[1] + 0.14 - cz],
+      args: [len + 0.3, 2.4, 0.18],
+      color: '#9a8268',
+      accentColor: '#6b5a45',
+    })
+  }
+  for (const [s, e] of splitSegments(min[1], max[1], westDoorZ, DOOR_GAP_HALF)) {
+    const len = e - s
+    walls.push({
+      key: `w-${s}`,
+      position: [min[0] - 0.14 - cx, 1.2, s + len / 2 - cz],
+      args: [0.18, 2.4, len + 0.3],
+      color: '#8a7560',
+      accentColor: '#5e4f3d',
+    })
+  }
+  for (const [s, e] of splitSegments(min[1], max[1], eastDoorZ, DOOR_GAP_HALF)) {
+    const len = e - s
+    walls.push({
+      key: `e-${s}`,
+      position: [max[0] + 0.14 - cx, 1.2, s + len / 2 - cz],
+      args: [0.18, 2.4, len + 0.3],
+      color: '#8a7560',
+      accentColor: '#5e4f3d',
+    })
+  }
+
+  return (
+    <group>
+      {walls.map((wall) => (
+        <Wall
+          key={wall.key}
+          position={wall.position}
+          args={wall.args}
+          color={wall.color}
+          accentColor={wall.accentColor}
+        />
+      ))}
+    </group>
+  )
+}
+
 export function Room() {
   const layout = useGameStore((s) => s.layout)
-  // Full dynamic wall rebuild deferred to Task 9 — draw per-room floors from layout.
   return (
     <group>
       {layout.rooms.map((room) => {
@@ -202,32 +310,9 @@ export function Room() {
               <planeGeometry args={[w + 0.3, d + 0.3]} />
               <meshStandardMaterial color={floorColor} />
             </mesh>
+            {room.floor === 0 && <RoomWalls room={room} layout={layout} />}
             {room.floor === 0 && room.id === 'r0' && (
               <>
-                <Wall
-                  position={[0, 1.2, -d / 2 - 0.14]}
-                  args={[w + 0.3, 2.4, 0.18]}
-                  color="#9a8268"
-                  accentColor="#6b5a45"
-                />
-                <Wall
-                  position={[0, 1.2, d / 2 + 0.14]}
-                  args={[w + 0.3, 2.4, 0.18]}
-                  color="#9a8268"
-                  accentColor="#6b5a45"
-                />
-                <Wall
-                  position={[-w / 2 - 0.14, 1.2, 0]}
-                  args={[0.18, 2.4, d + 0.3]}
-                  color="#8a7560"
-                  accentColor="#5e4f3d"
-                />
-                <Wall
-                  position={[w / 2 + 0.14, 1.2, 0]}
-                  args={[0.18, 2.4, d + 0.3]}
-                  color="#8a7560"
-                  accentColor="#5e4f3d"
-                />
                 <mesh position={[0, 2.45, 0]}>
                   <boxGeometry args={[w - 0.11, 0.08, d - 0.11]} />
                   <meshStandardMaterial
@@ -405,11 +490,17 @@ export function Tables() {
   )
 }
 
-export function Door() {
-  const lang = useGameStore((s) => s.lang)
-  const p = CONFIG.door.position
+function DoorModel({
+  position,
+  rotY,
+  lang,
+}: {
+  position: [number, number, number]
+  rotY: number
+  lang: string
+}) {
   return (
-    <group position={[p[0], 0, p[2]]}>
+    <group position={position} rotation={[0, rotY, 0]}>
       {/* Door sits flush against the wall: visuals offset 0.4 into the room. */}
       <group position={[0, 0, 0.4]}>
       {/* Door frame — side pillars */}
@@ -474,6 +565,27 @@ export function Door() {
         </Text>
       </group>
       </group>
+    </group>
+  )
+}
+
+export function Door() {
+  const lang = useGameStore((s) => s.lang)
+  const layout = useGameStore((s) => s.layout)
+  const p = CONFIG.door.position
+  return (
+    <group>
+      {/* Main north door (static entrance) */}
+      <DoorModel position={[p[0], 0, p[2]]} rotY={0} lang={lang} />
+      {/* Space-event doors: x-constant walls span z, so they rotate 90°. */}
+      {layout.openings.map((o) => (
+        <DoorModel
+          key={o.id}
+          position={o.position}
+          rotY={openingOrientation(layout, o) === 'eastwest' ? Math.PI / 2 : 0}
+          lang={lang}
+        />
+      ))}
     </group>
   )
 }

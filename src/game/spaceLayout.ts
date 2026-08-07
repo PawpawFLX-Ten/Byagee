@@ -340,6 +340,21 @@ export function pickConnection(
   return null
 }
 
+/** Door axis: eastwest = door spans the z axis (x-constant wall); northsouth = spans x. */
+export function openingOrientation(
+  layout: SpaceLayoutState,
+  opening: SpaceOpening,
+): 'eastwest' | 'northsouth' {
+  const from = layout.rooms.find((r) => r.id === opening.fromRoom)
+  if (!from) return 'northsouth'
+  const [px, , pz] = opening.position
+  const onXWall = Math.abs(px - from.max[0]) < 0.01 || Math.abs(px - from.min[0]) < 0.01
+  const onZWall = Math.abs(pz - from.max[1]) < 0.01 || Math.abs(pz - from.min[1]) < 0.01
+  if (onXWall) return 'eastwest'
+  if (onZWall) return 'northsouth'
+  return 'northsouth'
+}
+
 /** World Y offset per floor band (matches Room mesh). */
 export const FLOOR_ELEVATION = 1.5
 
