@@ -735,13 +735,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
     )
 
     npcs = npcs.map((n) =>
-      n.role === 'chaser'
+      n.role === 'chaser' && !n.exiting
         ? stepChaser(n, state.playerPos, layout, layout.obstacles, dt, now, {
             playerHidden,
             hideEscalated,
             playerRoomId,
             bounds: layoutBounds,
           })
+        : n,
+    )
+
+    // Chasers exhaust after exhaustSec and walk out the door (never permanent).
+    npcs = npcs.map((n) =>
+      n.role === 'chaser' &&
+      !n.exiting &&
+      now - n.idleSince >= CONFIG.chaser.exhaustSec * 1000
+        ? {
+            ...n,
+            exiting: true,
+            status: 'walking' as const,
+            foodId: null,
+            statusUntil: now + 8000,
+            smackingSince: 0,
+          }
         : n,
     )
 

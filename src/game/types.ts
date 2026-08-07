@@ -251,6 +251,8 @@ export interface ChaserConfig {
   minThreatElapsedSec: number
   sustainedThreatThreshold: number
   sustainedThreatSec: number
+  /** Chaser leaves (walks out the door) after this long in the room. */
+  exhaustSec: number
 }
 
 export interface HideLatchConfig {

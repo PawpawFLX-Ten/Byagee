@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
+import { createChaser } from '../chaser'
 import { useGameStore } from '../store'
 
 /**
@@ -344,6 +345,54 @@ describe('concurrency: interleaved player actions during events', () => {
         const seat = s.runtimeSeats[n.seatIndex]
         expect(seat).toBeDefined()
       }
+    })
+  })
+})
+
+describe('chaser lifecycle', () => {
+  it('exhausted chasers stop pursuing and exit the door', () => {
+    withSeededRng(41, () => {
+      const store = useGameStore.getState()
+      store.beginMission(9_000_000)
+      // Spawn a chaser 5s ago with the player far away so it must pursue.
+      const chaser = createChaser('chaser-x', CONFIG.door.position, 'r0', 9_000_000 - 5000)
+      useGameStore.setState({
+        npcs: [...useGameStore.getState().npcs, chaser],
+        playerPos: [3, 0, 3],
+      })
+      let now = 9_000_000
+      // Chase phase: still pursuing, not exiting.
+      for (let i = 0; i < 60; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const chasing = useGameStore.getState().npcs.find((n) => n.id === 'chaser-x')
+      expect(chasing).toBeDefined()
+      expect(chasing!.exiting).toBe(false)
+
+      // Fast-forward past exhaustSec → marked exiting, walks to the door.
+      const old = useGameStore.getState().npcs.find((n) => n.id === 'chaser-x')!
+      useGameStore.setState({
+        npcs: useGameStore.getState().npcs.map((n) =>
+          n.id === 'chaser-x' ? { ...n, idleSince: now - CONFIG.chaser.exhaustSec * 1000 - 1000 } : n,
+        ),
+      })
+      void old
+      for (let i = 0; i < 60; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const exiting = useGameStore.getState().npcs.find((n) => n.id === 'chaser-x')
+      expect(exiting).toBeDefined()
+      expect(exiting!.exiting).toBe(true)
+      expect(exiting!.status).toBe('walking')
+
+      // Walking toward the door → eventually despawns (removed from npcs).
+      for (let i = 0; i < 60 * 30; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      expect(useGameStore.getState().npcs.some((n) => n.id === 'chaser-x')).toBe(false)
     })
   })
 })

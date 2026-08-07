@@ -149,7 +149,9 @@ export function tickNpcs(
   )
 
   let nextList = npcs.map((npc) => {
-    if (npc.role === 'chaser') return npc
+    // Exiting chasers walk out via the generic door path; active chasers
+    // are driven by stepChaser in the store tick instead.
+    if (npc.role === 'chaser' && !npc.exiting) return npc
 
     let next = { ...npc }
     const blockers = [
