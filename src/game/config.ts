@@ -241,12 +241,11 @@ export const CONFIG: GameConfig = {
     baseLoudness: 0.9,
     walkSpeed: 2.4,
     neighborThreatShareToSpawn: 0.45,
-    /** Early-game chaser access: sustained threat >= threshold after this elapsed. */
-    minThreatElapsedSec: 60,
-    sustainedThreatThreshold: 0.5,
-    sustainedThreatSec: 6,
-    /** Chaser leaves (walks out the door) after this long in the room. */
-    exhaustSec: 90,
+    firstAtSec: 120,
+    roundGapSec: 120,
+    firstExhaustSec: 10,
+    exhaustStepSec: 10,
+    exhaustMaxSec: 60,
   },
   hideLatch: {
     holdSec: 0.4,

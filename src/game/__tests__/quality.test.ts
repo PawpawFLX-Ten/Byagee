@@ -350,6 +350,42 @@ describe('concurrency: interleaved player actions during events', () => {
 })
 
 describe('chaser lifecycle', () => {
+  it('first round spawns at firstAtSec and exhausts after firstExhaustSec', () => {
+    withSeededRng(41, () => {
+      const store = useGameStore.getState()
+      store.beginMission(9_000_000)
+      let now = 9_000_000
+      // Before the first round there are no chasers.
+      for (let i = 0; i < 60; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      expect(useGameStore.getState().npcs.some((n) => n.role === 'chaser')).toBe(false)
+
+      // First round at firstAtSec.
+      const firstAt = CONFIG.chaser.firstAtSec
+      for (let i = 0; i < Math.round((firstAt - 1) * 60); i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      expect(useGameStore.getState().npcs.some((n) => n.role === 'chaser')).toBe(false)
+      for (let i = 0; i < 60 * 2; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const spawned = useGameStore.getState().npcs.find((n) => n.role === 'chaser')
+      expect(spawned).toBeDefined()
+
+      // Round 1 pursuit lasts firstExhaustSec, then walks out and despawns.
+      const exhaustTicks = Math.round(CONFIG.chaser.firstExhaustSec * 60) + 60 * 40
+      for (let i = 0; i < exhaustTicks; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      expect(useGameStore.getState().npcs.some((n) => n.role === 'chaser')).toBe(false)
+    })
+  })
+
   it('exhausted chasers stop pursuing and exit the door', () => {
     withSeededRng(41, () => {
       const store = useGameStore.getState()
@@ -370,11 +406,11 @@ describe('chaser lifecycle', () => {
       expect(chasing).toBeDefined()
       expect(chasing!.exiting).toBe(false)
 
-      // Fast-forward past exhaustSec → marked exiting, walks to the door.
+      // Fast-forward past the round-1 exhaust window → marked exiting.
       const old = useGameStore.getState().npcs.find((n) => n.id === 'chaser-x')!
       useGameStore.setState({
         npcs: useGameStore.getState().npcs.map((n) =>
-          n.id === 'chaser-x' ? { ...n, idleSince: now - CONFIG.chaser.exhaustSec * 1000 - 1000 } : n,
+          n.id === 'chaser-x' ? { ...n, idleSince: now - CONFIG.chaser.firstExhaustSec * 1000 - 1000 } : n,
         ),
       })
       void old

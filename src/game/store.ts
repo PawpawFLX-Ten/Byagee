@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { CONFIG, SKILL_ORDER } from './config'
 import { createBossNpc, interruptBossPulse, tickBossRage } from './bossModules'
 import {
+  chaserExhaustSecForRound,
   createChaser,
   inFaceRadius,
   neighborThreatShare,
@@ -200,7 +201,8 @@ let fxSeq = 1
 let npcSeq = 0
 let lastDoorEventAt = 0
 let nextBossAtElapsed = CONFIG.boss.intervalSec
-let chaserThreatAccumMs = 0
+let nextChaserAtElapsed = CONFIG.chaser.firstAtSec
+let chaserRound = 0
 
 /** Cross-run unlocked achievements — persists across missions. */
 const unlockedAchievements = loadUnlockedAchievements()
@@ -338,6 +340,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
     nextBossAtElapsed = CONFIG.boss.intervalSec
+    nextChaserAtElapsed = CONFIG.chaser.firstAtSec
+    chaserRound = 0
     set({
       hp: CONFIG.maxHp,
       alive: true,
@@ -401,6 +405,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
     nextBossAtElapsed = CONFIG.boss.intervalSec
+    nextChaserAtElapsed = CONFIG.chaser.firstAtSec
+    chaserRound = 0
     set({
       briefingDone: true,
       alive: true,
@@ -746,11 +752,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : n,
     )
 
-    // Chasers exhaust after exhaustSec and walk out the door (never permanent).
+    // Chasers exhaust after their round's pursuit time and walk out the door
+    // (10s first round, +10s per round, max 60s — never permanent).
+    const chaserExhaustSec = chaserExhaustSecForRound(chaserRound)
     npcs = npcs.map((n) =>
       n.role === 'chaser' &&
       !n.exiting &&
-      now - n.idleSince >= CONFIG.chaser.exhaustSec * 1000
+      now - n.idleSince >= chaserExhaustSec * 1000
         ? {
             ...n,
             exiting: true,
@@ -827,12 +835,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       CONFIG.door.position[2],
       0,
     )
-    // Early chaser access: sustained high threat (fills the 0-3min content gap).
-    const threatHigh = threat >= CONFIG.chaser.sustainedThreatThreshold
-    chaserThreatAccumMs =
-      elapsedSec >= CONFIG.chaser.minThreatElapsedSec && threatHigh
-        ? chaserThreatAccumMs + dt * 1000
-        : 0
+    // Chase rounds: first at firstAtSec, then every roundGapSec.
+    const roundDue = elapsedSec >= nextChaserAtElapsed
+    if (roundDue) {
+      nextChaserAtElapsed += CONFIG.chaser.roundGapSec
+    }
     if (
       shouldSpawnChaser({
         phase,
@@ -843,14 +850,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         bossSpawnThisBeat,
         totalNpcCount: npcs.length,
         maxNpcs,
-        sustainedThreat:
-          chaserThreatAccumMs >= CONFIG.chaser.sustainedThreatSec * 1000,
+        roundDue,
       })
     ) {
       npcs = [
         ...npcs,
         createChaser(`chaser-${++npcSeq}`, CONFIG.door.position, doorRoomId, now),
       ]
+      if (roundDue) chaserRound += 1
       toast = { id: fxSeq++, text: t('toast_chaserSpawn'), until: now + 2200 }
     }
 

@@ -247,12 +247,16 @@ export interface ChaserConfig {
   baseLoudness: number
   walkSpeed: number
   neighborThreatShareToSpawn: number
-  /** Early-game chaser access: sustained threat >= threshold after this elapsed. */
-  minThreatElapsedSec: number
-  sustainedThreatThreshold: number
-  sustainedThreatSec: number
-  /** Chaser leaves (walks out the door) after this long in the room. */
-  exhaustSec: number
+  /** First chase round starts at this elapsed second (~2:00). */
+  firstAtSec: number
+  /** Time between chase rounds (~2:00 / 4:00 / 6:00 …). */
+  roundGapSec: number
+  /** First round the chaser stays before walking out (10s). */
+  firstExhaustSec: number
+  /** Each later round adds this many seconds of pursuit. */
+  exhaustStepSec: number
+  /** Pursuit time per round never exceeds this. */
+  exhaustMaxSec: number
 }
 
 export interface HideLatchConfig {

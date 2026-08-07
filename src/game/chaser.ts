@@ -28,8 +28,8 @@ export type ChaserSpawnCtx = {
   bossSpawnThisBeat?: boolean
   totalNpcCount?: number
   maxNpcs?: number
-  /** Threat stayed >= threshold for sustainedThreatSec — early single-room access. */
-  sustainedThreat?: boolean
+  /** A chase round is due on the schedule (2:00, then every roundGapSec). */
+  roundDue?: boolean
 }
 
 export type ThreatPart = {
@@ -39,6 +39,14 @@ export type ThreatPart = {
 
 export function chaserCap(phase: DifficultyPhase): number {
   return phase === 'late' ? CONFIG.chaser.maxCountLate : 1
+}
+
+/** Pursuit time for a chase round: 10s first, +10s per round, max 60s. */
+export function chaserExhaustSecForRound(round: number): number {
+  const sec =
+    CONFIG.chaser.firstExhaustSec +
+    Math.max(0, round - 1) * CONFIG.chaser.exhaustStepSec
+  return Math.min(CONFIG.chaser.exhaustMaxSec, sec)
 }
 
 export function shouldSpawnChaser(ctx: ChaserSpawnCtx): boolean {
@@ -58,13 +66,13 @@ export function shouldSpawnChaser(ctx: ChaserSpawnCtx): boolean {
     return false
   }
 
+  const roundSpawn = ctx.roundDue === true
   const lateSpawn = ctx.phase === 'late'
   const cheeseSpawn =
     ctx.roomCount >= 2 &&
     ctx.neighborShare >= CONFIG.chaser.neighborThreatShareToSpawn
-  const sustainedSpawn = ctx.sustainedThreat === true
 
-  return lateSpawn || cheeseSpawn || sustainedSpawn
+  return roundSpawn || lateSpawn || cheeseSpawn
 }
 
 export function neighborThreatShare(

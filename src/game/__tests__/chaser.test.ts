@@ -4,6 +4,7 @@ import { createInitialLayout } from '../spaceLayout'
 import {
   applyChaserKnockback,
   chaserCap,
+  chaserExhaustSecForRound,
   createChaser,
   inFaceRadius,
   neighborThreatShare,
@@ -90,7 +91,7 @@ describe('shouldSpawnChaser', () => {
     ).toBe(false)
   })
 
-  it('spawns early single-room on sustained high threat', () => {
+  it('spawns early single-room when a round is due', () => {
     expect(
       shouldSpawnChaser({
         phase: 'early',
@@ -98,7 +99,7 @@ describe('shouldSpawnChaser', () => {
         neighborShare: 0,
         chaserCount: 0,
         bossPresent: false,
-        sustainedThreat: true,
+        roundDue: true,
       }),
     ).toBe(true)
     expect(
@@ -108,12 +109,12 @@ describe('shouldSpawnChaser', () => {
         neighborShare: 0,
         chaserCount: 0,
         bossPresent: false,
-        sustainedThreat: false,
+        roundDue: false,
       }),
     ).toBe(false)
   })
 
-  it('sustained threat still respects boss presence and cap', () => {
+  it('round spawn still respects boss presence and cap', () => {
     expect(
       shouldSpawnChaser({
         phase: 'early',
@@ -121,7 +122,7 @@ describe('shouldSpawnChaser', () => {
         neighborShare: 0,
         chaserCount: 1,
         bossPresent: false,
-        sustainedThreat: true,
+        roundDue: true,
       }),
     ).toBe(false)
     expect(
@@ -131,9 +132,18 @@ describe('shouldSpawnChaser', () => {
         neighborShare: 0,
         chaserCount: 0,
         bossPresent: true,
-        sustainedThreat: true,
+        roundDue: true,
       }),
     ).toBe(false)
+  })
+
+  it('exhaust grows by step per round, capped at max', () => {
+    expect(chaserExhaustSecForRound(1)).toBe(CONFIG.chaser.firstExhaustSec)
+    expect(chaserExhaustSecForRound(2)).toBe(
+      CONFIG.chaser.firstExhaustSec + CONFIG.chaser.exhaustStepSec,
+    )
+    expect(chaserExhaustSecForRound(0)).toBe(CONFIG.chaser.firstExhaustSec)
+    expect(chaserExhaustSecForRound(99)).toBe(CONFIG.chaser.exhaustMaxSec)
   })
 
   it('respects pre-late cap of 1', () => {
