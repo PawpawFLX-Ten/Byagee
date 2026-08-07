@@ -1,12 +1,16 @@
 import {
-  addRoomConnected,
+  addRoomConnectedAt,
+  availableSides,
   firstNonCabinetObstacle,
   floorFromPlayerY,
   floorY,
+  pickConnection,
   roomIdAt,
+  sideAabb,
   type SpaceLayoutState,
 } from './spaceLayout'
-import type { FoodSpot, SpaceEventId, TableDef } from './types'
+import { CONFIG } from './config'
+import type { FoodSpot, RoomSide, SpaceEventId, TableDef } from './types'
 
 export type ApplySpaceEventInput = {
   layout: SpaceLayoutState
@@ -130,6 +134,49 @@ function primaryRoom(layout: SpaceLayoutState): SpaceLayoutState['rooms'][0] {
   return layout.rooms.find((r) => r.id === 'r0') ?? layout.rooms[0]!
 }
 
+function roomCenter(room: { min: [number, number]; max: [number, number] }): [number, number] {
+  return [(room.min[0] + room.max[0]) / 2, (room.min[1] + room.max[1]) / 2]
+}
+
+type AttachResult = {
+  layout: SpaceLayoutState
+  roomId: string
+  center: [number, number]
+  side: RoomSide
+}
+
+/** Attach a w×d room to a random available side; null when every side is taken. */
+function attachRoom(
+  layout: SpaceLayoutState,
+  w: number,
+  d: number,
+  rng: () => number,
+): AttachResult | null {
+  const pick = pickConnection(layout, w, d, rng, CONFIG.space.roomGap)
+  if (!pick) return null
+  const fromRoom = layout.rooms.find((r) => r.id === pick.roomId)!
+  const aabb = sideAabb(fromRoom, pick.side, w, d, CONFIG.space.roomGap)
+  const roomId = nextRoomId(layout)
+  const newLayout = addRoomConnectedAt(
+    layout,
+    { id: roomId, min: aabb.min, max: aabb.max, floor: 0 },
+    `door-${roomId}`,
+    pick.roomId,
+    pick.side,
+  )
+  return { layout: newLayout, roomId, center: roomCenter(aabb), side: pick.side }
+}
+
+function noOp(input: ApplySpaceEventInput): ApplySpaceEventResult {
+  return {
+    layout: input.layout,
+    tables: input.tables,
+    seatPositions: input.seatPositions,
+    foodSpots: input.foodSpots ?? [],
+    maxNpcs: input.maxNpcs,
+  }
+}
+
 function expandRoomAabb(
   layout: SpaceLayoutState,
   roomId: string,
@@ -181,16 +228,13 @@ function compactSeats(
 }
 
 function applyA1(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const roomId = nextRoomId(layout)
-  const newRoom = { id: roomId, min: [5, -3] as [number, number], max: [9, 3] as [number, number], floor: 0 }
-  let newLayout = addRoomConnected(layout, newRoom, `door-${roomId}`, 'r0')
+  const attach = attachRoom(input.layout, 4, 6, input.rng)
+  if (!attach) return noOp(input)
 
-  const tableId = `t-${roomId}`
   const table: TableDef = {
-    id: tableId,
+    id: `t-${attach.roomId}`,
     shape: 'round',
-    position: [7, 0, 0],
+    position: [attach.center[0], 0, attach.center[1]],
     half: { x: 0.85, z: 0.85 },
     topY: 0.75,
   }
@@ -206,7 +250,7 @@ function applyA1(input: ApplySpaceEventInput): ApplySpaceEventResult {
   )
 
   return {
-    layout: newLayout,
+    layout: attach.layout,
     tables: bundled.tables,
     seatPositions: bundled.seatPositions,
     foodSpots: bundled.foodSpots,
@@ -216,29 +260,39 @@ function applyA1(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const corridorId = nextRoomId(layout)
-  const corridor = {
-    id: corridorId,
-    min: [5, -1] as [number, number],
-    max: [7.5, 1] as [number, number],
-    floor: 0,
-  }
-  let newLayout = addRoomConnected(layout, corridor, `door-${corridorId}`, 'r0')
+  const gap = CONFIG.space.roomGap
+  const pick = pickConnection(input.layout, 2.5, 2, input.rng, gap)
+  if (!pick) return noOp(input)
+
+  const fromRoom = input.layout.rooms.find((r) => r.id === pick.roomId)!
+  const corridorAabb = sideAabb(fromRoom, pick.side, 2.5, 2, gap)
+  const corridorId = nextRoomId(input.layout)
+  let newLayout = addRoomConnectedAt(
+    input.layout,
+    { id: corridorId, min: corridorAabb.min, max: corridorAabb.max, floor: 0 },
+    `door-${corridorId}`,
+    pick.roomId,
+    pick.side,
+  )
+
+  const endAabb = sideAabb(corridorAabb, pick.side, 4.5, 8, gap)
+  const sideFree = availableSides(newLayout, corridorId, 4.5, 8, gap).includes(pick.side)
+  if (!sideFree) return noOp(input)
 
   const roomId = nextRoomId(newLayout)
-  const endRoom = {
-    id: roomId,
-    min: [7.5, -4] as [number, number],
-    max: [12, 4] as [number, number],
-    floor: 0,
-  }
-  newLayout = addRoomConnected(newLayout, endRoom, `door-${roomId}`, corridorId)
+  newLayout = addRoomConnectedAt(
+    newLayout,
+    { id: roomId, min: endAabb.min, max: endAabb.max, floor: 0 },
+    `door-${roomId}`,
+    corridorId,
+    pick.side,
+  )
 
+  const center = roomCenter(endAabb)
   const table: TableDef = {
     id: `t-${roomId}`,
     shape: 'rect',
-    position: [9.5, 0, 0],
+    position: [center[0] - 0.25, 0, center[1]],
     half: { x: 1.1, z: 0.75 },
     topY: 0.75,
   }
@@ -263,28 +317,21 @@ function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyA3(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const roomId = nextRoomId(layout)
-  const banquet = {
-    id: roomId,
-    min: [5, -5] as [number, number],
-    max: [13, 5] as [number, number],
-    floor: 0,
-  }
-  let newLayout = addRoomConnected(layout, banquet, `door-${roomId}`, 'r0')
+  const attach = attachRoom(input.layout, 8, 10, input.rng)
+  if (!attach) return noOp(input)
 
   const tables: TableDef[] = [
     {
-      id: `t-${roomId}a`,
+      id: `t-${attach.roomId}a`,
       shape: 'oval',
-      position: [8, 0, -1.5],
+      position: [attach.center[0] - 1, 0, attach.center[1] - 1.5],
       half: { x: 1.4, z: 0.6 },
       topY: 0.75,
     },
     {
-      id: `t-${roomId}b`,
+      id: `t-${attach.roomId}b`,
       shape: 'rect',
-      position: [10.5, 0, 2],
+      position: [attach.center[0] + 1.5, 0, attach.center[1] + 2],
       half: { x: 1.2, z: 0.8 },
       topY: 0.75,
     },
@@ -302,7 +349,7 @@ function applyA3(input: ApplySpaceEventInput): ApplySpaceEventResult {
   }
 
   return {
-    layout: newLayout,
+    layout: attach.layout,
     tables: allTables,
     seatPositions,
     foodSpots,
@@ -543,38 +590,34 @@ function applyC5(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const roomId = nextRoomId(layout)
-  const barCorner = {
-    id: roomId,
-    min: [5, -2.5] as [number, number],
-    max: [8.5, 2.5] as [number, number],
-    floor: 0,
-  }
-  let newLayout = addRoomConnected(layout, barCorner, `door-${roomId}`, 'r0')
+  const attach = attachRoom(input.layout, 3.5, 5, input.rng)
+  if (!attach) return noOp(input)
+
   // Bar counter along the back wall — blocks pathing, not sound.
-  const obsIds = newLayout.obstacles.map((o) => o.id)
-  const barId = nextId('obs', obsIds)
-  newLayout = {
-    ...newLayout,
+  const newLayout = {
+    ...attach.layout,
     obstacles: [
-      ...newLayout.obstacles,
-      { id: barId, min: [5.8, -2.3], max: [7.8, -1.4] },
+      ...attach.layout.obstacles,
+      {
+        id: `obs-bar-${attach.roomId}`,
+        min: [attach.center[0] - 0.95, attach.center[1] - 2.3],
+        max: [attach.center[0] + 1.05, attach.center[1] - 1.4],
+      },
     ],
   }
 
   const tables: TableDef[] = [
     {
-      id: `t-${roomId}a`,
+      id: `t-${attach.roomId}a`,
       shape: 'round',
-      position: [6.75, 0, -0.8],
+      position: [attach.center[0], 0, attach.center[1] - 0.8],
       half: { x: 0.8, z: 0.8 },
       topY: 0.75,
     },
     {
-      id: `t-${roomId}b`,
+      id: `t-${attach.roomId}b`,
       shape: 'round',
-      position: [6.75, 0, 1.2],
+      position: [attach.center[0], 0, attach.center[1] + 1.2],
       half: { x: 0.7, z: 0.7 },
       topY: 0.75,
     },

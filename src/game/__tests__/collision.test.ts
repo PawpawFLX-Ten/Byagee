@@ -44,7 +44,7 @@ describe('resolveObstaclesCollision', () => {
 })
 
 describe('clampToLayout', () => {
-  it('allows points inside an A1 expansion room beyond ±4.48', () => {
+  it('allows points inside an A1 expansion room in any direction', () => {
     const base = createInitialLayout()
     const applied = applySpaceEvent({
       layout: base,
@@ -60,7 +60,9 @@ describe('clampToLayout', () => {
     expect(newRoom).toBeTruthy()
     const cx = (newRoom!.min[0] + newRoom!.max[0]) / 2
     const cz = (newRoom!.min[1] + newRoom!.max[1]) / 2
-    expect(Math.abs(cx)).toBeGreaterThan(4.48)
+    expect(
+      Math.abs(cx) > 4.48 || Math.abs(cz) > 4.48,
+    ).toBe(true)
     const [x, z] = clampToLayout(cx, cz, bounds)
     expect(x).toBeCloseTo(cx, 5)
     expect(z).toBeCloseTo(cz, 5)
