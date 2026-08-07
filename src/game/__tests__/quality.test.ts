@@ -335,6 +335,26 @@ describe('stress: 20 minute marathon with everything enabled', () => {
       assertSanity(60)
     })
   })
+
+  it('spaceEventAt marks the event moment and resets on restart', () => {
+    withSeededRng(61, () => {
+      const store = useGameStore.getState()
+      store.beginMission(13_000_000)
+      expect(useGameStore.getState().spaceEventAt).toBeNull()
+      let now = 13_000_000
+      forceSpaceEvent('A1', now)
+      for (let i = 0; i < 5; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const fired = useGameStore.getState()
+      expect(fired.spaceEventAt).toBeGreaterThan(0)
+      expect(fired.spaceEventToast).not.toBeNull()
+      useGameStore.getState().restart(now)
+      expect(useGameStore.getState().spaceEventAt).toBeNull()
+      expect(useGameStore.getState().spaceEventToast).toBeNull()
+    })
+  })
 })
 
 describe('concurrency: interleaved player actions during events', () => {

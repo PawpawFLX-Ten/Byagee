@@ -177,6 +177,8 @@ export interface GameStore {
   runtimeFoodSpots: FoodSpot[]
   maxNpcs: number
   spaceEventToast: SpaceEventId | null
+  /** When the last space event fired — scene reacts with FX (shake/light). */
+  spaceEventAt: number | null
   playerHidden: boolean
   hideStartedAt: number | null
   bossEtaSec: number | null
@@ -323,6 +325,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   runtimeFoodSpots: initialRuntime().foodSpots,
   maxNpcs: initialRuntime().maxNpcs,
   spaceEventToast: null,
+  spaceEventAt: null,
   playerHidden: false,
   hideStartedAt: null,
   bossEtaSec: null,
@@ -392,6 +395,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       runtimeFoodSpots: runtime.foodSpots,
       maxNpcs: runtime.maxNpcs,
       spaceEventToast: null,
+      spaceEventAt: null,
       playerHidden: false,
       hideStartedAt: null,
       bossEtaSec: null,
@@ -456,6 +460,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       runtimeFoodSpots: runtime.foodSpots,
       maxNpcs: runtime.maxNpcs,
       spaceEventToast: null,
+      spaceEventAt: null,
       playerHidden: false,
       hideStartedAt: null,
       bossEtaSec: null,
@@ -620,6 +625,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let runtimeFoodSpots = state.runtimeFoodSpots
     let maxNpcs = state.maxNpcs
     let spaceEventToast = state.spaceEventToast
+    let spaceEventAt = state.spaceEventAt
     const layoutBounds = boundsForLayout(layout)
 
     // Resolve windup → apply skill with knockback
@@ -1007,6 +1013,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       maxNpcs = applied.doorMaxNpcs ?? applied.maxNpcs
       syncRuntimeFromStore(runtimeTables, runtimeSeats, runtimeFoodSpots, maxNpcs)
       spaceEventToast = queuedSpaceEventId
+      spaceEventAt = now
       queuedSpaceEventId = null
       stats = { ...stats, spaceEvents: stats.spaceEvents + 1 }
 
@@ -1134,6 +1141,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       runtimeFoodSpots,
       maxNpcs,
       spaceEventToast,
+      spaceEventAt,
       playerRoomId,
       threat,
       selfNoise,

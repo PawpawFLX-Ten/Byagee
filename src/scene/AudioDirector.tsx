@@ -4,6 +4,7 @@ import {
   playDeath,
   playFail,
   playSkill,
+  playSpaceEvent,
   reverbAmountForArea,
   setReduceNausea as applyNauseaAudio,
   setThreatLevel,
@@ -25,9 +26,11 @@ export function AudioDirector() {
   const toast = useGameStore((s) => s.toast)
   const lastSkillOk = useGameStore((s) => s.lastSkillOk)
   const reduceNausea = useGameStore((s) => s.reduceNausea)
+  const spaceEventAt = useGameStore((s) => s.spaceEventAt)
   const wasAlive = useRef(true)
   const lastHitId = useRef(0)
   const lastToastId = useRef(0)
+  const lastSpaceEventAt = useRef(0)
 
   useEffect(() => {
     const unlock = () => {
@@ -61,6 +64,12 @@ export function AudioDirector() {
     lastToastId.current = toast.id
     if (!lastSkillOk) playFail()
   }, [toast, lastSkillOk])
+
+  useEffect(() => {
+    if (!spaceEventAt || spaceEventAt === lastSpaceEventAt.current) return
+    lastSpaceEventAt.current = spaceEventAt
+    playSpaceEvent()
+  }, [spaceEventAt])
 
   // 20Hz poll of positional chew audio + threat drone — audio pans don't need 60Hz.
   useEffect(() => {

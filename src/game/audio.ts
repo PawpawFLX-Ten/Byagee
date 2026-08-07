@@ -140,10 +140,11 @@ function beep(
   type: OscillatorType = 'square',
   gain = 0.2,
   slideTo?: number,
+  delayMs = 0,
 ) {
   const c = ensureUnlocked()
   if (!c || !master) return
-  const t0 = c.currentTime
+  const t0 = c.currentTime + delayMs / 1000
   const osc = c.createOscillator()
   const g = c.createGain()
   osc.type = type
@@ -424,6 +425,20 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
 
 export function playFail() {
   beep(120, 0.08, 'square', 0.08)
+}
+
+/** Space event fires: low thud + a few carpenter knocks. */
+export function playSpaceEvent() {
+  beep(110, 0.28, 'square', 0.24, 45)
+  beep(160, 0.07, 'square', 0.14, undefined, 120)
+  beep(150, 0.07, 'square', 0.12, undefined, 260)
+  burstNoise(0.18, 0.1, 500)
+}
+
+/** Door latch slams home: wooden clunk. */
+export function playLatch() {
+  beep(180, 0.06, 'square', 0.16, 90)
+  burstNoise(0.12, 0.14, 700)
 }
 
 export function playDeath() {

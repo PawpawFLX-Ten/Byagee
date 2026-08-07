@@ -35,7 +35,7 @@ function CameraFollow() {
 
   useFrame(() => {
     if (!controls.current) return
-    const { playerPos, npcs, targetId } = useGameStore.getState()
+    const { playerPos, npcs, targetId, spaceEventAt } = useGameStore.getState()
     _camDesired.set(playerPos[0], playerPos[1] + 1.1, playerPos[2])
     controls.current.target.lerp(_camDesired, 0.12)
 
@@ -81,6 +81,13 @@ function CameraFollow() {
         camera.position.y += (Math.random() - 0.5) * k * 0.14
         break
       }
+    }
+
+    // Space event impact shake — decays over ~400ms.
+    if (spaceEventAt && now - spaceEventAt < 400) {
+      const k = 0.4 - (now - spaceEventAt) / 1000
+      camera.position.x += (Math.random() - 0.5) * k * 0.3
+      camera.position.y += (Math.random() - 0.5) * k * 0.2
     }
   })
 

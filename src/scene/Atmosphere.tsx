@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import type { AmbientLight, DirectionalLight, HemisphereLight } from 'three'
+import type { AmbientLight, DirectionalLight, HemisphereLight, PointLight } from 'three'
 import { Color, Fog } from 'three'
 import { inFaceRadius } from '../game/chaser'
 import { detectDevice } from '../game/deviceDetect'
@@ -80,10 +80,12 @@ export function Atmosphere() {
   const ambientRef = useRef<AmbientLight>(null)
   const hemiRef = useRef<HemisphereLight>(null)
   const dirRef = useRef<DirectionalLight>(null)
+  const warmRef = useRef<PointLight>(null)
   const fogColor = useMemo(() => new Color(), [])
   const keyColor = useMemo(() => new Color(), [])
   useFrame(() => {
-    const { npcs, playerRoomId, playerPos, threat } = useGameStore.getState()
+    const { npcs, playerRoomId, playerPos, threat, spaceEventAt } =
+      useGameStore.getState()
     const roomSmackers = npcs.filter(
       (n) => n.status === 'smacking' && n.roomId === playerRoomId,
     ).length
@@ -122,6 +124,17 @@ export function Atmosphere() {
       dirRef.current.color.copy(keyColor)
       dirRef.current.intensity = 0.55 - threat * 0.22
     }
+
+    // Space event golden bloom: warm overhead light pulses for ~1.2s.
+    if (warmRef.current) {
+      const now = performance.now()
+      let pulse = 0
+      if (spaceEventAt && now - spaceEventAt < 1200) {
+        const t = (now - spaceEventAt) / 1200
+        pulse = Math.sin(t * Math.PI) * 0.85 * (1 - t)
+      }
+      warmRef.current.intensity = (mobile ? 0.4 : 0.65) + pulse
+    }
   })
 
   return (
@@ -140,6 +153,7 @@ export function Atmosphere() {
       />
       {/* Single warm overhead light replaces per-table/lamp point lights. */}
       <pointLight
+        ref={warmRef}
         position={[0, 3, 0]}
         color="#ffd9a8"
         intensity={mobile ? 0.4 : 0.65}

@@ -20,6 +20,7 @@ import {
 } from '../game/collision'
 import { CONFIG } from '../game/config'
 import { inFaceRadius } from '../game/chaser'
+import { playLatch } from '../game/audio'
 import {
   agentYAt,
   openingOrientation,
@@ -35,6 +36,7 @@ import {
   isHoldReady,
   resolveHold,
   shouldCancelHold,
+  MAIN_DOOR_OPENING_ID,
   type ProximityFlags,
 } from '../game/hideLatch'
 import { t } from '../game/i18n'
@@ -531,15 +533,40 @@ export function Tables() {
   )
 }
 
+/** Door panel swings this far (rad) from the closed position when unlatched. */
+const DOOR_OPEN_YAW = 1.4
+
 function DoorModel({
   position,
   rotY,
   lang,
+  openingId,
+  swingSign = 1,
 }: {
   position: [number, number, number]
   rotY: number
   lang: string
+  openingId?: string
+  /** +1 swings the panel toward local +z, -1 toward local -z. */
+  swingSign?: number
 }) {
+  const panel = useRef<Group>(null)
+
+  useFrame((_, dt) => {
+    if (!panel.current) return
+    const now = performance.now()
+    let latched = false
+    if (openingId) {
+      const o = useGameStore
+        .getState()
+        .layout.openings.find((x) => x.id === openingId)
+      latched = o !== undefined && o.latchedUntil > now
+    }
+    const target = latched ? 0 : DOOR_OPEN_YAW * swingSign
+    const k = 1 - Math.exp(-dt * 5)
+    panel.current.rotation.y += (target - panel.current.rotation.y) * k
+  })
+
   return (
     <group position={position} rotation={[0, rotY, 0]}>
       {/* Door sits flush against the wall: visuals offset 0.4 into the room. */}
@@ -558,16 +585,23 @@ function DoorModel({
         <boxGeometry args={[1.32, 0.08, 0.14]} />
         <meshStandardMaterial color="#8b6914" />
       </mesh>
-      {/* Door panel */}
-      <mesh position={[0, 1.1, -0.38]} castShadow>
-        <boxGeometry args={[1.16, 2.08, 0.08]} />
-        <meshStandardMaterial color="#a67c52" />
-      </mesh>
-      {/* Door handle */}
-      <mesh position={[0.38, 1.1, -0.33]}>
-        <sphereGeometry args={[0.06, 8, 8]} />
-        <meshStandardMaterial color="#d4a017" metalness={0.6} roughness={0.3} />
-      </mesh>
+      {/* Hinged door panel: pivots on the left post; swings shut while the
+          opening is latched and back open when the latch expires. */}
+      <group
+        ref={panel}
+        position={[-0.58, 0, -0.38]}
+        rotation={[0, DOOR_OPEN_YAW * swingSign, 0]}
+      >
+        <mesh position={[0.58, 1.1, 0]} castShadow>
+          <boxGeometry args={[1.16, 2.08, 0.08]} />
+          <meshStandardMaterial color="#a67c52" />
+        </mesh>
+        {/* Door handle */}
+        <mesh position={[1.02, 1.1, 0.03]}>
+          <sphereGeometry args={[0.06, 8, 8]} />
+          <meshStandardMaterial color="#d4a017" metalness={0.6} roughness={0.3} />
+        </mesh>
+      </group>
       {/* Couplet �?上联 (right side, +X): 天道酬勤 */}
       <group position={[0.82, 1.1, -0.35]}>
         <mesh>
@@ -616,20 +650,42 @@ export function Door() {
   const p = CONFIG.door.position
   const floorOf = (id: string) =>
     layout.rooms.find((r) => r.id === id)?.floor ?? 0
+  /** Swing sign: the panel opens toward the source room's interior. */
+  const swingSignFor = (o: { fromRoom: string; position: [number, number, number] }): number => {
+    const from = layout.rooms.find((r) => r.id === o.fromRoom)
+    if (!from) return 1
+    if (Math.abs(o.position[0] - from.max[0]) < 0.2) return -1 // east wall → room at -x
+    if (Math.abs(o.position[0] - from.min[0]) < 0.2) return 1 // west wall → room at +x
+    if (Math.abs(o.position[2] - from.min[1]) < 0.2) return 1 // north wall → room at +z
+    return -1 // south wall → room at -z
+  }
   return (
     <group>
-      {/* Main north door (static entrance) */}
-      <DoorModel position={[p[0], 0, p[2]]} rotY={0} lang={lang} />
+      {/* Main north door (static entrance); its latch lives in the layout
+          under MAIN_DOOR_OPENING_ID after the first latch. */}
+      <DoorModel
+        position={[p[0], 0, p[2]]}
+        rotY={0}
+        lang={lang}
+        openingId={MAIN_DOOR_OPENING_ID}
+        swingSign={1}
+      />
       {/* Space-event doors: x-constant walls span z, so they rotate 90°.
           Cross-floor stairwell openings get no door model. */}
       {layout.openings
-        .filter((o) => floorOf(o.fromRoom) === floorOf(o.toRoom))
+        .filter(
+          (o) =>
+            o.id !== MAIN_DOOR_OPENING_ID &&
+            floorOf(o.fromRoom) === floorOf(o.toRoom),
+        )
         .map((o) => (
           <DoorModel
             key={o.id}
             position={o.position}
             rotY={openingOrientation(layout, o) === 'eastwest' ? Math.PI / 2 : 0}
             lang={lang}
+            openingId={o.id}
+            swingSign={swingSignFor(o)}
           />
         ))}
     </group>
@@ -762,6 +818,7 @@ export function Player() {
             setHideState(true, now)
           } else if (resolved.action === 'latch' && prox.openingId) {
             if (applyLatch(prox.openingId, now)) {
+              playLatch()
               latchMimeUntil.current = now + LATCH_MIME_MS
             }
           }
