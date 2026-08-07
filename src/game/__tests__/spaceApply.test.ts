@@ -50,31 +50,53 @@ describe('spaceApply', () => {
     expect(hopDistance(result.layout, 'r0', newRoom!.id)).toBe(1)
   })
 
-  it('C1 expands primary room AABB', () => {
+  it('C1 adds a small dining room with one table and 2 seats', () => {
     const before = createInitialLayout().rooms[0]!
     const result = applySpaceEvent(baseInput('C1'))
     const after = result.layout.rooms.find((r) => r.id === 'r0')!
-    expect(after.max[0]).toBeGreaterThan(before.max[0])
-    expect(after.min[0]).toBeLessThan(before.min[0])
+    expect(after.min).toEqual(before.min)
+    expect(after.max).toEqual(before.max)
+    const newRoom = result.layout.rooms.find((r) => r.id !== 'r0')
+    expect(newRoom).toBeDefined()
+    expect(result.tables.length).toBe(CONFIG.tables.length + 1)
+    const addedSeats = result.seatPositions.length - CONFIG.seatPositions.length
+    expect(addedSeats).toBe(2)
   })
 
-  it('C2 shrinks room and removes outside seats', () => {
-    const result = applySpaceEvent(baseInput('C2'))
-    const room = result.layout.rooms.find((r) => r.id === 'r0')!
-    expect(room.max[0]).toBeLessThan(5)
-    expect(result.seatPositions.length).toBeLessThan(CONFIG.seatPositions.length)
-    expect(result.invalidSeatIndices?.length).toBeGreaterThan(0)
-    for (const s of result.seatPositions) {
-      expect(s[0]).toBeGreaterThanOrEqual(room.min[0])
-      expect(s[0]).toBeLessThanOrEqual(room.max[0])
-      expect(s[2]).toBeGreaterThanOrEqual(room.min[1])
-      expect(s[2]).toBeLessThanOrEqual(room.max[1])
-    }
+  it('C2 adds a hidden closet room without seats', () => {
+    const before = createInitialLayout().rooms[0]!
+    const result = applySpaceEvent({ ...baseInput('C1'), eventId: 'C2' })
+    const after = result.layout.rooms.find((r) => r.id === 'r0')!
+    expect(after.min).toEqual(before.min)
+    expect(result.layout.rooms.length).toBe(2)
+    expect(result.layout.openings.length).toBe(1)
+    expect(result.seatPositions.length).toBe(CONFIG.seatPositions.length)
+    expect(result.tables.length).toBe(CONFIG.tables.length)
   })
 
-  it('C3 adds obstacles to layout', () => {
+  it('C3 adds a pillar room with one table', () => {
     const result = applySpaceEvent({ ...baseInput('C1'), eventId: 'C3' })
-    expect(result.layout.obstacles.length).toBeGreaterThanOrEqual(2)
+    expect(result.layout.rooms.length).toBe(2)
+    const pillars = result.layout.obstacles.filter((o) => o.id.startsWith('obs-pillar-'))
+    expect(pillars).toHaveLength(2)
+    const addedSeats = result.seatPositions.length - CONFIG.seatPositions.length
+    expect(addedSeats).toBe(2)
+  })
+
+  it('C5 adds a tiny closet room without seats', () => {
+    const result = applySpaceEvent({ ...baseInput('C1'), eventId: 'C5' })
+    expect(result.layout.rooms.length).toBe(2)
+    expect(result.layout.openings.length).toBe(1)
+    expect(result.seatPositions.length).toBe(CONFIG.seatPositions.length)
+  })
+
+  it('C6 adds a screen room with three screens and one table', () => {
+    const result = applySpaceEvent({ ...baseInput('C1'), eventId: 'C6' })
+    expect(result.layout.rooms.length).toBe(2)
+    const screens = result.layout.obstacles.filter((o) => o.id.startsWith('obs-screen-'))
+    expect(screens).toHaveLength(3)
+    const addedSeats = result.seatPositions.length - CONFIG.seatPositions.length
+    expect(addedSeats).toBe(2)
   })
 
   it('A2 adds corridor and end room with two openings', () => {
@@ -213,12 +235,15 @@ describe('spaceApply', () => {
     expect(result.tables.length).toBe(CONFIG.tables.length + 2)
   })
 
-  it('C5 nudges first obstacle when present', () => {
-    const afterC3 = applySpaceEvent({ ...baseInput('A1'), eventId: 'C3' })
-    const obsBefore = afterC3.layout.obstacles[0]!
-    const result = applySpaceEvent({ ...afterC3, eventId: 'C5', rng: () => 0.9 })
-    const obsAfter = result.layout.obstacles[0]!
-    expect(obsAfter.min[0]).not.toBe(obsBefore.min[0])
+  it('C6 screens sit inside the new room', () => {
+    const result = applySpaceEvent({ ...baseInput('C1'), eventId: 'C6' })
+    const room = result.layout.rooms.find((r) => r.id !== 'r0')!
+    for (const s of result.layout.obstacles.filter((o) => o.id.startsWith('obs-screen-'))) {
+      expect(s.min[0]).toBeGreaterThanOrEqual(room.min[0])
+      expect(s.max[0]).toBeLessThanOrEqual(room.max[0])
+      expect(s.min[1]).toBeGreaterThanOrEqual(room.min[1])
+      expect(s.max[1]).toBeLessThanOrEqual(room.max[1])
+    }
   })
 
   it('A5 adds bar room, two tables (6 seats) and a counter obstacle', () => {
@@ -245,10 +270,11 @@ describe('spaceApply', () => {
   })
 
   it('C6 adds three screens without touching seats or capacity', () => {
-    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'C6' })
-    expect(result.layout.obstacles.length).toBe(3)
-    expect(result.seatPositions.length).toBe(CONFIG.seatPositions.length)
-    expect(result.maxNpcs).toBe(CONFIG.seatPositions.length)
+    const result = applySpaceEvent({ ...baseInput('C1'), eventId: 'C6' })
+    const screens = result.layout.obstacles.filter((o) => o.id.startsWith('obs-screen-'))
+    expect(screens).toHaveLength(3)
+    expect(result.seatPositions.length).toBe(CONFIG.seatPositions.length + 2)
+    expect(result.maxNpcs).toBe(result.seatPositions.length)
   })
 })
 

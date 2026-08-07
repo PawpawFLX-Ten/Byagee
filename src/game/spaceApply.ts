@@ -31,7 +31,7 @@ export type ApplySpaceEventResult = {
   doorMaxNpcs?: number
   /** Original seat indices removed (C2 shrink). */
   invalidSeatIndices?: number[]
-  /** Old seat index → new index after compaction; absent = removed. */
+  /** Old seat index �?new index after compaction; absent = removed. */
   seatIndexRemap?: Map<number, number>
 }
 
@@ -61,17 +61,6 @@ function nextRoomId(layout: SpaceLayoutState): string {
     .map((m) => parseInt(m[1], 10))
   const next = nums.length ? Math.max(...nums) + 1 : 1
   return `r${next}`
-}
-
-function nextId(prefix: string, existing: string[]): string {
-  let n = existing.length
-  let id = `${prefix}-${n}`
-  const set = new Set(existing)
-  while (set.has(id)) {
-    n += 1
-    id = `${prefix}-${n}`
-  }
-  return id
 }
 
 function seatsAroundTable(
@@ -167,9 +156,21 @@ function attachRoom(
   return { layout: newLayout, roomId, center: roomCenter(aabb), side: pick.side }
 }
 
-function noOp(input: ApplySpaceEventInput): ApplySpaceEventResult {
+/** Fallback when no side is free: nudge an obstacle or shrink r0 slightly. */
+function microAdjust(input: ApplySpaceEventInput): ApplySpaceEventResult {
+  const layout = cloneLayout(input.layout)
+  const target = firstNonCabinetObstacle(layout.obstacles)
+  if (target) {
+    const nudge = input.rng() > 0.5 ? 0.4 : -0.4
+    target.min = [target.min[0] + nudge, target.min[1] + nudge]
+    target.max = [target.max[0] + nudge, target.max[1] + nudge]
+  } else {
+    const room = primaryRoom(layout)
+    room.min = [room.min[0] + 0.3, room.min[1] + 0.3]
+    room.max = [room.max[0] - 0.3, room.max[1] - 0.3]
+  }
   return {
-    layout: input.layout,
+    layout,
     tables: input.tables,
     seatPositions: input.seatPositions,
     foodSpots: input.foodSpots ?? [],
@@ -177,59 +178,9 @@ function noOp(input: ApplySpaceEventInput): ApplySpaceEventResult {
   }
 }
 
-function expandRoomAabb(
-  layout: SpaceLayoutState,
-  roomId: string,
-  delta: number,
-): SpaceLayoutState {
-  const L = cloneLayout(layout)
-  const room = L.rooms.find((r) => r.id === roomId)
-  if (!room) return L
-  room.min = [room.min[0] - delta, room.min[1] - delta]
-  room.max = [room.max[0] + delta, room.max[1] + delta]
-  return L
-}
-
-function shrinkRoomAabb(
-  layout: SpaceLayoutState,
-  roomId: string,
-  delta: number,
-): SpaceLayoutState {
-  return expandRoomAabb(layout, roomId, -delta)
-}
-
-function seatInsideRoom(
-  seat: [number, number, number],
-  room: { min: [number, number]; max: [number, number] },
-): boolean {
-  return (
-    seat[0] >= room.min[0] &&
-    seat[0] <= room.max[0] &&
-    seat[2] >= room.min[1] &&
-    seat[2] <= room.max[1]
-  )
-}
-
-function compactSeats(
-  seatPositions: [number, number, number][],
-  invalidIndices: Set<number>,
-): {
-  seatPositions: [number, number, number][]
-  remap: Map<number, number>
-} {
-  const remap = new Map<number, number>()
-  const next: [number, number, number][] = []
-  seatPositions.forEach((s, i) => {
-    if (invalidIndices.has(i)) return
-    remap.set(i, next.length)
-    next.push(s)
-  })
-  return { seatPositions: next, remap }
-}
-
 function applyA1(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const attach = attachRoom(input.layout, 4, 6, input.rng)
-  if (!attach) return noOp(input)
+  if (!attach) return microAdjust(input)
 
   const table: TableDef = {
     id: `t-${attach.roomId}`,
@@ -262,7 +213,7 @@ function applyA1(input: ApplySpaceEventInput): ApplySpaceEventResult {
 function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const gap = CONFIG.space.roomGap
   const pick = pickConnection(input.layout, 2.5, 2, input.rng, gap)
-  if (!pick) return noOp(input)
+  if (!pick) return microAdjust(input)
 
   const fromRoom = input.layout.rooms.find((r) => r.id === pick.roomId)!
   const corridorAabb = sideAabb(fromRoom, pick.side, 2.5, 2, gap)
@@ -277,7 +228,7 @@ function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
 
   const endAabb = sideAabb(corridorAabb, pick.side, 4.5, 8, gap)
   const sideFree = availableSides(newLayout, corridorId, 4.5, 8, gap).includes(pick.side)
-  if (!sideFree) return noOp(input)
+  if (!sideFree) return microAdjust(input)
 
   const roomId = nextRoomId(newLayout)
   newLayout = addRoomConnectedAt(
@@ -318,7 +269,7 @@ function applyA2(input: ApplySpaceEventInput): ApplySpaceEventResult {
 
 function applyA3(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const attach = attachRoom(input.layout, 8, 10, input.rng)
-  if (!attach) return noOp(input)
+  if (!attach) return microAdjust(input)
 
   const tables: TableDef[] = [
     {
@@ -422,88 +373,94 @@ function applyA4(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC1(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const newLayout = expandRoomAabb(input.layout, 'r0', 1.5)
-  const room = primaryRoom(newLayout)
+  const attach = attachRoom(input.layout, 4, 3, input.rng)
+  if (!attach) return microAdjust(input)
 
-  let tables = [...input.tables]
-  let seatPositions = [...input.seatPositions]
-  let foodSpots = [...(input.foodSpots ?? [])]
-
-  const cornerX = room.max[0] - 1.8
-  const cornerZ = room.min[1] + 1.8
-  const overlapsSeat = seatPositions.some(
-    (s) => Math.hypot(s[0] - cornerX, s[2] - cornerZ) < 1.5,
-  )
-  if (!overlapsSeat) {
-    const table: TableDef = {
-      id: nextId('t-expand', tables.map((t) => t.id)),
-      shape: 'round',
-      position: [cornerX, 0, cornerZ],
-      half: { x: 0.75, z: 0.75 },
-      topY: 0.75,
-    }
-    const bundled = appendTableBundle(tables, seatPositions, foodSpots, table, 2, input.rng)
-    tables = bundled.tables
-    seatPositions = bundled.seatPositions
-    foodSpots = bundled.foodSpots
+  const table: TableDef = {
+    id: `t-${attach.roomId}`,
+    shape: 'round',
+    position: [attach.center[0], 0, attach.center[1]],
+    half: { x: 0.7, z: 0.7 },
+    topY: 0.75,
   }
+  const foodSpots = input.foodSpots ?? []
+  const bundled = appendTableBundle(
+    input.tables,
+    input.seatPositions,
+    foodSpots,
+    table,
+    2,
+    input.rng,
+  )
 
   return {
-    layout: newLayout,
-    tables,
-    seatPositions,
-    foodSpots,
-    maxNpcs: seatPositions.length,
-    doorMaxNpcs: seatPositions.length,
+    layout: attach.layout,
+    tables: bundled.tables,
+    seatPositions: bundled.seatPositions,
+    foodSpots: bundled.foodSpots,
+    maxNpcs: bundled.seatPositions.length,
+    doorMaxNpcs: bundled.seatPositions.length,
   }
 }
 
 function applyC2(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const newLayout = shrinkRoomAabb(input.layout, 'r0', 1.5)
-  const room = primaryRoom(newLayout)
-
-  const invalidSeatIndices: number[] = []
-  input.seatPositions.forEach((s, i) => {
-    if (!seatInsideRoom(s, room)) invalidSeatIndices.push(i)
-  })
-  const invalidSet = new Set(invalidSeatIndices)
-  const { seatPositions, remap } = compactSeats(input.seatPositions, invalidSet)
-
-  const foodSpots = (input.foodSpots ?? []).filter((_, i) => !invalidSet.has(i))
+  const attach = attachRoom(input.layout, 3, 3, input.rng)
+  if (!attach) return microAdjust(input)
 
   return {
-    layout: newLayout,
-    tables: input.tables,
-    seatPositions,
-    foodSpots,
-    maxNpcs: seatPositions.length,
-    doorMaxNpcs: seatPositions.length,
-    invalidSeatIndices,
-    seatIndexRemap: remap,
-  }
-}
-
-function applyC3(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const ids = layout.obstacles.map((o) => o.id)
-  const pillarA: SpaceLayoutState['obstacles'][0] = {
-    id: nextId('obs', ids),
-    min: [-1.5, 0.5],
-    max: [-0.5, 1.5],
-  }
-  const pillarB: SpaceLayoutState['obstacles'][0] = {
-    id: nextId('obs', [...ids, pillarA.id]),
-    min: [1, -2],
-    max: [2, -1],
-  }
-  layout.obstacles = [...layout.obstacles, pillarA, pillarB]
-
-  return {
-    layout,
+    layout: attach.layout,
     tables: input.tables,
     seatPositions: input.seatPositions,
     foodSpots: input.foodSpots ?? [],
     maxNpcs: input.maxNpcs,
+  }
+}
+
+function applyC3(input: ApplySpaceEventInput): ApplySpaceEventResult {
+  const attach = attachRoom(input.layout, 5, 4, input.rng)
+  if (!attach) return microAdjust(input)
+
+  const newLayout = {
+    ...attach.layout,
+    obstacles: [
+      ...attach.layout.obstacles,
+      {
+        id: `obs-pillar-${attach.roomId}-a`,
+        min: [attach.center[0] - 1.5, attach.center[1] + 0.5] as [number, number],
+        max: [attach.center[0] - 0.5, attach.center[1] + 1.5] as [number, number],
+      },
+      {
+        id: `obs-pillar-${attach.roomId}-b`,
+        min: [attach.center[0] + 1, attach.center[1] - 2] as [number, number],
+        max: [attach.center[0] + 2, attach.center[1] - 1] as [number, number],
+      },
+    ],
+  }
+
+  const table: TableDef = {
+    id: `t-${attach.roomId}`,
+    shape: 'round',
+    position: [attach.center[0] - 0.2, 0, attach.center[1] + 0.4],
+    half: { x: 0.7, z: 0.7 },
+    topY: 0.75,
+  }
+  const foodSpots = input.foodSpots ?? []
+  const bundled = appendTableBundle(
+    input.tables,
+    input.seatPositions,
+    foodSpots,
+    table,
+    2,
+    input.rng,
+  )
+
+  return {
+    layout: newLayout,
+    tables: bundled.tables,
+    seatPositions: bundled.seatPositions,
+    foodSpots: bundled.foodSpots,
+    maxNpcs: bundled.seatPositions.length,
+    doorMaxNpcs: bundled.seatPositions.length,
   }
 }
 
@@ -568,20 +525,11 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC5(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const target = firstNonCabinetObstacle(layout.obstacles)
-  if (target) {
-    const nudge = input.rng() > 0.5 ? 0.4 : -0.4
-    target.min = [target.min[0] + nudge, target.min[1] + nudge]
-    target.max = [target.max[0] + nudge, target.max[1] + nudge]
-  } else {
-    const room = primaryRoom(layout)
-    room.min = [room.min[0] + 0.3, room.min[1] + 0.3]
-    room.max = [room.max[0] - 0.3, room.max[1] - 0.3]
-  }
+  const attach = attachRoom(input.layout, 2.5, 2.5, input.rng)
+  if (!attach) return microAdjust(input)
 
   return {
-    layout,
+    layout: attach.layout,
     tables: input.tables,
     seatPositions: input.seatPositions,
     foodSpots: input.foodSpots ?? [],
@@ -591,7 +539,7 @@ function applyC5(input: ApplySpaceEventInput): ApplySpaceEventResult {
 
 function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const attach = attachRoom(input.layout, 3.5, 5, input.rng)
-  if (!attach) return noOp(input)
+  if (!attach) return microAdjust(input)
 
   // Bar counter along the back wall — blocks pathing, not sound.
   const newLayout = {
@@ -600,8 +548,8 @@ function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
       ...attach.layout.obstacles,
       {
         id: `obs-bar-${attach.roomId}`,
-        min: [attach.center[0] - 0.95, attach.center[1] - 2.3],
-        max: [attach.center[0] + 1.05, attach.center[1] - 1.4],
+        min: [attach.center[0] - 0.95, attach.center[1] - 2.3] as [number, number],
+        max: [attach.center[0] + 1.05, attach.center[1] - 1.4] as [number, number],
       },
     ],
   }
@@ -650,28 +598,45 @@ function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
 }
 
 function applyC6(input: ApplySpaceEventInput): ApplySpaceEventResult {
-  const layout = cloneLayout(input.layout)
-  const ids = layout.obstacles.map((o) => o.id)
-  const mk = (
-    min: [number, number],
-    max: [number, number],
-  ): SpaceLayoutState['obstacles'][0] => {
-    const id = nextId('obs', ids)
-    ids.push(id)
-    return { id, min, max }
+  const attach = attachRoom(input.layout, 5, 4, input.rng)
+  if (!attach) return microAdjust(input)
+
+  const screenAt = (dx: number, dz: number) => ({
+    id: `obs-screen-${attach.roomId}-${dx >= 0 ? 'p' : 'n'}${dz >= 0 ? 'p' : 'n'}`,
+    min: [attach.center[0] + dx - 0.6, attach.center[1] + dz - 0.6] as [number, number],
+    max: [attach.center[0] + dx + 0.6, attach.center[1] + dz + 0.6] as [number, number],
+  })
+  const screens = [screenAt(-1.8, 0), screenAt(0, 1.2), screenAt(1.8, -1.3)]
+
+  const newLayout = {
+    ...attach.layout,
+    obstacles: [...attach.layout.obstacles, ...screens],
   }
-  const screens = [
-    mk([-2.2, -2.4], [-1, -1.2]),
-    mk([0.4, 0.2], [1.6, 1.4]),
-    mk([2.2, -0.4], [3.4, 0.8]),
-  ]
-  layout.obstacles = [...layout.obstacles, ...screens]
+
+  const table: TableDef = {
+    id: `t-${attach.roomId}`,
+    shape: 'round',
+    position: [attach.center[0], 0, attach.center[1] + 0.6],
+    half: { x: 0.7, z: 0.7 },
+    topY: 0.75,
+  }
+  const foodSpots = input.foodSpots ?? []
+  const bundled = appendTableBundle(
+    input.tables,
+    input.seatPositions,
+    foodSpots,
+    table,
+    2,
+    input.rng,
+  )
+
   return {
-    layout,
-    tables: input.tables,
-    seatPositions: input.seatPositions,
-    foodSpots: input.foodSpots ?? [],
-    maxNpcs: input.maxNpcs,
+    layout: newLayout,
+    tables: bundled.tables,
+    seatPositions: bundled.seatPositions,
+    foodSpots: bundled.foodSpots,
+    maxNpcs: bundled.seatPositions.length,
+    doorMaxNpcs: bundled.seatPositions.length,
   }
 }
 
