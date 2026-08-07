@@ -111,7 +111,9 @@ body,
 .meta {
   margin-left: auto;
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   font-variant-numeric: tabular-nums;
 }
 
@@ -240,8 +242,13 @@ body,
   color: #f0c14a;
   font-weight: 700;
   font-size: 20px;
-  animation: toast-in 0.3s ease-out;
+  letter-spacing: 0.06em;
+  background: rgba(240, 193, 74, 0.16);
+  border: 1px solid rgba(240, 193, 74, 0.5);
+  border-radius: 999px;
+  padding: 4px 18px;
   margin: 0;
+  animation: toast-in 0.3s ease-out;
 }
 
 .score-box {
@@ -250,6 +257,7 @@ body,
   border-radius: 10px;
   padding: 10px 16px;
   min-width: 260px;
+  width: min(340px, 86vw);
 }
 
 .score-total {
@@ -275,6 +283,7 @@ body,
   margin: 0;
   padding: 0;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .score-breakdown li {
@@ -304,6 +313,9 @@ body,
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
+  max-height: 30vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .run-achievements li {
@@ -336,6 +348,8 @@ body,
   animation: toast-in 0.2s ease-out;
   pointer-events: none;
   z-index: 5;
+  max-width: min(420px, 92vw);
+  text-align: center;
 }
 
 .achievement-toast strong {
@@ -434,9 +448,14 @@ body,
 
 .score-chip {
   font-size: 12px;
-  color: #f0c14a;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: #f0c14a;
+  background: rgba(240, 193, 74, 0.14);
+  border: 1px solid rgba(240, 193, 74, 0.35);
+  border-radius: 999px;
+  padding: 1px 8px;
+  line-height: 1.5;
 }
 
 .boss-cue {
@@ -1203,4 +1222,35 @@ body.force-mobile-hud .touch-btn {
   width: 54px;
   height: 54px;
   font-size: 12px;
+}
+
+body.force-mobile-hud .meta {
+  gap: 6px;
+}
+
+body.force-mobile-hud .score-chip {
+  font-size: 11px;
+  padding: 0 6px;
+}
+
+body.force-mobile-hud .achievement-toast {
+  top: max(64px, env(safe-area-inset-top));
+  padding: 8px 12px;
+}
+
+body.force-mobile-hud .achievement-toast strong {
+  font-size: 14px;
+}
+
+body.force-mobile-hud .achievement-toast span {
+  font-size: 11px;
+}
+
+body.force-mobile-hud .score-box {
+  min-width: 0;
+  width: min(340px, 92vw);
+}
+
+body.force-mobile-hud .score-total strong {
+  font-size: 28px;
 }
