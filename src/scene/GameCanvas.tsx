@@ -87,7 +87,10 @@ function CameraFollow() {
     const ddz = camera.position.z - playerPos[2]
     const camDist = Math.hypot(ddx, ddz)
     const maxDist = room
-      ? Math.min(6.2, Math.min(room.max[0] - room.min[0], room.max[1] - room.min[1]) / 2 - 0.45)
+      ? Math.max(
+          1.6,
+          Math.min(6.2, Math.min(room.max[0] - room.min[0], room.max[1] - room.min[1]) / 2 - 0.45),
+        )
       : 6.2
     if (camDist > maxDist) {
       camera.position.x = playerPos[0] + (ddx / camDist) * maxDist

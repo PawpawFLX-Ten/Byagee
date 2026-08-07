@@ -39,10 +39,33 @@ export function layoutBoundsFromLayout(
     if (fromRoom.floor !== floor && toRoom.floor !== floor) continue
     const ox = o.position[0]
     const oz = o.position[2]
-    rooms.push({
-      min: [ox - openingPad, oz - openingPad],
-      max: [ox + openingPad, oz + openingPad],
-    })
+    // Door pad plus a bridge across the roomGap corridor to the far room, so
+    // agents can walk through the door instead of being clamped at the wall.
+    const onXWall =
+      Math.abs(ox - fromRoom.max[0]) < 0.01 || Math.abs(ox - fromRoom.min[0]) < 0.01
+    if (onXWall) {
+      rooms.push({
+        min: [
+          Math.min(ox - openingPad, toRoom.min[0] - padding),
+          oz - openingPad,
+        ] as [number, number],
+        max: [
+          Math.max(ox + openingPad, toRoom.max[0] + padding),
+          oz + openingPad,
+        ] as [number, number],
+      })
+    } else {
+      rooms.push({
+        min: [
+          ox - openingPad,
+          Math.min(oz - openingPad, toRoom.min[1] - padding),
+        ] as [number, number],
+        max: [
+          ox + openingPad,
+          Math.max(oz + openingPad, toRoom.max[1] + padding),
+        ] as [number, number],
+      })
+    }
   }
 
   return { rooms }

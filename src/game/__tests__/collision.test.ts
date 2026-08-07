@@ -74,4 +74,34 @@ describe('clampToLayout', () => {
     expect(Math.abs(x)).toBeLessThanOrEqual(5.5)
     expect(Math.abs(z)).toBeLessThanOrEqual(5.5)
   })
+
+  it('walks through the door gap and the roomGap corridor into a side room', () => {
+    const base = createInitialLayout()
+    const applied = applySpaceEvent({
+      layout: base,
+      tables: [...CONFIG.tables],
+      seatPositions: [...CONFIG.seatPositions],
+      foodSpots: [...CONFIG.foodSpots],
+      maxNpcs: CONFIG.door.maxNpcs,
+      eventId: 'A1',
+      rng: () => 0, // east
+    })
+    const bounds = layoutBoundsFromLayout(applied.layout, 0)
+    const newRoom = applied.layout.rooms.find((r) => r.id !== 'r0')!
+    const opening = applied.layout.openings[0]!
+    const doorX = opening.position[0]
+    const roomX = newRoom.min[0]
+    expect(doorX).toBeLessThan(roomX) // east: wall at x=5, room at x=6
+    // Walk straight through the door toward the room center.
+    let x = doorX - 1
+    let z = 0
+    const steps = 20
+    for (let i = 0; i < steps; i++) {
+      ;[x, z] = clampToLayout(x + 0.2, z, bounds)
+    }
+    // Should pass the wall, the gap corridor, and arrive inside the room.
+    expect(x).toBeGreaterThan(roomX - 0.5)
+    const centerX = (newRoom.min[0] + newRoom.max[0]) / 2
+    expect(x).toBeLessThanOrEqual(centerX + 0.5)
+  })
 })
