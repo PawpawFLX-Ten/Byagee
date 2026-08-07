@@ -6,7 +6,7 @@ import type { Group, Mesh } from 'three'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
 import { smackDamageDelayFor } from '../game/threat'
-import type { NpcState, SkillId } from '../game/types'
+import type { NpcArchetype, NpcState, SkillId } from '../game/types'
 
 const COLORS = ['#e07070', '#70a070', '#7070c0', '#c08050', '#80a0c0']
 const CHASER_COLOR = '#e04030'
@@ -18,6 +18,79 @@ const HIT_COLOR: Record<SkillId, string> = {
   gag: '#9b6bff',
   poop: '#8b5e3c',
   civility: '#44ccff',
+}
+
+/** Silhouette headwear + stout belly — geometry only, sits in the head group. */
+function DinerSilhouette({
+  archetype,
+  color,
+}: {
+  archetype: NpcArchetype
+  color: string
+}) {
+  switch (archetype) {
+    case 'tophat':
+      return (
+        <group>
+          <mesh position={[0, 0.42, 0]} castShadow>
+            <cylinderGeometry args={[0.2, 0.22, 0.03, 16]} />
+            <meshStandardMaterial color="#1a1a1a" />
+          </mesh>
+          <mesh position={[0, 0.535, 0]} castShadow>
+            <cylinderGeometry args={[0.11, 0.115, 0.22, 14]} />
+            <meshStandardMaterial color="#1a1a1a" />
+          </mesh>
+        </group>
+      )
+    case 'bowler':
+      return (
+        <group>
+          <mesh position={[0, 0.42, 0]} castShadow>
+            <cylinderGeometry args={[0.2, 0.22, 0.03, 16]} />
+            <meshStandardMaterial color="#4a3322" />
+          </mesh>
+          <mesh position={[0, 0.45, 0]} castShadow>
+            <sphereGeometry args={[0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial color="#4a3322" />
+          </mesh>
+        </group>
+      )
+    case 'chef':
+      return (
+        <group>
+          <mesh position={[0, 0.45, 0]} castShadow>
+            <cylinderGeometry args={[0.13, 0.15, 0.1, 14]} />
+            <meshStandardMaterial color="#f5f5f0" />
+          </mesh>
+          <mesh position={[0, 0.55, 0]} castShadow>
+            <cylinderGeometry args={[0.1, 0.12, 0.1, 14]} />
+            <meshStandardMaterial color="#f5f5f0" />
+          </mesh>
+        </group>
+      )
+    case 'cap':
+      return (
+        <group>
+          <mesh position={[0, 0.43, 0]} castShadow>
+            <sphereGeometry args={[0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+          <mesh position={[0, 0.43, 0.17]} castShadow>
+            <boxGeometry args={[0.2, 0.02, 0.14]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        </group>
+      )
+    case 'bun':
+      return (
+        <mesh position={[0, 0.18, -0.2]} castShadow>
+          <sphereGeometry args={[0.08, 10, 10]} />
+          <meshStandardMaterial color="#2a2118" />
+        </mesh>
+      )
+    default:
+      return null
+  }
 }
 
 /** Snapshot selectors used only for JSX that must be correct at render time. */
@@ -69,7 +142,9 @@ function NpcMeshImpl({
   const isChaser = npc.role === 'chaser'
   const variance = isChaser ? 1 : 0.94 + (npc.seatIndex % 5) * 0.035
   const bodyColor = isChaser ? CHASER_COLOR : COLORS[npc.seatIndex % COLORS.length]
-  const torsoWidth = isChaser ? 0.28 : 0.24 + (npc.seatIndex % 3) * 0.02
+  const buildScale = npc.build === 'slim' ? 0.85 : npc.build === 'stout' ? 1.15 : 1
+  const torsoWidth =
+    (isChaser ? 0.28 : 0.24 + (npc.seatIndex % 3) * 0.02) * buildScale
   const phase = useMemo(
     () => (isChaser ? npc.id.length * 1.3 : npc.seatIndex * 1.7),
     [npc.id, npc.seatIndex, isChaser],
@@ -232,6 +307,12 @@ function NpcMeshImpl({
         <capsuleGeometry args={[torsoWidth, isChaser ? 0.42 : 0.35, 4, 8]} />
         <meshStandardMaterial color={bodyColor} />
       </mesh>
+      {npc.build === 'stout' && (
+        <mesh position={[0, 0.26, 0.2]} castShadow>
+          <sphereGeometry args={[0.13, 12, 12]} />
+          <meshStandardMaterial color={bodyColor} />
+        </mesh>
+      )}
       {isChaser && (
         <mesh position={[0, 0.15, -0.12]} rotation={[0.25, 0, 0]}>
           <boxGeometry args={[0.32, 0.08, 0.14]} />
@@ -317,6 +398,8 @@ function NpcMeshImpl({
             </mesh>
           )}
         </group>
+
+        <DinerSilhouette archetype={npc.archetype} color={bodyColor} />
       </group>
 
       {npc.id === useGameStore.getState().targetId && (
