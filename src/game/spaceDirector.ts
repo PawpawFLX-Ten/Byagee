@@ -1,17 +1,19 @@
 import { CONFIG } from './config'
 import type { SpaceEventDef, SpaceEventId } from './types'
 
-/** #1 pool: A1,C1,C3 common; A2/C2 rare; A3/A4/C4 excluded; C5 minor-only (late between bosses). */
+/** #1 pool: A1,C1,C3 common; A2/C2 rare; A3/A4/A5/C4/C6 excluded; C5 minor-only (late between bosses). */
 export const EVENTS: SpaceEventDef[] = [
   { id: 'A1', kind: 'A', inFirstRewardPool: true, weightLate: 3 },
   { id: 'A2', kind: 'A', inFirstRewardPool: true, weightLate: 2 },
   { id: 'A3', kind: 'A', inFirstRewardPool: false, weightLate: 2 },
   { id: 'A4', kind: 'A', inFirstRewardPool: false, weightLate: 0 },
+  { id: 'A5', kind: 'A', inFirstRewardPool: false, weightLate: 2 },
   { id: 'C1', kind: 'C', inFirstRewardPool: true, weightLate: 3 },
   { id: 'C2', kind: 'C', inFirstRewardPool: true, weightLate: 1 },
   { id: 'C3', kind: 'C', inFirstRewardPool: true, weightLate: 3 },
   { id: 'C4', kind: 'C', inFirstRewardPool: false, weightLate: 0 },
   { id: 'C5', kind: 'C', inFirstRewardPool: false, weightLate: 1 },
+  { id: 'C6', kind: 'C', inFirstRewardPool: false, weightLate: 2 },
 ]
 
 /** Deferred until stair Y climb is implemented. */

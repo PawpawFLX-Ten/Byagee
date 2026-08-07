@@ -115,11 +115,13 @@ const DICT: Record<Lang, Record<string, string>> = {
     spaceEvent_A2: '扩建：走廊与房间',
     spaceEvent_A3: '扩建：宴会厅',
     spaceEvent_A4: '扩建：楼上小包间',
+    spaceEvent_A5: '扩建：餐吧角',
     spaceEvent_C1: '改造：大厅扩张',
     spaceEvent_C2: '改造：大厅收缩',
     spaceEvent_C3: '改造：立柱障碍',
     spaceEvent_C4: '改造：阁楼平台',
     spaceEvent_C5: '改造：微调整',
+    spaceEvent_C6: '改造：屏风阵',
 
     // === Score & achievements ===
     score_label: '得分',
@@ -292,11 +294,13 @@ const DICT: Record<Lang, Record<string, string>> = {
     spaceEvent_A2: 'Expansion: corridor & room',
     spaceEvent_A3: 'Expansion: banquet hall',
     spaceEvent_A4: 'Expansion: upstairs nook',
+    spaceEvent_A5: 'Expansion: bar corner',
     spaceEvent_C1: 'Morph: hall expanded',
     spaceEvent_C2: 'Morph: hall shrunk',
     spaceEvent_C3: 'Morph: pillar obstacles',
     spaceEvent_C4: 'Morph: loft platform',
     spaceEvent_C5: 'Morph: minor tweak',
+    spaceEvent_C6: 'Morph: screen array',
 
     // === Score & achievements ===
     score_label: 'Score',
@@ -469,11 +473,13 @@ const DICT: Record<Lang, Record<string, string>> = {
     spaceEvent_A2: 'Uitbreiding: gang & kamer',
     spaceEvent_A3: 'Uitbreiding: banketzaal',
     spaceEvent_A4: 'Uitbreiding: bovenverdieping',
+    spaceEvent_A5: 'Uitbreiding: barhoek',
     spaceEvent_C1: 'Aanpassing: zaal vergroot',
     spaceEvent_C2: 'Aanpassing: zaal verkleind',
     spaceEvent_C3: 'Aanpassing: pilaar obstakels',
     spaceEvent_C4: 'Aanpassing: platform',
     spaceEvent_C5: 'Aanpassing: kleine wijziging',
+    spaceEvent_C6: 'Aanpassing: schermwand',
 
     // === Score & achievements ===
     score_label: 'Score',

@@ -541,6 +541,96 @@ function applyC5(input: ApplySpaceEventInput): ApplySpaceEventResult {
   }
 }
 
+function applyA5(input: ApplySpaceEventInput): ApplySpaceEventResult {
+  const layout = cloneLayout(input.layout)
+  const roomId = nextRoomId(layout)
+  const barCorner = {
+    id: roomId,
+    min: [5, -2.5] as [number, number],
+    max: [8.5, 2.5] as [number, number],
+    floor: 0,
+  }
+  let newLayout = addRoomConnected(layout, barCorner, `door-${roomId}`, 'r0')
+  // Bar counter along the back wall — blocks pathing, not sound.
+  const obsIds = newLayout.obstacles.map((o) => o.id)
+  const barId = nextId('obs', obsIds)
+  newLayout = {
+    ...newLayout,
+    obstacles: [
+      ...newLayout.obstacles,
+      { id: barId, min: [5.8, -2.3], max: [7.8, -1.4] },
+    ],
+  }
+
+  const tables: TableDef[] = [
+    {
+      id: `t-${roomId}a`,
+      shape: 'round',
+      position: [6.75, 0, -0.8],
+      half: { x: 0.8, z: 0.8 },
+      topY: 0.75,
+    },
+    {
+      id: `t-${roomId}b`,
+      shape: 'round',
+      position: [6.75, 0, 1.2],
+      half: { x: 0.7, z: 0.7 },
+      topY: 0.75,
+    },
+  ]
+  const foodSpots = input.foodSpots ?? []
+  let bundled = appendTableBundle(
+    input.tables,
+    input.seatPositions,
+    foodSpots,
+    tables[0],
+    4,
+    input.rng,
+  )
+  bundled = appendTableBundle(
+    bundled.tables,
+    bundled.seatPositions,
+    bundled.foodSpots,
+    tables[1],
+    2,
+    input.rng,
+  )
+  return {
+    layout: newLayout,
+    tables: bundled.tables,
+    seatPositions: bundled.seatPositions,
+    foodSpots: bundled.foodSpots,
+    maxNpcs: bundled.seatPositions.length,
+    doorMaxNpcs: bundled.seatPositions.length,
+  }
+}
+
+function applyC6(input: ApplySpaceEventInput): ApplySpaceEventResult {
+  const layout = cloneLayout(input.layout)
+  const ids = layout.obstacles.map((o) => o.id)
+  const mk = (
+    min: [number, number],
+    max: [number, number],
+  ): SpaceLayoutState['obstacles'][0] => {
+    const id = nextId('obs', ids)
+    ids.push(id)
+    return { id, min, max }
+  }
+  const screens = [
+    mk([-2.2, -2.4], [-1, -1.2]),
+    mk([0.4, 0.2], [1.6, 1.4]),
+    mk([2.2, -0.4], [3.4, 0.8]),
+  ]
+  layout.obstacles = [...layout.obstacles, ...screens]
+  return {
+    layout,
+    tables: input.tables,
+    seatPositions: input.seatPositions,
+    foodSpots: input.foodSpots ?? [],
+    maxNpcs: input.maxNpcs,
+  }
+}
+
 export function applySpaceEvent(input: ApplySpaceEventInput): ApplySpaceEventResult {
   switch (input.eventId) {
     case 'A1':
@@ -551,6 +641,8 @@ export function applySpaceEvent(input: ApplySpaceEventInput): ApplySpaceEventRes
       return applyA3(input)
     case 'A4':
       return applyA4(input)
+    case 'A5':
+      return applyA5(input)
     case 'C1':
       return applyC1(input)
     case 'C2':
@@ -561,6 +653,8 @@ export function applySpaceEvent(input: ApplySpaceEventInput): ApplySpaceEventRes
       return applyC4(input)
     case 'C5':
       return applyC5(input)
+    case 'C6':
+      return applyC6(input)
     default:
       return {
         layout: input.layout,

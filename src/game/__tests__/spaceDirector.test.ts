@@ -16,12 +16,27 @@ describe('spaceDirector', () => {
     }
   })
 
-  it('first reward never picks A3, A4, C4, or C5', () => {
-    const forbidden = new Set(['A3', 'A4', 'C4', 'C5'])
+  it('first reward never picks A3, A4, A5, C4, C5, or C6', () => {
+    const forbidden = new Set(['A3', 'A4', 'A5', 'C4', 'C5', 'C6'])
     for (let i = 0; i < 100; i++) {
       const id = pickSpaceEvent(() => Math.random(), { isFirst: true, late: false })
       expect(forbidden.has(id)).toBe(false)
     }
+  })
+
+  it('late pool can pick A5 and C6', () => {
+    let sawA5 = false
+    let sawC6 = false
+    for (let i = 0; i < 400; i++) {
+      const id = pickSpaceEvent(() => Math.random(), {
+        isFirst: false,
+        late: true,
+      })
+      if (id === 'A5') sawA5 = true
+      if (id === 'C6') sawC6 = true
+    }
+    expect(sawA5).toBe(true)
+    expect(sawC6).toBe(true)
   })
 
   it('respects cooldown', () => {

@@ -119,6 +119,36 @@ describe('spaceApply', () => {
     const obsAfter = result.layout.obstacles[0]!
     expect(obsAfter.min[0]).not.toBe(obsBefore.min[0])
   })
+
+  it('A5 adds bar room, two tables (6 seats) and a counter obstacle', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'A5', rng: () => 0 })
+    expect(result.layout.rooms.length).toBeGreaterThan(1)
+    expect(result.layout.openings.length).toBe(1)
+    expect(result.tables.length).toBe(CONFIG.tables.length + 2)
+    const addedSeats = result.seatPositions.length - CONFIG.seatPositions.length
+    expect(addedSeats).toBe(6)
+    expect(result.layout.obstacles.length).toBe(1)
+    expect(result.maxNpcs).toBe(result.seatPositions.length)
+  })
+
+  it('A5 seats sit inside the new bar room', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'A5', rng: () => 0 })
+    const barRoom = result.layout.rooms.find((r) => r.id !== 'r0')!
+    for (let i = CONFIG.seatPositions.length; i < result.seatPositions.length; i++) {
+      const s = result.seatPositions[i]!
+      expect(s[0]).toBeGreaterThanOrEqual(barRoom.min[0])
+      expect(s[0]).toBeLessThanOrEqual(barRoom.max[0])
+      expect(s[2]).toBeGreaterThanOrEqual(barRoom.min[1])
+      expect(s[2]).toBeLessThanOrEqual(barRoom.max[1])
+    }
+  })
+
+  it('C6 adds three screens without touching seats or capacity', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'C6' })
+    expect(result.layout.obstacles.length).toBe(3)
+    expect(result.seatPositions.length).toBe(CONFIG.seatPositions.length)
+    expect(result.maxNpcs).toBe(CONFIG.seatPositions.length)
+  })
 })
 
 describe('spaceLayout addRoomConnected (regression)', () => {
