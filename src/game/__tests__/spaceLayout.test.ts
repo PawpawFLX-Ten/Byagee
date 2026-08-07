@@ -275,26 +275,31 @@ describe('stairs', () => {
     return L
   }
 
-  it('stairAabb is the foot-to-top run along the axis with width', () => {
-    expect(stairAabb(stairs)).toEqual({ min: [3, -3.5], max: [5.4, -2.5] })
-    const zStairs: SpaceStairs = { ...stairs, axis: 'z', position: [-1.5, 0, 1.9] }
-    expect(stairAabb(zStairs)).toEqual({ min: [-2, 1.9], max: [-1, 4.3] })
+  it('stairAabb spans foot-to-top (rising toward the toRoom center)', () => {
+    // toRoom center (0,0) is west of the foot x=3 → climb westward
+    const L = layoutWithStairs()
+    expect(stairAabb(L, stairs)).toEqual({ min: [0.6, -3.5], max: [3, -2.5] })
+    // a room east of the foot climbs eastward
+    const eastRoom = createInitialLayout()
+    eastRoom.rooms.push({ id: 'r2', min: [1, -2], max: [5, 2], floor: 1 })
+    const eastStairs: SpaceStairs = { ...stairs, position: [1.2, 0, 0], toRoom: 'r2', axis: 'x', length: 2.4, width: 0.8 }
+    expect(stairAabb(eastRoom, eastStairs)).toEqual({ min: [1.2, -0.4], max: [3.6, 0.4] })
   })
 
   it('stairYAt rises linearly from 0 to floor elevation', () => {
     const L = layoutWithStairs()
     expect(stairYAt(L, 3, -3)).toBe(0)
-    expect(stairYAt(L, 4.2, -3)).toBeCloseTo(0.75)
-    expect(stairYAt(L, 5.4, -3)).toBe(1.5)
-    expect(stairYAt(L, 2.9, -3)).toBeNull()
-    expect(stairYAt(L, 4.2, -2.4)).toBeNull()
+    expect(stairYAt(L, 1.8, -3)).toBeCloseTo(0.75)
+    expect(stairYAt(L, 0.6, -3)).toBe(1.5)
+    expect(stairYAt(L, 0.5, -3)).toBeNull()
+    expect(stairYAt(L, 1.8, -2.4)).toBeNull()
   })
 
   it('agentYAt follows the ramp inside and snaps to a floor band outside', () => {
     const L = layoutWithStairs()
-    expect(agentYAt(L, 4.2, -3, 0)).toBeCloseTo(0.75)
-    expect(agentYAt(L, 2, -3, 0)).toBe(0)
-    expect(agentYAt(L, 2, -3, 1.5)).toBe(1.5)
+    expect(agentYAt(L, 1.8, -3, 0)).toBeCloseTo(0.75)
+    expect(agentYAt(L, 0, -3, 0)).toBe(0)
+    expect(agentYAt(L, 0, -3, 1.5)).toBe(1.5)
     expect(agentYAt(L, 0, 0, 0.4)).toBe(0)
     expect(agentYAt(L, 0, 0, 1.3)).toBe(1.5)
   })

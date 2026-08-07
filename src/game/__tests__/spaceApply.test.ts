@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG } from '../config'
-import { createInitialLayout, hopDistance, addRoomConnected, roomIdAt } from '../spaceLayout'
+import {
+  createInitialLayout,
+  hopDistance,
+  addRoomConnected,
+  roomIdAt,
+  stairAabb,
+} from '../spaceLayout'
 import { applySpaceEvent, roomIdForSeatIndex } from '../spaceApply'
 import { createRuntimeSpaceFromConfig } from '../runtimeSpace'
 
-function baseInput(eventId: 'A1' | 'C1' | 'C2' | 'A2' | 'A3' | 'A5', rng = () => 0.5) {
+function baseInput(
+  eventId: 'A1' | 'C1' | 'C2' | 'A2' | 'A3' | 'A5' | 'A4' | 'C4',
+  rng = () => 0.5,
+) {
   const runtime = createRuntimeSpaceFromConfig()
   return {
     layout: createInitialLayout(),
@@ -203,6 +212,83 @@ describe('spaceApply', () => {
     const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'C4' })
     expect(result.layout.rooms.some((r) => r.floor === 1)).toBe(true)
     expect(result.layout.stairs.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('A4 stair sits inside r0 and the upper room, clear of tables', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'A4' })
+    const upper = result.layout.rooms.find((r) => r.floor === 1)!
+    const stairs = result.layout.stairs[0]!
+    const aabb = stairAabb(result.layout, stairs)
+    const r0 = result.layout.rooms.find((r) => r.id === 'r0')!
+    expect(aabb.min[0]).toBeGreaterThanOrEqual(r0.min[0])
+    expect(aabb.max[0]).toBeLessThanOrEqual(r0.max[0])
+    expect(aabb.min[1]).toBeGreaterThanOrEqual(r0.min[1])
+    expect(aabb.max[1]).toBeLessThanOrEqual(r0.max[1])
+    expect(aabb.min[0]).toBeGreaterThanOrEqual(upper.min[0])
+    expect(aabb.max[0]).toBeLessThanOrEqual(upper.max[0])
+    expect(aabb.min[1]).toBeGreaterThanOrEqual(upper.min[1])
+    expect(aabb.max[1]).toBeLessThanOrEqual(upper.max[1])
+    for (const t of result.tables) {
+      const overlap =
+        aabb.min[0] < t.position[0] + t.half.x &&
+        aabb.max[0] > t.position[0] - t.half.x &&
+        aabb.min[1] < t.position[2] + t.half.z &&
+        aabb.max[1] > t.position[2] - t.half.z
+      expect(overlap).toBe(false)
+    }
+    for (const o of result.layout.obstacles) {
+      const overlap =
+        aabb.min[0] < o.max[0] && aabb.max[0] > o.min[0] && aabb.min[1] < o.max[1] && aabb.max[1] > o.min[1]
+      expect(overlap).toBe(false)
+    }
+  })
+
+  it('C4 stair sits inside r0 and the platform, clear of tables and seats', () => {
+    const result = applySpaceEvent({ ...baseInput('A1'), eventId: 'C4' })
+    const platform = result.layout.rooms.find((r) => r.floor === 1)!
+    const stairs = result.layout.stairs[0]!
+    const aabb = stairAabb(result.layout, stairs)
+    expect(aabb.min[0]).toBeGreaterThanOrEqual(platform.min[0])
+    expect(aabb.max[0]).toBeLessThanOrEqual(platform.max[0])
+    expect(aabb.min[1]).toBeGreaterThanOrEqual(platform.min[1])
+    expect(aabb.max[1]).toBeLessThanOrEqual(platform.max[1])
+    const allShapes = [
+      ...result.tables,
+      ...result.seatPositions.map((s) => ({
+        position: s,
+        half: { x: 0.3, z: 0.3 },
+      })),
+    ]
+    for (const t of allShapes) {
+      const overlap =
+        aabb.min[0] < t.position[0] + t.half.x &&
+        aabb.max[0] > t.position[0] - t.half.x &&
+        aabb.min[1] < t.position[2] + t.half.z &&
+        aabb.max[1] > t.position[2] - t.half.z
+      expect(overlap).toBe(false)
+    }
+  })
+
+  it('A4/C4 stairs connect r0 to the upper room', () => {
+    for (const id of ['A4', 'C4'] as const) {
+      const result = applySpaceEvent({ ...baseInput('A1'), eventId: id })
+      const upper = result.layout.rooms.find((r) => r.floor === 1)!
+      expect(hopDistance(result.layout, 'r0', upper.id)).toBe(1)
+      expect(result.layout.openings.some((o) => o.fromRoom === 'r0' && o.toRoom === upper.id)).toBe(true)
+    }
+  })
+
+  it('A4/C4 add exactly two seats at floor 1', () => {
+    for (const id of ['A4', 'C4'] as const) {
+      const result = applySpaceEvent({ ...baseInput('A1'), eventId: id })
+      const baseCount = CONFIG.seatPositions.length
+      expect(result.seatPositions.length).toBe(baseCount + 2)
+      expect(result.maxNpcs).toBe(baseCount + 2)
+      const newSeats = result.seatPositions.slice(baseCount)
+      for (const s of newSeats) {
+        expect(s[1]).toBeGreaterThan(1.2)
+      }
+    }
   })
 
   it('A4 upstairs seats resolve to upper room, not r0', () => {

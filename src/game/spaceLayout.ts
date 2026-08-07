@@ -389,20 +389,40 @@ export function roomIdAtY(
   return roomIdAt(layout, x, z, floorFromPlayerY(y))
 }
 
-/** XZ footprint of a stair ramp (foot at `position`, rising along `axis`). */
+/** Foot coordinate of a stair ramp along its axis (bottom end). */
+function stairFootCoord(stairs: SpaceStairs): number {
+  return stairs.axis === 'x' ? stairs.position[0] : stairs.position[2]
+}
+
+/** Top (high end) coordinate: climbs from the foot toward the toRoom center. */
+function stairTopCoord(layout: SpaceLayoutState, stairs: SpaceStairs): number {
+  const toRoom = layout.rooms.find((r) => r.id === stairs.toRoom)
+  const foot = stairFootCoord(stairs)
+  if (!toRoom) return foot + stairs.length
+  const center = toRoom
+    ? (toRoom.min[stairs.axis === 'x' ? 0 : 1] + toRoom.max[stairs.axis === 'x' ? 0 : 1]) / 2
+    : foot
+  const dir = Math.sign(center - foot) || 1
+  return Math.round((foot + dir * stairs.length) * 1000) / 1000
+}
+
+/** XZ footprint of a stair ramp: foot-to-top run along `axis`, `width` across. */
 export function stairAabb(
+  layout: SpaceLayoutState,
   stairs: SpaceStairs,
 ): { min: [number, number]; max: [number, number] } {
+  const foot = stairFootCoord(stairs)
+  const top = stairTopCoord(layout, stairs)
   const half = stairs.width / 2
   if (stairs.axis === 'x') {
     return {
-      min: [stairs.position[0], stairs.position[2] - half],
-      max: [stairs.position[0] + stairs.length, stairs.position[2] + half],
+      min: [Math.min(foot, top), stairs.position[2] - half],
+      max: [Math.max(foot, top), stairs.position[2] + half],
     }
   }
   return {
-    min: [stairs.position[0] - half, stairs.position[2]],
-    max: [stairs.position[0] + half, stairs.position[2] + stairs.length],
+    min: [stairs.position[0] - half, Math.min(foot, top)],
+    max: [stairs.position[0] + half, Math.max(foot, top)],
   }
 }
 
@@ -424,12 +444,11 @@ export function stairYAt(
   z: number,
 ): number | null {
   for (const stairs of layout.stairs) {
-    const aabb = stairAabb(stairs)
+    const aabb = stairAabb(layout, stairs)
     if (!aabbContains(aabb, x, z)) continue
-    const t =
-      stairs.axis === 'x'
-        ? (x - aabb.min[0]) / stairs.length
-        : (z - aabb.min[1]) / stairs.length
+    const foot = stairFootCoord(stairs)
+    const coord = stairs.axis === 'x' ? x : z
+    const t = Math.abs(coord - foot) / stairs.length
     return Math.max(0, Math.min(1, t)) * FLOOR_ELEVATION
   }
   return null

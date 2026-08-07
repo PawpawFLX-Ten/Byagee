@@ -10,7 +10,7 @@ import {
   type SpaceLayoutState,
 } from './spaceLayout'
 import { CONFIG } from './config'
-import type { FoodSpot, RoomSide, SpaceEventId, TableDef } from './types'
+import type { FoodSpot, RoomSide, SpaceEventId, SpaceStairs, TableDef } from './types'
 
 export type ApplySpaceEventInput = {
   layout: SpaceLayoutState
@@ -104,9 +104,10 @@ function appendTableBundle(
   table: TableDef,
   seatCount: number,
   rng: () => number,
+  seatRadius = 1.35,
 ): { tables: TableDef[]; seatPositions: [number, number, number][]; foodSpots: FoodSpot[] } {
   const count = Math.max(2, Math.min(4, seatCount))
-  const seats = seatsAroundTable(table.position, count + Math.floor(rng() * 0.001))
+  const seats = seatsAroundTable(table.position, count + Math.floor(rng() * 0.001), seatRadius)
   const actualCount = Math.min(count, seats.length)
   const newSeats = seats.slice(0, actualCount)
   const newFoods = newSeats.map((s, i) =>
@@ -353,7 +354,17 @@ function applyA4(input: ApplySpaceEventInput): ApplySpaceEventResult {
     max: [3.5, 3.5] as [number, number],
     floor: 1,
   }
-  const stairsId = `stairs-${roomId}`
+  const stairs: SpaceStairs = {
+    id: `stairs-${roomId}`,
+    // Foot in the north corridor (inside r0), climbing south toward the
+    // upper room center; clear of t-round/t-rect/t-oval XZ.
+    position: [0.5, 0, -3.2],
+    fromRoom: 'r0',
+    toRoom: roomId,
+    axis: 'z',
+    length: 2.4,
+    width: CONFIG.space.stairWidth,
+  }
   const newLayout: SpaceLayoutState = {
     ...layout,
     rooms: [...layout.rooms, upper],
@@ -363,20 +374,12 @@ function applyA4(input: ApplySpaceEventInput): ApplySpaceEventResult {
         id: `door-${roomId}`,
         fromRoom: 'r0',
         toRoom: roomId,
-        position: [2.5, 0, 2.5],
+        position: [...stairs.position] as [number, number, number],
         latchedUntil: 0,
         lastLatchedAt: 0,
       },
     ],
-    stairs: [
-      ...layout.stairs,
-      {
-        id: stairsId,
-        position: [2.5, 0, 2.5],
-        fromRoom: 'r0',
-        toRoom: roomId,
-      },
-    ],
+    stairs: [...layout.stairs, stairs],
   }
 
   const upperY = floorY(1)
@@ -522,28 +525,30 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const roomId = nextRoomId(layout)
   const platform = {
     id: roomId,
-    min: [-2, 1.5] as [number, number],
-    max: [2, 4.5] as [number, number],
+    min: [-2.5, 2.9] as [number, number],
+    max: [2.5, 4.9] as [number, number],
     floor: 1,
   }
-  const stairsId = `stairs-${roomId}`
+  // Foot at the platform's west wall line, climbing east to the platform
+  // interior; clear of the r0 oval table (z ≤ 2.65) and the loft table.
+  const stairs: SpaceStairs = {
+    id: `stairs-${roomId}`,
+    position: [-2.5, 0, 4.3],
+    fromRoom: 'r0',
+    toRoom: roomId,
+    axis: 'x',
+    length: 2.4,
+    width: 0.8,
+  }
   layout.rooms = [...layout.rooms, platform]
-  layout.stairs = [
-    ...layout.stairs,
-    {
-      id: stairsId,
-      position: [-1.5, 0, 3.5],
-      fromRoom: 'r0',
-      toRoom: roomId,
-    },
-  ]
+  layout.stairs = [...layout.stairs, stairs]
   layout.openings = [
     ...layout.openings,
     {
       id: `door-${roomId}`,
       fromRoom: 'r0',
       toRoom: roomId,
-      position: [-1.5, 0, 3.5],
+      position: [...stairs.position] as [number, number, number],
       latchedUntil: 0,
       lastLatchedAt: 0,
     },
@@ -553,8 +558,9 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
   const table: TableDef = {
     id: `t-${roomId}`,
     shape: 'rect',
-    position: [0, upperY, 3],
-    half: { x: 0.9, z: 0.55 },
+    // East of the stair run (x ≥ 0), south seats clear the oval below.
+    position: [0.6, upperY, 3.9],
+    half: { x: 0.6, z: 0.3 },
     topY: 0.75,
   }
   const foodSpots = input.foodSpots ?? []
@@ -565,6 +571,7 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
     table,
     2,
     input.rng,
+    0.85,
   )
 
   return {
