@@ -276,6 +276,64 @@ describe('stress: 20 minute marathon with everything enabled', () => {
       expect(after.achievementQueue.length).toBeGreaterThanOrEqual(0)
     })
   })
+
+  it('random-side events keep room/door/seat invariants in the long run', () => {
+    withSeededRng(31, () => {
+      const store = useGameStore.getState()
+      store.beginMission(9_000_000)
+      let now = 9_000_000
+      const ids = ['A1', 'A2', 'A3', 'A5', 'C1', 'C2', 'C3', 'C5', 'C6'] as const
+      const total = 60 * 60 * 4
+      for (let i = 0; i < total; i++) {
+        now += DT * 1000 * 2
+        if (i % 60 === 0) forceSpaceEvent(ids[i % ids.length], now)
+        useGameStore.getState().tick(DT * 2, now)
+      }
+      const s = useGameStore.getState()
+      expect(s.layout.rooms.length).toBeGreaterThan(4)
+      expect(s.layout.openings.length).toBeGreaterThanOrEqual(s.layout.rooms.length - 1)
+      const rooms = s.layout.rooms
+      for (let a = 0; a < rooms.length; a++) {
+        for (let b = a + 1; b < rooms.length; b++) {
+          const ra = rooms[a]!
+          const rb = rooms[b]!
+          const overlap =
+            ra.min[0] < rb.max[0] &&
+            ra.max[0] > rb.min[0] &&
+            ra.min[1] < rb.max[1] &&
+            ra.max[1] > rb.min[1]
+          expect(overlap, `rooms ${ra.id}/${rb.id} overlap`).toBe(false)
+        }
+      }
+      assertSanity(total)
+    })
+  }, 120_000)
+
+  it('space event degrades gracefully when no side is free', () => {
+    withSeededRng(5, () => {
+      const store = useGameStore.getState()
+      store.beginMission(9_500_000)
+      const layout = useGameStore.getState().layout
+      layout.obstacles.push(
+        { id: 'block-n', min: [-16, -12], max: [16, -6] },
+        { id: 'block-s', min: [-16, 6], max: [16, 16] },
+        { id: 'block-e', min: [6, -12], max: [16, 12] },
+        { id: 'block-w', min: [-16, -12], max: [-6, 12] },
+      )
+      useGameStore.setState({ layout })
+      forceSpaceEvent('A1', 9_500_000)
+      let now = 9_500_000
+      for (let i = 0; i < 60; i++) {
+        now += DT * 1000
+        useGameStore.getState().tick(DT, now)
+      }
+      const s = useGameStore.getState()
+      expect(s.layout.rooms.length).toBe(1)
+      expect(s.stats.spaceEvents).toBe(1)
+      expect(s.queuedSpaceEventId).toBeNull()
+      assertSanity(60)
+    })
+  })
 })
 
 describe('concurrency: interleaved player actions during events', () => {
