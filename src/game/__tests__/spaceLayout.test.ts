@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addRoomConnected,
   addRoomConnectedAt,
+  agentYAt,
   availableSides,
   CABINET_OBSTACLES,
   createInitialLayout,
@@ -11,11 +12,17 @@ import {
   openingOrientation,
   pickConnection,
   roomIdAt,
+  roomIdAtY,
   floorFromPlayerY,
+  floorY,
   sideAabb,
   sideDoorPosition,
+  stairAabb,
+  stairYAt,
   withFurniture,
+  type SpaceLayoutState,
 } from '../spaceLayout'
+import type { SpaceStairs } from '../types'
 
 describe('spaceLayout', () => {
   it('default layout is single room r0 covering spawn', () => {
@@ -247,5 +254,64 @@ describe('spaceLayout', () => {
       L.obstacles.push({ id: `block-${i}`, min: [z[0], z[1]], max: [z[2], z[3]] })
     })
     expect(pickConnection(L, 4, 6, () => 0.5)).toBeNull()
+  })
+})
+
+describe('stairs', () => {
+  const stairs: SpaceStairs = {
+    id: 'stairs-1',
+    position: [3, 0, -3],
+    fromRoom: 'r0',
+    toRoom: 'r1',
+    axis: 'x',
+    length: 2.4,
+    width: 1.0,
+  }
+
+  function layoutWithStairs(): SpaceLayoutState {
+    const L = createInitialLayout()
+    L.rooms.push({ id: 'r1', min: [-3.5, -3.5], max: [3.5, 3.5], floor: 1 })
+    L.stairs.push(stairs)
+    return L
+  }
+
+  it('stairAabb is the foot-to-top run along the axis with width', () => {
+    expect(stairAabb(stairs)).toEqual({ min: [3, -3.5], max: [5.4, -2.5] })
+    const zStairs: SpaceStairs = { ...stairs, axis: 'z', position: [-1.5, 0, 1.9] }
+    expect(stairAabb(zStairs)).toEqual({ min: [-2, 1.9], max: [-1, 4.3] })
+  })
+
+  it('stairYAt rises linearly from 0 to floor elevation', () => {
+    const L = layoutWithStairs()
+    expect(stairYAt(L, 3, -3)).toBe(0)
+    expect(stairYAt(L, 4.2, -3)).toBeCloseTo(0.75)
+    expect(stairYAt(L, 5.4, -3)).toBe(1.5)
+    expect(stairYAt(L, 2.9, -3)).toBeNull()
+    expect(stairYAt(L, 4.2, -2.4)).toBeNull()
+  })
+
+  it('agentYAt follows the ramp inside and snaps to a floor band outside', () => {
+    const L = layoutWithStairs()
+    expect(agentYAt(L, 4.2, -3, 0)).toBeCloseTo(0.75)
+    expect(agentYAt(L, 2, -3, 0)).toBe(0)
+    expect(agentYAt(L, 2, -3, 1.5)).toBe(1.5)
+    expect(agentYAt(L, 0, 0, 0.4)).toBe(0)
+    expect(agentYAt(L, 0, 0, 1.3)).toBe(1.5)
+  })
+
+  it('roomIdAtY infers the floor from height', () => {
+    const L = layoutWithStairs()
+    expect(roomIdAtY(L, 1, 1, 0)).toBe('r0')
+    expect(roomIdAtY(L, 1, 1, 1.5)).toBe('r1')
+  })
+
+  it('availableSides ignores upstairs rooms when checking ground sides', () => {
+    const L = layoutWithStairs()
+    expect(availableSides(L, 'r0', 4, 6)).toEqual(['east', 'west', 'north', 'south'])
+  })
+
+  it('floorY maps floor bands', () => {
+    expect(floorY(0)).toBe(0)
+    expect(floorY(1)).toBe(1.5)
   })
 })

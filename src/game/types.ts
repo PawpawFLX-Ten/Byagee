@@ -60,9 +60,16 @@ export interface SpaceObstacle {
 
 export interface SpaceStairs {
   id: string
+  /** Stair foot (bottom end) center; y is always 0. */
   position: [number, number, number]
   fromRoom: RoomId
   toRoom: RoomId
+  /** Run axis of the ramp. */
+  axis: 'x' | 'z'
+  /** Foot-to-top run length along `axis`. */
+  length: number
+  /** Perpendicular width. */
+  width: number
 }
 
 export type SpaceEventId =
@@ -242,6 +249,8 @@ export interface SpaceConfig {
   minorMorphMaxBetweenBosses: number
   /** Gap between a new side room and its source room wall. */
   roomGap: number
+  /** Stair ramp width (perpendicular to the run axis). */
+  stairWidth: number
 }
 
 export interface ChaserConfig {

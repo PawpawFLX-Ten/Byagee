@@ -238,8 +238,11 @@ export function availableSides(
 ): RoomSide[] {
   const room = layout.rooms.find((r) => r.id === roomId)
   if (!room) return []
+  const roomFloor = room.floor ?? 0
+  // Only same-floor rooms/obstacles occupy ground space: an upstairs room
+  // floats above r0 and must not block its lateral expansion directions.
   const taken: { min: [number, number]; max: [number, number] }[] = [
-    ...layout.rooms,
+    ...layout.rooms.filter((r) => (r.floor ?? 0) === roomFloor),
     ...layout.obstacles,
   ]
   return SIDE_ORDER.filter((side) => {
@@ -374,4 +377,75 @@ export function roomIdForSeat(
   floor = 0,
 ): RoomId {
   return roomIdAt(layout, seat[0], seat[2], floor)
+}
+
+/** Room for a world XZ + Y position; floor inferred from height. */
+export function roomIdAtY(
+  layout: SpaceLayoutState,
+  x: number,
+  z: number,
+  y: number,
+): RoomId {
+  return roomIdAt(layout, x, z, floorFromPlayerY(y))
+}
+
+/** XZ footprint of a stair ramp (foot at `position`, rising along `axis`). */
+export function stairAabb(
+  stairs: SpaceStairs,
+): { min: [number, number]; max: [number, number] } {
+  const half = stairs.width / 2
+  if (stairs.axis === 'x') {
+    return {
+      min: [stairs.position[0], stairs.position[2] - half],
+      max: [stairs.position[0] + stairs.length, stairs.position[2] + half],
+    }
+  }
+  return {
+    min: [stairs.position[0] - half, stairs.position[2]],
+    max: [stairs.position[0] + half, stairs.position[2] + stairs.length],
+  }
+}
+
+function aabbContains(
+  aabb: { min: [number, number]; max: [number, number] },
+  x: number,
+  z: number,
+): boolean {
+  return x >= aabb.min[0] && x <= aabb.max[0] && z >= aabb.min[1] && z <= aabb.max[1]
+}
+
+/**
+ * World Y on a stair ramp at (x, z), or null outside every stair volume.
+ * Rises from 0 at the foot to FLOOR_ELEVATION at the top, linearly.
+ */
+export function stairYAt(
+  layout: SpaceLayoutState,
+  x: number,
+  z: number,
+): number | null {
+  for (const stairs of layout.stairs) {
+    const aabb = stairAabb(stairs)
+    if (!aabbContains(aabb, x, z)) continue
+    const t =
+      stairs.axis === 'x'
+        ? (x - aabb.min[0]) / stairs.length
+        : (z - aabb.min[1]) / stairs.length
+    return Math.max(0, Math.min(1, t)) * FLOOR_ELEVATION
+  }
+  return null
+}
+
+/**
+ * Ground-truth Y for an agent at (x, z): on a stair ramp → ramp height;
+ * otherwise snapped to the nearest floor band from the current Y.
+ */
+export function agentYAt(
+  layout: SpaceLayoutState,
+  x: number,
+  z: number,
+  currentY: number,
+): number {
+  const ramp = stairYAt(layout, x, z)
+  if (ramp !== null) return ramp
+  return floorY(floorFromPlayerY(currentY))
 }
