@@ -45,11 +45,15 @@ export const CONFIG: GameConfig = {
   boss: {
     intervalSec: 180,
     scale: 1.4,
-    baseLoudness: 0.85,
-    rageRadius: 4,
-    resistanceWindowSec: 1.2,
+    baseLoudness: 1.2,
+    rageRadius: 5,
+    resistanceWindowSec: 3,
     mouthHpByEra: [4, 6, 8],
-    moduleUnlockSec: { a: 180, b: 360, c: 540 },
+    moduleUnlockSec: { a: 0, b: 60, c: 120 },
+    pulseIntervalSec: 9,
+    pulseChargeMs: 1200,
+    pulseRadius: 5,
+    pulseInterruptDelayMs: 4000,
   },
   seatPositions: [
     // t-round (3)

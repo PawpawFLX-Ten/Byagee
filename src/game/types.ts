@@ -62,7 +62,9 @@ export interface SpaceStairs {
   toRoom: RoomId
 }
 
-export type SpaceEventId = 'A1' | 'A2' | 'A3' | 'A4' | 'C1' | 'C2' | 'C3' | 'C4' | 'C5'
+export type SpaceEventId =
+  | 'A1' | 'A2' | 'A3' | 'A4' | 'A5'
+  | 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6'
 
 export interface SpaceEventDef {
   id: SpaceEventId
@@ -107,6 +109,11 @@ export interface BossConfig {
   resistanceWindowSec: number
   mouthHpByEra: [number, number, number] // early/mid/late boss windows
   moduleUnlockSec: { a: number; b: number; c: number }
+  /** Rage pulse: periodic smack-catalyst burst with an interrupt window. */
+  pulseIntervalSec: number
+  pulseChargeMs: number
+  pulseRadius: number
+  pulseInterruptDelayMs: number
 }
 
 export interface NpcState {
@@ -145,6 +152,12 @@ export interface NpcState {
   idleSince: number
   smackingSince: number
   noiseReduction: number
+  /** Boss rage pulse: charging until this time (0 = not charging). */
+  pulseChargeUntil: number
+  /** Boss rage pulse: cannot start charging until this time. */
+  pulseCooldownUntil: number
+  /** Boss rage pulse: last burst fired at (0 = never). */
+  pulseFiredAt: number
 }
 
 export interface SkillDef {

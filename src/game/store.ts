@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CONFIG, SKILL_ORDER } from './config'
-import { createBossNpc, tickBossRage } from './bossModules'
+import { createBossNpc, interruptBossPulse, tickBossRage } from './bossModules'
 import {
   createChaser,
   inFaceRadius,
@@ -655,6 +655,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (n.role === 'chaser') chaserStaggerBefore.set(n.id, n.staggerUntil)
         }
         npcs = result.npcs
+        // Hitting a charging boss cancels its rage pulse (interrupt window).
+        if (result.hitIds.length > 0) {
+          npcs = npcs.map((n) => {
+            if (n.role === 'boss' && result.hitIds.includes(n.id)) {
+              return interruptBossPulse(n, now)
+            }
+            return n
+          })
+        }
         stats = {
           ...stats,
           skillHits: stats.skillHits + result.hitIds.length,

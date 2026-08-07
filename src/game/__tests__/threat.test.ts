@@ -31,6 +31,9 @@ const baseNpc = (overrides: Partial<NpcState> = {}): NpcState => ({
   idleSince: 0,
   smackingSince: 0,
   noiseReduction: 0,
+  pulseChargeUntil: 0,
+  pulseCooldownUntil: 0,
+  pulseFiredAt: 0,
   ...overrides,
 })
 

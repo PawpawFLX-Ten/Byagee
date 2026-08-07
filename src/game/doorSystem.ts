@@ -125,6 +125,9 @@ export function createNormalFromDoor(
     idleSince: now,
     smackingSince: 0,
     noiseReduction: 0,
+    pulseChargeUntil: 0,
+    pulseCooldownUntil: 0,
+    pulseFiredAt: 0,
   }
 }
 

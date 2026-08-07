@@ -58,6 +58,9 @@ export function createBossNpc(
     idleSince: now,
     smackingSince: 0,
     noiseReduction: 0,
+    pulseChargeUntil: 0,
+    pulseCooldownUntil: 0,
+    pulseFiredAt: 0,
   }
 }
 
@@ -121,10 +124,30 @@ export function demoteBoss(npc: NpcState): NpcState {
     bossModules: { a: false, b: false, c: false },
     comboHits: 0,
     raging: false,
+    pulseChargeUntil: 0,
+    pulseCooldownUntil: 0,
+    pulseFiredAt: 0,
     baseLoudness: 0.4 + (npc.seatIndex % 5) * 0.05,
   }
 }
 
+/** Cancel a charging rage pulse; the boss re-enters cooldown. */
+export function interruptBossPulse(
+  boss: NpcState,
+  now: number,
+): NpcState {
+  if (boss.role !== 'boss' || boss.pulseChargeUntil === 0) return boss
+  return {
+    ...boss,
+    pulseChargeUntil: 0,
+    pulseCooldownUntil: now + CONFIG.boss.pulseInterruptDelayMs,
+  }
+}
+
+/**
+ * Rage pulse state machine: cooldown → charging → burst (one-time catalyst).
+ * Bursts cancel silences/seals and fire up smackers inside the pulse radius.
+ */
 export function tickBossRage(
   bossNpc: NpcState,
   npcs: NpcState[],
@@ -138,21 +161,48 @@ export function tickBossRage(
   let boss = { ...bossNpc, raging }
   if (!raging) return { boss, npcs }
 
-  const next = npcs.map((n) => {
-    if (n.id === boss.id) return n
-    if (distance3(n.position, boss.position) > CONFIG.boss.rageRadius) return n
-    let o = { ...n }
-    if (o.status === 'sealed' || o.sealProp) {
-      o.status = 'idle'
-      o.sealProp = null
-      o.statusUntil = now + 400
+  const { pulseIntervalSec, pulseChargeMs, pulseRadius } = CONFIG.boss
+
+  // Cooldown done → start charging.
+  if (boss.pulseChargeUntil === 0 && now >= boss.pulseCooldownUntil) {
+    boss.pulseChargeUntil = now + pulseChargeMs
+  }
+
+  // Still charging — no catalyst yet.
+  if (boss.pulseChargeUntil > 0 && now < boss.pulseChargeUntil) {
+    return { boss, npcs }
+  }
+
+  // Charge finished → fire a single burst.
+  if (boss.pulseChargeUntil > 0 && now >= boss.pulseChargeUntil) {
+    boss = {
+      ...boss,
+      pulseChargeUntil: 0,
+      pulseCooldownUntil: now + pulseIntervalSec * 1000,
+      pulseFiredAt: now,
     }
-    if (o.status === 'idle' || o.status === 'silenced') {
-      o.status = 'smacking'
-      o.statusUntil = now + 2500
-      o.smackingSince = now
-    }
-    return o
-  })
-  return { boss, npcs: next.map((n) => (n.id === boss.id ? boss : n)) }
+    let changed = false
+    const next = npcs.map((n) => {
+      if (n.id === boss.id) return n
+      if (distance3(n.position, boss.position) > pulseRadius) return n
+      let o = { ...n }
+      if (o.status === 'sealed' || o.sealProp) {
+        o.status = 'idle'
+        o.sealProp = null
+        o.statusUntil = now + 400
+        changed = true
+      }
+      if (o.status === 'idle' || o.status === 'silenced') {
+        o.status = 'smacking'
+        o.statusUntil = now + 2500
+        o.smackingSince = now
+        changed = true
+      }
+      return o
+    })
+    if (!changed) return { boss, npcs }
+    return { boss, npcs: next.map((n) => (n.id === boss.id ? boss : n)) }
+  }
+
+  return { boss, npcs }
 }
