@@ -1,7 +1,7 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group, Mesh } from 'three'
-import { useGameStore } from '../game/store'
+import { useGameStore, HIT_FX_MS } from '../game/store'
 import type { SkillId } from '../game/types'
 
 const FX_COLOR: Record<SkillId, string> = {
@@ -16,24 +16,28 @@ const FX_COLOR: Record<SkillId, string> = {
 /** World-space burst that differs per skill. */
 export function SkillFx() {
   const hitFx = useGameStore((s) => s.hitFx)
-  const npcs = useGameStore((s) => s.npcs)
   const levelUpAt = useGameStore((s) => s.levelUpAt)
-  const playerPos = useGameStore((s) => s.playerPos)
   const ring = useRef<Mesh>(null)
   const levelRing = useRef<Mesh>(null)
   const hand = useRef<Group>(null)
   const cone = useRef<Mesh>(null)
   const projectile = useRef<Group>(null)
 
-  const targets = useMemo(() => {
-    if (!hitFx) return []
-    return npcs.filter((n) => hitFx.npcIds.includes(n.id))
-  }, [hitFx, npcs])
+  // Burst spawn positions snap at hit-FX start; animation reads live data.
+  const targets = hitFx
+    ? useGameStore.getState().npcs.filter((n) => hitFx.npcIds.includes(n.id))
+    : []
 
   useFrame(() => {
     if (hitFx) {
-      const life = 1 - (hitFx.until - performance.now()) / 700
+      const life = 1 - (hitFx.until - performance.now()) / HIT_FX_MS[hitFx.skillId]
       const t = Math.max(0, Math.min(1, life))
+      // Live NPC positions — hit FX tracks movement instead of a frozen snapshot.
+      const liveTargets = hitFx
+        ? useGameStore
+            .getState()
+            .npcs.filter((n) => hitFx.npcIds.includes(n.id))
+        : []
 
       if (
         (hitFx.skillId === 'megaphone' || hitFx.skillId === 'civility') &&
@@ -71,9 +75,9 @@ export function SkillFx() {
         cone.current.visible = false
       }
 
-      if (hitFx.skillId === 'slap' && hand.current && targets[0]) {
+      if (hitFx.skillId === 'slap' && hand.current && liveTargets[0]) {
         hand.current.visible = true
-        const p = targets[0].position
+        const p = liveTargets[0].position
         hand.current.position.set(p[0], 1.35 + t * 0.2, p[2])
         hand.current.rotation.z = -0.6 + t * 1.4
         hand.current.scale.setScalar(1.2 - t * 0.4)
@@ -82,11 +86,11 @@ export function SkillFx() {
       }
 
       // Gag projectile: flies from player to target in an arc
-      if (hitFx.skillId === 'gag' && projectile.current && targets[0]) {
+      if (hitFx.skillId === 'gag' && projectile.current && liveTargets[0]) {
         projectile.current.visible = true
-        const hitFxDuration = 500
-        const progress = Math.max(0, Math.min(1, 1 - (hitFx.until - performance.now()) / hitFxDuration))
-        const tgt = targets[0].position
+        const dur = HIT_FX_MS.gag
+        const progress = Math.max(0, Math.min(1, 1 - (hitFx.until - performance.now()) / dur))
+        const tgt = liveTargets[0].position
         const px = hitFx.playerPos[0] + (tgt[0] - hitFx.playerPos[0]) * progress
         const pz = hitFx.playerPos[2] + (tgt[2] - hitFx.playerPos[2]) * progress
         const py = 1.0 + Math.sin(progress * Math.PI) * 0.8
@@ -107,6 +111,7 @@ export function SkillFx() {
       if (levelUpAt > 0) {
         const elapsed = performance.now() - levelUpAt
         if (elapsed < 1500 && elapsed >= 0) {
+          const playerPos = useGameStore.getState().playerPos
           levelRing.current.visible = true
           levelRing.current.position.set(playerPos[0], 1.0, playerPos[2])
           const t = elapsed / 1500
@@ -196,7 +201,7 @@ function Burst({
   const ref = useRef<Group>(null)
   useFrame(() => {
     if (!ref.current) return
-    const t = 1 - (until - performance.now()) / 500
+    const t = 1 - (until - performance.now()) / HIT_FX_MS[skillId]
     const k = Math.max(0, Math.min(1, t))
     ref.current.position.y = 1.2 + k * 0.5
     ref.current.scale.setScalar(0.7 + k * 0.8)
@@ -228,27 +233,52 @@ function Burst({
   )
 }
 
+function PlungerItem({ id }: { id: string }) {
+  const ref = useRef<Group>(null)
+  useFrame(() => {
+    const npc = useGameStore.getState().npcs.find((n) => n.id === id)
+    if (ref.current && npc) {
+      ref.current.position.set(npc.position[0], 0, npc.position[2])
+    }
+  })
+  return (
+    <group ref={ref}>
+      {/* Plunger handle */}
+      <mesh position={[0, 2.1, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 0.6, 8]} />
+        <meshStandardMaterial color="#8b6914" />
+      </mesh>
+      {/* Plunger cup (rubber) */}
+      <mesh position={[0, 1.75, 0]}>
+        <cylinderGeometry args={[0.18, 0.12, 0.15, 12]} />
+        <meshStandardMaterial color="#c44" />
+      </mesh>
+    </group>
+  )
+}
+
 function Plungers() {
-  const npcs = useGameStore((s) => s.npcs)
   const plungerUntil = useGameStore((s) => s.plungerUntil)
-  if (plungerUntil <= 0) return null
+  const ids = useGameStore((s) => s.npcs.map((n) => n.id).join(','))
+  const [, force] = useState(0)
+
+  // Re-render once when the plunger window ends (state itself never changes).
+  useEffect(() => {
+    if (plungerUntil <= 0) return
+    const id = window.setTimeout(
+      () => force((x) => x + 1),
+      Math.max(0, plungerUntil - performance.now()) + 50,
+    )
+    return () => window.clearTimeout(id)
+  }, [plungerUntil])
+
   const now = performance.now()
-  if (now > plungerUntil) return null
+  if (plungerUntil <= 0 || now > plungerUntil) return null
+  const idList = ids.length ? ids.split(',') : []
   return (
     <group>
-      {npcs.map((npc) => (
-        <group key={npc.id} position={[npc.position[0], 0, npc.position[2]]}>
-          {/* Plunger handle */}
-          <mesh position={[0, 2.1, 0]}>
-            <cylinderGeometry args={[0.04, 0.04, 0.6, 8]} />
-            <meshStandardMaterial color="#8b6914" />
-          </mesh>
-          {/* Plunger cup (rubber) */}
-          <mesh position={[0, 1.75, 0]}>
-            <cylinderGeometry args={[0.18, 0.12, 0.15, 12]} />
-            <meshStandardMaterial color="#c44" />
-          </mesh>
-        </group>
+      {idList.map((id) => (
+        <PlungerItem key={id} id={id} />
       ))}
     </group>
   )

@@ -27,9 +27,9 @@ const WALL_SCREENS: { pos: [number, number, number]; rotY: number }[] = [
   { pos: [4.55, 1.1, -0.8], rotY: -Math.PI / 2 },
 ]
 
-function threatColor(threat: number): Color {
+function threatColor(threat: number, out: Color): Color {
   const t = Math.min(1, threat / 1.2)
-  return new Color().setRGB(
+  return out.setRGB(
     0.85 + t * 0.12,
     0.81 - t * 0.22,
     0.75 - t * 0.28,
@@ -123,10 +123,6 @@ function WallScreen({ pos, rotY }: { pos: [number, number, number]; rotY: number
 
 export function Atmosphere() {
   const { scene } = useThree()
-  const threat = useGameStore((s) => s.threat)
-  const npcs = useGameStore((s) => s.npcs)
-  const playerRoomId = useGameStore((s) => s.playerRoomId)
-  const playerPos = useGameStore((s) => s.playerPos)
   const tables = useGameStore((s) => s.runtimeTables)
   const mobile = useMemo(() => detectDevice().isTouch, [])
 
@@ -137,6 +133,7 @@ export function Atmosphere() {
   const keyColor = useMemo(() => new Color(), [])
 
   useFrame(() => {
+    const { npcs, playerRoomId, playerPos, threat } = useGameStore.getState()
     const roomSmackers = npcs.filter(
       (n) => n.status === 'smacking' && n.roomId === playerRoomId,
     ).length
@@ -151,7 +148,7 @@ export function Atmosphere() {
     const fogNear = Math.max(5.5, 14 - murk * 0.85)
     const fogFar = Math.max(17, 32 - murk * 1.45)
 
-    threatColor(threat).copy(fogColor)
+    threatColor(threat, fogColor)
     if (!scene.fog) {
       scene.fog = new Fog(fogColor.getHex(), fogNear, fogFar)
     } else {

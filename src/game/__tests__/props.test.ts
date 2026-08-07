@@ -53,6 +53,17 @@ describe('shouldSpawnProp', () => {
     expect(shouldSpawnProp({ elapsedSec: 90, nextPropAt: 90, existingProps: [prop], alive: true })).toBe(true)
   })
 
+  it('does not spawn beyond the floor cap', () => {
+    const props: PropState[] = Array.from({ length: CONFIG.props.maxOnFloor }, (_, i) => ({
+      id: `p${i}`,
+      type: 'heal',
+      position: [i, 0.5, 0],
+      spawnedAt: 0,
+      fadingSince: null,
+    }))
+    expect(shouldSpawnProp({ elapsedSec: 90, nextPropAt: 90, existingProps: props, alive: true })).toBe(false)
+  })
+
   it('does not spawn when dead', () => {
     expect(shouldSpawnProp({ elapsedSec: 45, nextPropAt: 45, existingProps: [], alive: false })).toBe(false)
   })

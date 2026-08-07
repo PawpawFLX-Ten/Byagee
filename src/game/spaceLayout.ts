@@ -137,6 +137,7 @@ export function addRoomConnected(
     toRoom: room.id,
     position: [midX, 0, midZ],
     latchedUntil: 0,
+    lastLatchedAt: 0,
   }
 
   return {

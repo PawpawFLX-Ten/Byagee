@@ -27,6 +27,8 @@ export type ChaserSpawnCtx = {
   bossSpawnThisBeat?: boolean
   totalNpcCount?: number
   maxNpcs?: number
+  /** Threat stayed >= threshold for sustainedThreatSec — early single-room access. */
+  sustainedThreat?: boolean
 }
 
 export type ThreatPart = {
@@ -45,10 +47,12 @@ export function shouldSpawnChaser(ctx: ChaserSpawnCtx): boolean {
   const cap = chaserCap(ctx.phase)
   if (ctx.chaserCount >= cap) return false
 
+  // Chasers don't use seats — only seated/traveling diners count toward the
+  // population cap. Otherwise a full late-game hall would never see a chaser.
   if (
     ctx.totalNpcCount !== undefined &&
     ctx.maxNpcs !== undefined &&
-    ctx.totalNpcCount >= ctx.maxNpcs
+    ctx.totalNpcCount - ctx.chaserCount >= ctx.maxNpcs
   ) {
     return false
   }
@@ -57,8 +61,9 @@ export function shouldSpawnChaser(ctx: ChaserSpawnCtx): boolean {
   const cheeseSpawn =
     ctx.roomCount >= 2 &&
     ctx.neighborShare >= CONFIG.chaser.neighborThreatShareToSpawn
+  const sustainedSpawn = ctx.sustainedThreat === true
 
-  return lateSpawn || cheeseSpawn
+  return lateSpawn || cheeseSpawn || sustainedSpawn
 }
 
 export function neighborThreatShare(
@@ -140,6 +145,7 @@ function wanderFurniture(
   obstacles: ObstacleCollider[],
   dt: number,
   bounds?: LayoutBounds,
+  layout?: SpaceLayoutState,
 ): NpcState {
   const table = nearestTable(npc.position, tables)
   const cx = table.position[0]
@@ -172,6 +178,7 @@ function wanderFurniture(
     facing: Math.atan2(mx, mz),
     status: 'walking',
     smackingSince: 0,
+    roomId: layout ? roomIdAt(layout, x, z, 0) : npc.roomId,
   }
 }
 
@@ -281,13 +288,13 @@ export function stepChaser(
     latchedOnPath(layout, next.roomId, playerRoomId, now)
 
   if (pathBlocked) {
-    return wanderFurniture(next, tables, obstacles, dt, opts.bounds)
+    return wanderFurniture(next, tables, obstacles, dt, opts.bounds, layout)
   }
 
   const playerHidden = opts.playerHidden ?? false
   const hideEscalated = opts.hideEscalated ?? false
   if (playerHidden && !hideEscalated) {
-    return wanderFurniture(next, tables, obstacles, dt, opts.bounds)
+    return wanderFurniture(next, tables, obstacles, dt, opts.bounds, layout)
   }
 
   const face = inFaceRadius(next, playerPos)
@@ -320,7 +327,11 @@ export function stepChaser(
     return { ...next, facing }
   }
 
-  const step = CONFIG.chaser.walkSpeed * dt
+  // Anti-kiting: speed scales up with distance so pure running-in-circles
+  // does not trivialize the chaser; close range stays dodgeable.
+  const speedScale =
+    1 + 0.5 * Math.min(1, Math.max(0, (dist - 2.5) / 6))
+  const step = CONFIG.chaser.walkSpeed * speedScale * dt
   const dirX = tx / dist
   const dirZ = tz / dist
   const mx = dirX * Math.min(step, dist)

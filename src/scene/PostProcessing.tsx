@@ -29,15 +29,19 @@ export function PostProcessing() {
         darkness={mobile ? 0.26 : vignetteDarkness}
         eskil={false}
       />
-      <Outline
-        blur
-        kernelSize={KernelSize.SMALL}
-        edgeStrength={mobile ? 2.2 : 3}
-        visibleEdgeColor={0xffdd66}
-        hiddenEdgeColor={0x664422}
-        xRay
-        blendFunction={BlendFunction.ALPHA}
-      />
+      {!mobile ? (
+        <Outline
+          blur
+          kernelSize={KernelSize.SMALL}
+          edgeStrength={3}
+          visibleEdgeColor={0xffdd66}
+          hiddenEdgeColor={0x664422}
+          xRay
+          blendFunction={BlendFunction.ALPHA}
+        />
+      ) : (
+        <></>
+      )}
     </EffectComposer>
   )
 }

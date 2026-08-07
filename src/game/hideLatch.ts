@@ -190,9 +190,19 @@ export function ensureMainDoorOpening(
         toRoom: 'outside',
         position: mainDoorPos,
         latchedUntil: 0,
+        lastLatchedAt: 0,
       },
     ],
   }
+}
+
+/** Re-latch cooldown: an opening cannot be latched twice within latchCooldownSec. */
+export function canLatchOpening(
+  opening: { lastLatchedAt: number },
+  now: number,
+): boolean {
+  if (opening.lastLatchedAt === 0) return true
+  return now - opening.lastLatchedAt >= CONFIG.hideLatch.latchCooldownSec * 1000
 }
 
 export function latchOpening(
@@ -209,7 +219,9 @@ export function latchOpening(
   return {
     ...next,
     openings: next.openings.map((o) =>
-      o.id === openingId ? { ...o, latchedUntil: until } : o,
+      o.id === openingId
+        ? { ...o, latchedUntil: until, lastLatchedAt: now }
+        : o,
     ),
   }
 }

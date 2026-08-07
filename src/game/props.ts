@@ -1,12 +1,11 @@
 import { CONFIG } from './config'
 import { t } from './i18n'
 import type { NpcState, PropState, PropType, TableDef } from './types'
-
-const ROOM_LIMIT = 4.35
+import type { SpaceLayoutState } from './spaceLayout'
 
 /**
  * Decide whether a new prop should spawn this tick.
- * Props persist until picked up — existing props do NOT block spawning.
+ * Capped at CONFIG.props.maxOnFloor so long runs do not grow the scene unbounded.
  */
 export function shouldSpawnProp(args: {
   elapsedSec: number
@@ -14,8 +13,9 @@ export function shouldSpawnProp(args: {
   existingProps: PropState[]
   alive: boolean
 }): boolean {
-  const { elapsedSec, nextPropAt, alive } = args
+  const { elapsedSec, nextPropAt, existingProps, alive } = args
   if (!alive) return false
+  if (existingProps.length >= CONFIG.props.maxOnFloor) return false
   return elapsedSec >= nextPropAt
 }
 
@@ -31,20 +31,39 @@ export function pickPropType(hp: number, maxHp: number): PropType {
 
 /**
  * Sample a random floor position, avoiding tables, walls, and door.
- * Uses rejection sampling with up to 20 retries.
+ * Samples inside the union of floor-0 rooms when a layout is provided,
+ * so expanded halls get props too. Rejection sampling with up to 20 retries.
  */
 export function sampleFloorPosition(
   tables: TableDef[],
   doorPos: [number, number, number],
+  layout?: SpaceLayoutState,
 ): [number, number, number] {
   const margin = CONFIG.props.spawnMargin
   const tableMargin = CONFIG.props.tableMargin
   const doorR = CONFIG.props.doorExclusionRadius
-  const bound = ROOM_LIMIT - margin
+
+  const rooms = layout?.rooms.filter((r) => r.floor === 0) ?? []
+  let minX = -4.35 + margin
+  let maxX = 4.35 - margin
+  let minZ = -4.35 + margin
+  let maxZ = 4.35 - margin
+  if (rooms.length > 0) {
+    minX = Math.min(...rooms.map((r) => r.min[0])) + margin
+    maxX = Math.max(...rooms.map((r) => r.max[0])) - margin
+    minZ = Math.min(...rooms.map((r) => r.min[1])) + margin
+    maxZ = Math.max(...rooms.map((r) => r.max[1])) - margin
+  }
+  const insideAnyRoom = (x: number, z: number) => {
+    if (rooms.length === 0) return true
+    return rooms.some((r) => x >= r.min[0] + 0.2 && x <= r.max[0] - 0.2 && z >= r.min[1] + 0.2 && z <= r.max[1] - 0.2)
+  }
 
   for (let attempt = 0; attempt < 20; attempt++) {
-    const x = (Math.random() * 2 - 1) * bound
-    const z = (Math.random() * 2 - 1) * bound
+    const x = minX + Math.random() * (maxX - minX)
+    const z = minZ + Math.random() * (maxZ - minZ)
+
+    if (!insideAnyRoom(x, z)) continue
 
     // Check door exclusion
     const distToDoor = Math.hypot(x - doorPos[0], z - doorPos[2])
@@ -65,8 +84,10 @@ export function sampleFloorPosition(
     return [x, CONFIG.props.floatHeight, z]
   }
 
-  // Fallback: center of room
-  return [0, CONFIG.props.floatHeight, 0]
+  // Fallback: center of primary room
+  const cx = rooms.length ? (rooms[0].min[0] + rooms[0].max[0]) / 2 : 0
+  const cz = rooms.length ? (rooms[0].min[1] + rooms[0].max[1]) / 2 : 0
+  return [cx, CONFIG.props.floatHeight, cz]
 }
 
 /**

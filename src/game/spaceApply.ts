@@ -331,6 +331,7 @@ function applyA4(input: ApplySpaceEventInput): ApplySpaceEventResult {
         toRoom: roomId,
         position: [2.5, 0, 2.5],
         latchedUntil: 0,
+        lastLatchedAt: 0,
       },
     ],
     stairs: [
@@ -486,6 +487,7 @@ function applyC4(input: ApplySpaceEventInput): ApplySpaceEventResult {
       toRoom: roomId,
       position: [-1.5, 0, 3.5],
       latchedUntil: 0,
+      lastLatchedAt: 0,
     },
   ]
 

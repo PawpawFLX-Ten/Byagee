@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  modulesForElapsed,
-  mouthHpForElapsed,
-  resolveBossHit,
-  demoteBoss,
-  tickBossRage,
-} from '../bossModules'
+import { modulesForElapsed, resolveBossHit, tickBossRage } from '../bossModules'
 import type { NpcState } from '../types'
 
 function boss(partial: Partial<NpcState> = {}): NpcState {

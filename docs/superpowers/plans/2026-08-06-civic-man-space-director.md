@@ -1,6 +1,6 @@
 # Civic Man Space Director — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ship multi-room / morph SpaceDirector, room-gated acoustics, chase NPCs with slap knockback, Space-hold hide/latch, and Three.js atmosphere (lights, smacker fog, character polish, light postprocessing) per the approved spec.
 
@@ -68,7 +68,7 @@ src/game/__tests__/threat.test.ts   # extend for roomGate
 **Interfaces:**
 - Produces: `NpcRole = 'normal' | 'boss' | 'chaser'`; `RoomId`; `SpaceEventKind`; layout-related types; CONFIG subsections `acoustics`, `space`, `chaser`, `hideLatch`
 
-- [ ] **Step 1: Extend roles and NPC fields**
+- [x] **Step 1: Extend roles and NPC fields**
 
 In `types.ts`, change:
 
@@ -118,7 +118,7 @@ export interface SpaceEventDef {
 }
 ```
 
-- [ ] **Step 2: Add CONFIG knobs**
+- [x] **Step 2: Add CONFIG knobs**
 
 In `config.ts` (and `GameConfig` in types if needed):
 
@@ -152,7 +152,7 @@ hideLatch: {
 },
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/game/types.ts src/game/config.ts
@@ -177,7 +177,7 @@ git commit -m "feat(space): add types and CONFIG knobs for Space Director"
   - `floorFactor(sameRoom: boolean, sameFloor: boolean): number`
   - `computeThreat(..., ctx: { playerRoomId, getNpcRoom, openings })` extended
 
-- [ ] **Step 1: Write failing acoustics tests**
+- [x] **Step 1: Write failing acoustics tests**
 
 ```ts
 // src/game/__tests__/acoustics.test.ts
@@ -209,12 +209,12 @@ describe('acoustics', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests — expect FAIL**
+- [x] **Step 2: Run tests — expect FAIL**
 
 Run: `npm test -- src/game/__tests__/acoustics.test.ts`  
 Expected: FAIL (module missing)
 
-- [ ] **Step 3: Implement `acoustics.ts`**
+- [x] **Step 3: Implement `acoustics.ts`**
 
 ```ts
 import { CONFIG } from './config'
@@ -236,7 +236,7 @@ export function floorFactor(sameRoom: boolean, sameFloor: boolean): number {
 }
 ```
 
-- [ ] **Step 4: Extend `computeThreat`**
+- [x] **Step 4: Extend `computeThreat`**
 
 Add optional context (default keeps old behavior for single room `r0`):
 
@@ -269,7 +269,7 @@ if (ctx) {
 sum += effectiveLoudness * distanceAttenuation(d) * gate
 ```
 
-- [ ] **Step 5: Add threat test — neighbor quieter than same room**
+- [x] **Step 5: Add threat test — neighbor quieter than same room**
 
 ```ts
 it('neighbor room contributes less than same room at equal distance', () => {
@@ -277,9 +277,9 @@ it('neighbor room contributes less than same room at equal distance', () => {
 })
 ```
 
-- [ ] **Step 6: Run `npm test` — expect PASS**
+- [x] **Step 6: Run `npm test` — expect PASS**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/game/acoustics.ts src/game/threat.ts src/game/__tests__/acoustics.test.ts src/game/__tests__/threat.test.ts
@@ -302,7 +302,7 @@ git commit -m "feat(space): room-gated acoustics for threat"
   - `hopDistance(layout, a, b): number`
   - `latchedOnPath(layout, from, to, now): boolean`
 
-- [ ] **Step 1: Failing tests for membership + hops**
+- [x] **Step 1: Failing tests for membership + hops**
 
 ```ts
 it('default layout is single room r0 covering spawn', () => {
@@ -316,13 +316,13 @@ it('after adding adjacent room, hopDistance is 1', () => {
 })
 ```
 
-- [ ] **Step 2: Implement minimal `spaceLayout.ts`** — rooms map, openings array, BFS hopDistance, AABB `roomIdAt` (highest floor whose AABB contains xz if overlapping).
+- [x] **Step 2: Implement minimal `spaceLayout.ts`** — rooms map, openings array, BFS hopDistance, AABB `roomIdAt` (highest floor whose AABB contains xz if overlapping).
 
-- [ ] **Step 3: Store holds `layout` + derives `playerRoomId` each tick from `playerPos`.
+- [x] **Step 3: Store holds `layout` + derives `playerRoomId` each tick from `playerPos`.
 
-- [ ] **Step 4: Wire `computeThreat` ctx from layout.**
+- [x] **Step 4: Wire `computeThreat` ctx from layout.**
 
-- [ ] **Step 5: `npm test` PASS + commit**
+- [x] **Step 5: `npm test` PASS + commit**
 
 ```bash
 git commit -m "feat(space): layout registry and player room membership"
@@ -344,7 +344,7 @@ git commit -m "feat(space): layout registry and player room membership"
   - `canFireSpaceEvent(state, now): boolean`
   - `scheduleFirstReward(demotedAtMs): number` // fireAt
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 it('first reward only picks inFirstRewardPool ids', () => {
@@ -360,13 +360,13 @@ it('respects cooldown', () => {
 })
 ```
 
-- [ ] **Step 2: Implement picker + cooldown helpers**
+- [x] **Step 2: Implement picker + cooldown helpers**
 
-- [ ] **Step 3: In store, when boss demotes and `bossesCleared === 1` first time, set `pendingSpaceEventAt = now + CONFIG.space.firstEventDelayAfterBossDemoteMs`**
+- [x] **Step 3: In store, when boss demotes and `bossesCleared === 1` first time, set `pendingSpaceEventAt = now + CONFIG.space.firstEventDelayAfterBossDemoteMs`**
 
-- [ ] **Step 4: Later bosses / cooldown path sets pending major; track `minorMorphsSinceBoss` for C5 cap**
+- [x] **Step 4: Later bosses / cooldown path sets pending major; track `minorMorphsSinceBoss` for C5 cap**
 
-- [ ] **Step 5: Tests PASS + commit**
+- [x] **Step 5: Tests PASS + commit**
 
 ```bash
 git commit -m "feat(space): SpaceDirector pick, cooldown, first Boss reward hook"
@@ -385,17 +385,17 @@ git commit -m "feat(space): SpaceDirector pick, cooldown, first Boss reward hook
 **Interfaces:**
 - Produces: `applySpaceEvent(layout, seats, tables, eventId, rng) => { layout, seats, tables, maxNpcs }`
 
-- [ ] **Step 1: Tests — A1 adds room+door+seats; C1 expands AABB; C2 shrinks and marks overflow seats invalid**
+- [x] **Step 1: Tests — A1 adds room+door+seats; C1 expands AABB; C2 shrinks and marks overflow seats invalid**
 
-- [ ] **Step 2: Implement A1, C1, C3, C5 fully; A2–A4/C2/C4 can no-op with console stub only if time-boxed—prefer implement all listed in spec before marking task done**
+- [x] **Step 2: Implement A1, C1, C3, C5 fully; A2–A4/C2/C4 can no-op with console stub only if time-boxed—prefer implement all listed in spec before marking task done**
 
-- [ ] **Step 3: Store on fire: apply event, bump `maxNpcs` to seat count, toast via i18n**
+- [x] **Step 3: Store on fire: apply event, bump `maxNpcs` to seat count, toast via i18n**
 
-- [ ] **Step 4: Scene reads layout rooms to render wall segments / door mesh (primitives)
+- [x] **Step 4: Scene reads layout rooms to render wall segments / door mesh (primitives)
 
-- [ ] **Step 5: Manual smoke: defeat Boss #1 → room changes
+- [x] **Step 5: Manual smoke: defeat Boss #1 → room changes
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git commit -m "feat(space): apply A/C space events to layout and seats"
@@ -419,7 +419,7 @@ git commit -m "feat(space): apply A/C space events to layout and seats"
   - `inFaceRadius(npc, playerPos): boolean`
   - `neighborThreatShare(threatParts): number`
 
-- [ ] **Step 1: Failing tests for spawn OR gates and face radius**
+- [x] **Step 1: Failing tests for spawn OR gates and face radius**
 
 ```ts
 it('spawns in late era even with one room', () => {
@@ -436,13 +436,13 @@ it('does not spawn if at cap or boss present', () => {
 })
 ```
 
-- [ ] **Step 2: Implement spawn + pursue toward player; if `distance < faceRadius` and `now > staggerUntil` → status smacking with high loudness; `ignoreRoomGate` true in threat ctx**
+- [x] **Step 2: Implement spawn + pursue toward player; if `distance < faceRadius` and `now > staggerUntil` → status smacking with high loudness; `ignoreRoomGate` true in threat ctx**
 
-- [ ] **Step 3: Population: `normals.length + bosses + chasers <= maxNpcs`**
+- [x] **Step 3: Population: `normals.length + bosses + chasers <= maxNpcs`**
 
-- [ ] **Step 4: Npcs.tsx — distinct color/scale/marker for `role === 'chaser'`**
+- [x] **Step 4: Npcs.tsx — distinct color/scale/marker for `role === 'chaser'`**
 
-- [ ] **Step 5: Tests PASS + commit**
+- [x] **Step 5: Tests PASS + commit**
 
 ```bash
 git commit -m "feat(space): chase NPC spawn and face-smack AI"
@@ -461,13 +461,13 @@ git commit -m "feat(space): chase NPC spawn and face-smack AI"
 **Interfaces:**
 - Produces: `applyChaserKnockback(npc, fromPos, now): NpcState` sets position nudge + `staggerUntil`
 
-- [ ] **Step 1: Test — slap on chaser sets staggerUntil and moves away; slap on seated does not change seat position**
+- [x] **Step 1: Test — slap on chaser sets staggerUntil and moves away; slap on seated does not change seat position**
 
-- [ ] **Step 2: In slap execute path, if target.role === 'chaser' || !seated, apply knockback; megaphone/civility shove only chasers/walkers**
+- [x] **Step 2: In slap execute path, if target.role === 'chaser' || !seated, apply knockback; megaphone/civility shove only chasers/walkers**
 
-- [ ] **Step 3: Silence prop: skip chasers or 0.3s interrupt only**
+- [x] **Step 3: Silence prop: skip chasers or 0.3s interrupt only**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(space): chaser knockback and AoE shove rules"
@@ -493,7 +493,7 @@ git commit -m "feat(space): chaser knockback and AoE shove rules"
   - `tickHide(state, moveIntent, now)`
   - `tickLatch(openings, now)`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 it('rejects hide in face radius', () => {
@@ -510,15 +510,15 @@ it('move intent exits hide', () => {
 })
 ```
 
-- [ ] **Step 2: Implement hold state machine — tap (< holdSec) still jumps via existing edge detect; hold fires hide/latch once**
+- [x] **Step 2: Implement hold state machine — tap (< holdSec) still jumps via existing edge detect; hold fires hide/latch once**
 
-- [ ] **Step 3: While hidden, chaser `stepChaser` loses direct seek (wander furniture) until search escalate**
+- [x] **Step 3: While hidden, chaser `stepChaser` loses direct seek (wander furniture) until search escalate**
 
-- [ ] **Step 4: Latch sets `opening.latchedUntil`; acoustics `latchedOnPath` true; chaser path treats opening closed**
+- [x] **Step 4: Latch sets `opening.latchedUntil`; acoustics `latchedOnPath` true; chaser path treats opening closed**
 
-- [ ] **Step 5: Touch jump button: pointerdown start hold timer; pointerup early = jump**
+- [x] **Step 5: Touch jump button: pointerdown start hold timer; pointerup early = jump**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git commit -m "feat(space): Space-hold hide under furniture and door latch"
@@ -538,19 +538,19 @@ git commit -m "feat(space): Space-hold hide under furniture and door latch"
 - Consumes: store `threat`, `npcs` smacking set, `playerRoomId`
 - Produces: reactive lights; fog density
 
-- [ ] **Step 1: Atmosphere component** — point lights at ceiling/table; `threat` drives ambient intensity and key color toward red
+- [x] **Step 1: Atmosphere component** — point lights at ceiling/table; `threat` drives ambient intensity and key color toward red
 
-- [ ] **Step 2: Fog** — `scene.fog` density base + k * (current-room smacking count) + face-chase bump; clamp max
+- [x] **Step 2: Fog** — `scene.fog` density base + k * (current-room smacking count) + face-chase bump; clamp max
 
-- [ ] **Step 3: Player** — simple limb group; slap arm swing on hitFx; crouch scale/position when hidden
+- [x] **Step 3: Player** — simple limb group; slap arm swing on hitFx; crouch scale/position when hidden
 
-- [ ] **Step 4: Diners** — slight body variance by seatIndex; stronger chew already exists—tune; chaser gait/marker
+- [x] **Step 4: Diners** — slight body variance by seatIndex; stronger chew already exists—tune; chaser gait/marker
 
-- [ ] **Step 5: Lamp sway useFrame; megaphone hit rattles food meshes slightly**
+- [x] **Step 5: Lamp sway useFrame; megaphone hit rattles food meshes slightly**
 
-- [ ] **Step 6: Manual visual check desktop + mobile**
+- [x] **Step 6: Manual visual check desktop + mobile**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git commit -m "feat(space): layered lights, smacker fog, character polish"
@@ -565,17 +565,17 @@ git commit -m "feat(space): layered lights, smacker fog, character polish"
 - Modify: `src/scene/GameCanvas.tsx` / `Atmosphere.tsx`
 - Modify: `src/game/deviceDetect.ts` if present for mobile quality flag
 
-- [ ] **Step 1: `npm install @react-three/postprocessing`**
+- [x] **Step 1: `npm install @react-three/postprocessing`**
 
-- [ ] **Step 2: EffectComposer — Bloom (low intensity), Vignette; Outline selected `targetId` mesh**
+- [x] **Step 2: EffectComposer — Bloom (low intensity), Vignette; Outline selected `targetId` mesh**
 
-- [ ] **Step 3: If mobile (`isTouch` / narrow), disable Bloom and halve point lights**
+- [x] **Step 3: If mobile (`isTouch` / narrow), disable Bloom and halve point lights**
 
-- [ ] **Step 4: Verify billboards still readable with fog+bloom**
+- [x] **Step 4: Verify billboards still readable with fog+bloom**
 
-- [ ] **Step 5: `npm test && npm run build` PASS**
+- [x] **Step 5: `npm test && npm run build` PASS**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git commit -m "feat(space): postprocessing outline bloom with mobile quality gate"
@@ -590,13 +590,13 @@ git commit -m "feat(space): postprocessing outline bloom with mobile quality gat
 - Modify: `src/ui/Hud.tsx` / Briefing foot controls line (Space hold hint)
 - Modify: `README.md` Round section
 
-- [ ] **Step 1: Add keys** — space event reward, latch, hide hint, chaser label
+- [x] **Step 1: Add keys** — space event reward, latch, hide hint, chaser label
 
-- [ ] **Step 2: Update briefing foot: long-press Space to hide/latch**
+- [x] **Step 2: Update briefing foot: long-press Space to hide/latch**
 
-- [ ] **Step 3: README Round 9 (or Space Director) bullet list**
+- [x] **Step 3: README Round 9 (or Space Director) bullet list**
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "docs: i18n and README for Space Director features"
@@ -643,3 +643,18 @@ Plan complete and saved to `docs/superpowers/plans/2026-08-06-civic-man-space-di
 2. **Inline Execution** — this session with executing-plans and checkpoints  
 
 Which approach?
+
+---
+
+## Post-execution follow-up (2026-08-07)
+
+All 11 tasks shipped on `feature/space-director` (commits 2897451…3891219). A follow-up quality pass was committed after Task 11:
+
+- **Chaser**: sustained-threat early unlock (`minThreatElapsedSec`/`sustainedThreat*`), population cap counts `non-exiting` only, anti-kite speed scaling, `roomId` tracked while wandering.
+- **Latch**: re-latch cooldown (`latchCooldownSec`) with toast, pause cancels in-flight holds.
+- **Props**: `maxOnFloor` cap (3), layout-aware `sampleFloorPosition` across expanded rooms.
+- **Skills**: true facing-cone check for cone skills (poop/megaphone/civility); skills blocked while paused.
+- **Boss**: spawn evicts via walk-out (not instant removal), spawn toast + HUD ETA (`bossEtaSec`).
+- **Perf**: `useGameStore.getState()` polling in `useFrame`, `memo` NPC meshes, temp-vector reuse, Outline disabled on mobile, occlusion raycast every 3rd frame.
+- **QA**: `src/game/__tests__/quality.test.ts` — smoke/perf/stress/concurrency suites (162 tests total).
+- Lint restored to exit 0 (`useSkill` renamed `fireSkill` in `Hud.tsx`); Deployment bundle refreshed.

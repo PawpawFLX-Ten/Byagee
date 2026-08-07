@@ -167,4 +167,54 @@ describe('skills', () => {
     expect(Math.hypot(hit.position[0], hit.position[2])).toBeGreaterThan(0.8)
     expect(hit.staggerUntil).toBeGreaterThan(1000)
   })
+
+  it('poop cone hits only NPCs within the facing cone', () => {
+    const mk = (x: number, z: number, id: string) => ({
+      ...createNpcs(0)[0],
+      id,
+      status: 'smacking' as const,
+      position: [x, 0, z] as [number, number, number],
+    })
+    // Facing +Z (yaw 0): targets in front (z>0) hit, behind (z<0) not.
+    const front = mk(0.5, 4, 'front')
+    const behind = mk(0.5, -4, 'behind')
+    const wide = mk(4, 0.5, 'wide') // ~83° off axis → outside 120° cone (60° half)
+    const result = tryUseSkill(
+      'poop',
+      [front, behind, wide],
+      [0, 0, 0],
+      null,
+      1000,
+      5,
+      cds(),
+      5,
+      { facingYaw: 0 },
+    )
+    expect(result.ok).toBe(true)
+    expect(result.hitIds).toContain('front')
+    expect(result.hitIds).not.toContain('behind')
+    expect(result.hitIds).not.toContain('wide')
+  })
+
+  it('poop cone fails when no NPC inside the cone', () => {
+    const mk = (x: number, z: number, id: string) => ({
+      ...createNpcs(0)[0],
+      id,
+      status: 'smacking' as const,
+      position: [x, 0, z] as [number, number, number],
+    })
+    const result = tryUseSkill(
+      'poop',
+      [mk(0.5, -4, 'behind')],
+      [0, 0, 0],
+      null,
+      1000,
+      5,
+      cds(),
+      5,
+      { facingYaw: 0 },
+    )
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBe('no_target')
+  })
 })

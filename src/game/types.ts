@@ -28,6 +28,8 @@ export interface SpaceOpening {
   /** World position of door center */
   position: [number, number, number]
   latchedUntil: number
+  /** Last latch time — drives re-latch cooldown (anti-cheese). */
+  lastLatchedAt: number
 }
 
 export interface SpaceRoom {
@@ -174,6 +176,8 @@ export interface PropsConfig {
   spawnMargin: number
   tableMargin: number
   doorExclusionRadius: number
+  /** Max props alive on the floor at once (perf + pacing cap). */
+  maxOnFloor: number
 }
 
 export interface AcousticsConfig {
@@ -198,11 +202,17 @@ export interface ChaserConfig {
   baseLoudness: number
   walkSpeed: number
   neighborThreatShareToSpawn: number
+  /** Early-game chaser access: sustained threat >= threshold after this elapsed. */
+  minThreatElapsedSec: number
+  sustainedThreatThreshold: number
+  sustainedThreatSec: number
 }
 
 export interface HideLatchConfig {
   holdSec: number
   latchDurationSec: number
+  /** Re-latch cooldown per opening — prevents permanent door blocking. */
+  latchCooldownSec: number
   searchEscalateSec: number
   interactRadius: number
 }

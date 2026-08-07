@@ -90,6 +90,52 @@ describe('shouldSpawnChaser', () => {
     ).toBe(false)
   })
 
+  it('spawns early single-room on sustained high threat', () => {
+    expect(
+      shouldSpawnChaser({
+        phase: 'early',
+        roomCount: 1,
+        neighborShare: 0,
+        chaserCount: 0,
+        bossPresent: false,
+        sustainedThreat: true,
+      }),
+    ).toBe(true)
+    expect(
+      shouldSpawnChaser({
+        phase: 'early',
+        roomCount: 1,
+        neighborShare: 0,
+        chaserCount: 0,
+        bossPresent: false,
+        sustainedThreat: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('sustained threat still respects boss presence and cap', () => {
+    expect(
+      shouldSpawnChaser({
+        phase: 'early',
+        roomCount: 1,
+        neighborShare: 0,
+        chaserCount: 1,
+        bossPresent: false,
+        sustainedThreat: true,
+      }),
+    ).toBe(false)
+    expect(
+      shouldSpawnChaser({
+        phase: 'early',
+        roomCount: 1,
+        neighborShare: 0,
+        chaserCount: 0,
+        bossPresent: true,
+        sustainedThreat: true,
+      }),
+    ).toBe(false)
+  })
+
   it('respects pre-late cap of 1', () => {
     expect(chaserCap('mid')).toBe(1)
     expect(

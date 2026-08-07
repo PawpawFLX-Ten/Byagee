@@ -109,6 +109,7 @@ export function tryUseSkill(
   elapsedSec: number,
   cooldownReadyAt: Record<SkillId, number>,
   level: number,
+  opts?: { facingYaw?: number },
 ): {
   ok: boolean
   npcs: NpcState[]
@@ -139,10 +140,21 @@ export function tryUseSkill(
   const hitIds: string[] = []
 
   if (skill.tags.includes('cone') && skill.coneAngle) {
+    const facingYaw = opts?.facingYaw ?? 0
+    const halfAngle = (skill.coneAngle / 2) * (Math.PI / 180)
     let hit = false
     next = next.map((npc) => {
       const d = distance3(npc.position, playerPos)
       if (d > effectiveRange) return npc
+      // True cone check: only NPCs within ±halfAngle of the cast facing.
+      const ang = Math.atan2(
+        npc.position[0] - playerPos[0],
+        npc.position[2] - playerPos[2],
+      )
+      let diff = ang - facingYaw
+      while (diff > Math.PI) diff -= Math.PI * 2
+      while (diff < -Math.PI) diff += Math.PI * 2
+      if (Math.abs(diff) > halfAngle) return npc
       hit = true
       hitIds.push(npc.id)
       const others = npcs.filter((n) => n.id !== npc.id).map((n) => ({ x: n.position[0], z: n.position[2] }))

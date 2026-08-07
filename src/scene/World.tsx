@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import {
@@ -28,7 +28,7 @@ import {
   type ProximityFlags,
 } from '../game/hideLatch'
 import { t } from '../game/i18n'
-import { useGameStore } from '../game/store'
+import { useGameStore, HIT_FX_MS } from '../game/store'
 import { useInputStore } from '../game/inputStore'
 import type { SkillId } from '../game/types'
 import { CABINET_POSITIONS } from './Atmosphere'
@@ -81,20 +81,39 @@ function Wall({
 
 export function WallOcclusionFader() {
   const { camera, scene } = useThree()
-  const playerPos = useGameStore((s) => s.playerPos)
   const raycaster = useMemo(() => new Raycaster(), [])
   const from = useMemo(() => new Vector3(), [])
   const to = useMemo(() => new Vector3(), [])
   const dir = useMemo(() => new Vector3(), [])
   const faded = useRef(new Set<MeshStandardMaterial>())
+  const origOpacity = useRef(new WeakMap<MeshStandardMaterial, number>())
+  const fadeWalls = useRef<Mesh[] | null>(null)
+  const frameCount = useRef(0)
 
   useFrame(() => {
+    const expired: MeshStandardMaterial[] = []
     for (const mat of faded.current) {
-      mat.opacity = Math.min(0.3, mat.opacity + 0.06)
+      const base = origOpacity.current.get(mat) ?? 0.3
+      mat.opacity = Math.min(base, mat.opacity + 0.06)
       mat.depthWrite = mat.opacity > 0.25
-      if (mat.opacity >= 0.3) faded.current.delete(mat)
+      if (mat.opacity >= base) expired.push(mat)
     }
+    for (const m of expired) faded.current.delete(m)
 
+    // Occlusion is slow to change — one raycast per 3 frames is plenty.
+    frameCount.current += 1
+    if (frameCount.current % 3 !== 0) return
+
+    if (!fadeWalls.current) {
+      fadeWalls.current = []
+      scene.traverse((o) => {
+        if (o.userData.fadeWall) fadeWalls.current!.push(o as Mesh)
+      })
+    }
+    const walls = fadeWalls.current
+    if (walls.length === 0) return
+
+    const playerPos = useGameStore.getState().playerPos
     from.copy(camera.position)
     to.set(playerPos[0], 1.2, playerPos[2])
     dir.subVectors(to, from)
@@ -104,12 +123,16 @@ export function WallOcclusionFader() {
     raycaster.set(from, dir)
     raycaster.far = dist - 0.15
 
-    const hits = raycaster.intersectObjects(scene.children, true)
+    // Only probe pre-collected fadeWall meshes instead of the whole scene.
+    const hits = raycaster.intersectObjects(walls, false)
     for (const hit of hits) {
       if (!hit.object.userData.fadeWall) continue
       const mesh = hit.object as Mesh
       const mat = mesh.material as MeshStandardMaterial
       if (!mat || Array.isArray(mat)) continue
+      if (!origOpacity.current.has(mat)) {
+        origOpacity.current.set(mat, mat.opacity)
+      }
       mat.transparent = true
       mat.opacity = Math.min(mat.opacity, 0.05)
       mat.depthWrite = false
@@ -269,7 +292,7 @@ export function Tables() {
   useFrame(() => {
     if (!foodGroup.current) return
     if (hitFx?.skillId === 'megaphone' && performance.now() < hitFx.until) {
-      const t = 1 - (hitFx.until - performance.now()) / 700
+      const t = 1 - (hitFx.until - performance.now()) / HIT_FX_MS.megaphone
       const shake = Math.sin(t * 55) * (1 - t) * 0.04
       foodGroup.current.position.set(shake, 0, shake * 0.6)
     } else {
@@ -492,17 +515,14 @@ export function Player() {
   const setPlayerPos = useGameStore((s) => s.setPlayerPos)
   const alive = useGameStore((s) => s.alive)
   const briefingDone = useGameStore((s) => s.briefingDone)
+  const paused = useGameStore((s) => s.paused)
   const skillAction = useGameStore((s) => s.skillAction)
   const hitFx = useGameStore((s) => s.hitFx)
   const shoutBannerUntil = useGameStore((s) => s.shoutBannerUntil)
-  const npcs = useGameStore((s) => s.npcs)
-  const tables = useGameStore((s) => s.runtimeTables)
-  const obstacles = useGameStore((s) => s.layout.obstacles)
-  const layout = useGameStore((s) => s.layout)
-  const paused = useGameStore((s) => s.paused)
   const playerHidden = useGameStore((s) => s.playerHidden)
   const setHideState = useGameStore((s) => s.setHideState)
   const applyLatch = useGameStore((s) => s.applyLatch)
+  const layout = useGameStore((s) => s.layout)
   useGameStore((s) => s.lang) // re-render on language change
   const jumpUntil = useRef(0)
   const jumpCooldownUntil = useRef(0)
@@ -513,9 +533,20 @@ export function Player() {
   const touchMoveX = useInputStore((s) => s.moveX)
   const touchMoveY = useInputStore((s) => s.moveY)
 
-  useFrame((_, dt) => {
-    if (!ref.current || !alive || !briefingDone) return
+  // Pause: cancel any in-flight hold so it cannot resolve instantly on resume.
+  useEffect(() => {
+    if (paused) {
+      holdState.current = cancelHold(holdState.current)
+      contextAtHoldStart.current = null
+    }
+  }, [paused])
 
+  const layoutBounds = useMemo(() => layoutBoundsFromLayout(layout, 0), [layout])
+
+  useFrame((_, dt) => {
+    if (!ref.current || !alive || !briefingDone || paused) return
+
+    const { npcs, runtimeTables, layout: liveLayout } = useGameStore.getState()
     const acting = skillAction !== null
     const now = performance.now()
     const isSpace = keys.has('Space')
@@ -531,8 +562,8 @@ export function Player() {
     )
     const prox = buildProximityContext(
       playerPos,
-      tables,
-      layout,
+      runtimeTables,
+      liveLayout,
       CONFIG.door.position,
       grounded,
       chaserFace,
@@ -559,8 +590,9 @@ export function Player() {
           if (resolved.action === 'hide') {
             setHideState(true, now)
           } else if (resolved.action === 'latch' && prox.openingId) {
-            applyLatch(prox.openingId, now)
-            latchMimeUntil.current = now + LATCH_MIME_MS
+            if (applyLatch(prox.openingId, now)) {
+              latchMimeUntil.current = now + LATCH_MIME_MS
+            }
           }
         }
       }
@@ -584,12 +616,11 @@ export function Player() {
     }
     wasSpace.current = isSpace
 
-    const blockers = isAirborne
-      ? []
-      : npcs.map((n) => ({
-          x: n.position[0],
-          z: n.position[2],
-        }))
+    // NPCs always collide — jumping through a crowd is not allowed.
+    const blockers = npcs.map((n) => ({
+      x: n.position[0],
+      z: n.position[2],
+    }))
     if (!acting) {
       let forwardInput = 0
       let strafeInput = 0
@@ -622,32 +653,30 @@ export function Player() {
         mx /= len
         mz /= len
         const speed = CONFIG.playerSpeed
-        const bounds = layoutBoundsFromLayout(layout, 0)
         const [x, z] = moveWithCollision(
           ref.current.position.x,
           ref.current.position.z,
           mx * speed * dt,
           mz * speed * dt,
-          isAirborne ? [] : tables,
+          runtimeTables,
           blockers,
           CHAR_RADIUS,
-          isAirborne ? [] : obstacles,
-          bounds,
+          liveLayout.obstacles,
+          layoutBounds,
         )
         ref.current.position.x = x
         ref.current.position.z = z
         ref.current.rotation.y = Math.atan2(mx, mz)
       } else if (!isAirborne) {
         // Idle: still resolve overlap if NPCs walk into the player
-        const bounds = layoutBoundsFromLayout(layout, 0)
         const [x, z] = separateFromOthers(
           ref.current.position.x,
           ref.current.position.z,
           blockers,
-          tables,
+          runtimeTables,
           CHAR_RADIUS,
-          obstacles,
-          bounds,
+          liveLayout.obstacles,
+          layoutBounds,
         )
         ref.current.position.x = x
         ref.current.position.z = z
@@ -724,11 +753,14 @@ export function Player() {
       ref.current.position.y = 0
     }
 
-    setPlayerPos([
-      ref.current.position.x,
-      ref.current.position.y,
-      ref.current.position.z,
-    ])
+    setPlayerPos(
+      [
+        ref.current.position.x,
+        ref.current.position.y,
+        ref.current.position.z,
+      ],
+      ref.current.rotation.y,
+    )
   })
 
   const skillId: SkillId | null = skillAction?.skillId ?? null

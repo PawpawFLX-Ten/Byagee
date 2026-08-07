@@ -14,9 +14,6 @@ import { useGameStore } from '../game/store'
 
 /** Bridges game state → procedural audio. */
 export function AudioDirector() {
-  const npcs = useGameStore((s) => s.npcs)
-  const playerPos = useGameStore((s) => s.playerPos)
-  const threat = useGameStore((s) => s.threat)
   const alive = useGameStore((s) => s.alive)
   const briefingDone = useGameStore((s) => s.briefingDone)
   const hitFx = useGameStore((s) => s.hitFx)
@@ -44,28 +41,6 @@ export function AudioDirector() {
   }, [reduceNausea])
 
   useEffect(() => {
-    if (!briefingDone || !alive) {
-      syncChews([], playerPos)
-      return
-    }
-    if (!isAudioUnlocked()) return
-    const sources = npcs
-      .filter((n) => n.status === 'smacking')
-      .map((n) => ({ id: n.id, position: n.position }))
-    syncChews(sources, playerPos)
-  }, [npcs, alive, playerPos, briefingDone])
-
-  useEffect(() => {
-    if (!alive || !briefingDone) {
-      setThreatLevel(0)
-      return
-    }
-    if (threat >= CONFIG.hardThreat) setThreatLevel(2)
-    else if (threat >= CONFIG.softThreat) setThreatLevel(1)
-    else setThreatLevel(0)
-  }, [threat, alive, briefingDone])
-
-  useEffect(() => {
     if (wasAlive.current && !alive && briefingDone) playDeath()
     wasAlive.current = alive
   }, [alive, briefingDone])
@@ -81,6 +56,27 @@ export function AudioDirector() {
     lastToastId.current = toast.id
     if (!lastSkillOk) playFail()
   }, [toast, lastSkillOk])
+
+  // 20Hz poll of positional chew audio + threat drone — audio pans don't need 60Hz.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const s = useGameStore.getState()
+      if (!s.briefingDone || !s.alive) {
+        syncChews([], s.playerPos)
+        setThreatLevel(0)
+        return
+      }
+      if (!isAudioUnlocked()) return
+      const sources = s.npcs
+        .filter((n) => n.status === 'smacking')
+        .map((n) => ({ id: n.id, position: n.position }))
+      syncChews(sources, s.playerPos)
+      if (s.threat >= CONFIG.hardThreat) setThreatLevel(2)
+      else if (s.threat >= CONFIG.softThreat) setThreatLevel(1)
+      else setThreatLevel(0)
+    }, 50)
+    return () => window.clearInterval(id)
+  }, [])
 
   return null
 }

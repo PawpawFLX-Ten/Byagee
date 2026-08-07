@@ -20,6 +20,10 @@ function GameLoop() {
   return null
 }
 
+const _camDesired = new Vector3(0, 1.1, 2.4)
+const _camOffset = new Vector3()
+const _camToNpc = new Vector3()
+
 function CameraFollow() {
   const controls = useRef<{
     target: Vector3
@@ -28,34 +32,30 @@ function CameraFollow() {
     getAzimuthalAngle?: () => number
   } | null>(null)
   const { camera } = useThree()
-  const playerPos = useGameStore((s) => s.playerPos)
-  const npcs = useGameStore((s) => s.npcs)
-  const targetId = useGameStore((s) => s.targetId)
-  const desired = useRef(new Vector3(0, 1.1, 2.4))
-  const camOffset = useRef(new Vector3())
 
   useFrame(() => {
     if (!controls.current) return
-    desired.current.set(playerPos[0], 1.1, playerPos[2])
-    controls.current.target.lerp(desired.current, 0.12)
+    const { playerPos, npcs, targetId } = useGameStore.getState()
+    _camDesired.set(playerPos[0], 1.1, playerPos[2])
+    controls.current.target.lerp(_camDesired, 0.12)
 
     // Soft yaw assist: gently rotate orbit toward highest-priority smacker
     const focus =
       npcs.find((n) => n.id === targetId && n.status === 'smacking') ??
       npcs.find((n) => n.status === 'smacking')
     if (focus && controls.current.getAzimuthalAngle && controls.current.setAzimuthalAngle) {
-      camOffset.current.set(
+      _camOffset.set(
         camera.position.x - playerPos[0],
         0,
         camera.position.z - playerPos[2],
       )
-      const toNpc = new Vector3(
+      _camToNpc.set(
         focus.position[0] - playerPos[0],
         0,
         focus.position[2] - playerPos[2],
       )
-      if (toNpc.lengthSq() > 0.01 && camOffset.current.lengthSq() > 0.01) {
-        const desiredAz = Math.atan2(-toNpc.x, -toNpc.z)
+      if (_camToNpc.lengthSq() > 0.01 && _camOffset.lengthSq() > 0.01) {
+        const desiredAz = Math.atan2(-_camToNpc.x, -_camToNpc.z)
         const cur = controls.current.getAzimuthalAngle()
         let diff = desiredAz - cur
         while (diff > Math.PI) diff -= Math.PI * 2

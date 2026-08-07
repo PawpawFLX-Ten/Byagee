@@ -1,10 +1,11 @@
-import { useMemo, useRef } from 'react'
+import { memo, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import { Select } from '@react-three/postprocessing'
 import type { Group, Mesh } from 'three'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
+import { smackDamageDelayFor } from '../game/threat'
 import type { NpcState, SkillId } from '../game/types'
 
 const COLORS = ['#e07070', '#70a070', '#7070c0', '#c08050', '#80a0c0']
@@ -19,14 +20,30 @@ const HIT_COLOR: Record<SkillId, string> = {
   civility: '#44ccff',
 }
 
-function NpcMesh({
-  npc,
-  selected,
+/** Snapshot selectors used only for JSX that must be correct at render time. */
+function renderKeyFor(state: {
+  npcs: NpcState[]
+  targetId: string | null
+}, id: string): string {
+  const n = state.npcs.find((x) => x.id === id)
+  if (!n) return ''
+  return [
+    n.role,
+    n.status,
+    n.sealProp ?? 'none',
+    state.targetId === id,
+    Math.round(n.mouthHp),
+    n.raging,
+    n.exiting,
+  ].join('|')
+}
+
+function NpcMeshImpl({
+  id,
   hit,
   hitSkill,
 }: {
-  npc: NpcState
-  selected: boolean
+  id: string
   hit: boolean
   hitSkill: SkillId | null
 }) {
@@ -41,22 +58,35 @@ function NpcMesh({
   const cheekR = useRef<Mesh>(null)
   const flash = useRef<Mesh>(null)
   const wave = useRef<Group>(null)
+  const windup = useRef<Group>(null)
+  const windupFill = useRef<Mesh>(null)
+
+  // Static per-NPC config captured at render; per-frame data read live below.
+  const npc = useGameStore.getState().npcs.find((n) => n.id === id)!
+  // Re-render only when display-relevant state changes, never per-frame.
+  useGameStore((s) => renderKeyFor(s, id))
+
   const isChaser = npc.role === 'chaser'
   const variance = isChaser ? 1 : 0.94 + (npc.seatIndex % 5) * 0.035
   const bodyColor = isChaser ? CHASER_COLOR : COLORS[npc.seatIndex % COLORS.length]
   const torsoWidth = isChaser ? 0.28 : 0.24 + (npc.seatIndex % 3) * 0.02
-  const phase = useMemo(() => (isChaser ? npc.id.length * 1.3 : npc.seatIndex * 1.7), [npc.id, npc.seatIndex, isChaser])
+  const phase = useMemo(
+    () => (isChaser ? npc.id.length * 1.3 : npc.seatIndex * 1.7),
+    [npc.id, npc.seatIndex, isChaser],
+  )
   useGameStore((s) => s.lang) // re-render on language change
 
   useFrame(({ clock }) => {
+    const live = useGameStore.getState().npcs.find((n) => n.id === id)
+    if (!live) return
     const t = clock.elapsedTime + phase
-    const smacking = npc.status === 'smacking'
+    const smacking = live.status === 'smacking'
     const now = performance.now()
 
     if (root.current) {
-      root.current.position.set(npc.position[0], 0, npc.position[2])
-      root.current.rotation.y = npc.facing
-      if (isChaser && npc.status === 'walking') {
+      root.current.position.set(live.position[0], 0, live.position[2])
+      root.current.rotation.y = live.facing
+      if (isChaser && live.status === 'walking') {
         root.current.position.y = Math.abs(Math.sin(t * 14)) * 0.09
         root.current.rotation.x = Math.sin(t * 7) * 0.04
       } else {
@@ -81,7 +111,7 @@ function NpcMesh({
 
     if (head.current) {
       let wobble = 0
-      if (now < npc.wobbleUntil) {
+      if (now < live.wobbleUntil) {
         wobble = Math.sin(t * 40) * 0.35
       }
       if (smacking) {
@@ -107,7 +137,7 @@ function NpcMesh({
         upperLip.current.position.y = 0.02 + chew * 0.04
         lowerLip.current.position.y = -0.1 - chew * 0.16
         lowerLip.current.scale.set(1 + chew * 0.15, 1, 1)
-      } else if (npc.status === 'sealed' || npc.status === 'silenced') {
+      } else if (live.status === 'sealed' || live.status === 'silenced') {
         jaw.current.rotation.x = 0.05
         jaw.current.rotation.y = 0
         jaw.current.position.set(0, -0.06, 0.05)
@@ -155,6 +185,30 @@ function NpcMesh({
       wave.current.visible = smacking
       if (smacking) wave.current.scale.setScalar(1 + Math.abs(Math.sin(t * 7)) * 0.3)
     }
+
+    // Threat windup bar: fills while a smacker builds toward the damage window.
+    if (windup.current && windupFill.current) {
+      let show = false
+      let fill = 0
+      if (smacking) {
+        const elapsedSec = useGameStore.getState().elapsedSec
+        const delayMs = smackDamageDelayFor(elapsedSec) * 1000
+        const p = (now - live.smackingSince) / delayMs
+        if (p > 0 && p < 1) {
+          show = true
+          fill = p
+        }
+      }
+      windup.current.visible = show
+      if (show) {
+        windupFill.current.scale.x = fill
+        windupFill.current.position.x = -0.25 + fill * 0.25
+        const mat = windupFill.current.material as unknown as {
+          color: { setHSL: (h: number, s: number, l: number) => void }
+        }
+        mat.color.setHSL(0.08 - fill * 0.08, 1, 0.5)
+      }
+    }
   })
 
   const faceLocked = npc.status === 'sealed' || npc.status === 'silenced'
@@ -172,7 +226,7 @@ function NpcMesh({
             : null
 
   return (
-    <Select enabled={selected}>
+    <Select enabled={npc.id === useGameStore.getState().targetId}>
     <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]} scale={npc.scale * variance}>
       <mesh position={[0, isChaser ? 0.48 : 0.42, 0]} castShadow>
         <capsuleGeometry args={[torsoWidth, isChaser ? 0.42 : 0.35, 4, 8]} />
@@ -265,7 +319,7 @@ function NpcMesh({
         </group>
       </group>
 
-      {selected && (
+      {npc.id === useGameStore.getState().targetId && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.45, 0.55, 24]} />
           <meshBasicMaterial color="#ffdd66" transparent opacity={0.85} />
@@ -276,6 +330,20 @@ function NpcMesh({
         <sphereGeometry args={[0.65, 12, 12]} />
         <meshBasicMaterial color="#fff" transparent opacity={0.4} depthWrite={false} />
       </mesh>
+
+      {/* Threat windup indicator — fills while smack damage is charging */}
+      <group ref={windup} position={[0, 1.95, 0]} visible={false}>
+        <Billboard>
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[0.55, 0.07]} />
+            <meshBasicMaterial color="#200000" transparent opacity={0.55} />
+          </mesh>
+          <mesh ref={windupFill} position={[-0.25, 0, 0.02]}>
+            <planeGeometry args={[0.5, 0.035]} />
+            <meshBasicMaterial color="#ff6644" />
+          </mesh>
+        </Billboard>
+      </group>
 
       <group ref={wave} position={[0, 1.85, 0]} visible={false}>
         <Billboard>
@@ -326,21 +394,23 @@ function NpcMesh({
   )
 }
 
+/** Never re-render from parent — this component reads its own live state. */
+const NpcMesh = memo(NpcMeshImpl)
+
 export function Npcs() {
-  const npcs = useGameStore((s) => s.npcs)
-  const targetId = useGameStore((s) => s.targetId)
+  const ids = useGameStore((s) => s.npcs.map((n) => n.id).join(','))
   const hitFx = useGameStore((s) => s.hitFx)
   const hitSet = useMemo(() => new Set(hitFx?.npcIds ?? []), [hitFx])
+  const idList = ids.length ? ids.split(',') : []
 
   return (
     <group>
-      {npcs.map((npc) => (
+      {idList.map((id) => (
         <NpcMesh
-          key={npc.id}
-          npc={npc}
-          selected={npc.id === targetId}
-          hit={hitSet.has(npc.id)}
-          hitSkill={hitSet.has(npc.id) ? (hitFx?.skillId ?? null) : null}
+          key={id}
+          id={id}
+          hit={hitSet.has(id)}
+          hitSkill={hitSet.has(id) ? (hitFx?.skillId ?? null) : null}
         />
       ))}
     </group>

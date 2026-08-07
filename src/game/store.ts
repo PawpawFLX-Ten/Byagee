@@ -12,8 +12,11 @@ import {
 import { getPhase } from './difficulty'
 import { applyDoorAction, freeSeatIndexes, planBossAdmission, planDoorAction } from './doorSystem'
 import {
+  canLatchOpening,
+  ensureMainDoorOpening,
   isSearchEscalated,
   latchOpening,
+  MAIN_DOOR_OPENING_ID,
   tickLatch,
 } from './hideLatch'
 import { createNpcs, tickNpcs } from './npcFsm'
@@ -99,6 +102,16 @@ export interface SkillAction {
   faceYaw: number
 }
 
+/** Visual hit-FX lifespan per skill (store + scene must agree). */
+export const HIT_FX_MS: Record<SkillId, number> = {
+  slap: 500,
+  tape: 500,
+  megaphone: 800,
+  gag: 500,
+  poop: 500,
+  civility: 500,
+}
+
 export interface GameStore {
   hp: number
   alive: boolean
@@ -106,6 +119,7 @@ export interface GameStore {
   elapsedSec: number
   npcs: NpcState[]
   playerPos: [number, number, number]
+  playerYaw: number
   targetId: string | null
   cooldownReadyAt: Record<SkillId, number>
   threat: number
@@ -145,14 +159,15 @@ export interface GameStore {
   spaceEventToast: SpaceEventId | null
   playerHidden: boolean
   hideStartedAt: number | null
+  bossEtaSec: number | null
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
   restart: (now?: number) => void
   beginMission: (now?: number) => void
-  setPlayerPos: (pos: [number, number, number]) => void
+  setPlayerPos: (pos: [number, number, number], yaw?: number) => void
   setHideState: (hidden: boolean, now?: number) => void
-  applyLatch: (openingId: string, now?: number) => void
+  applyLatch: (openingId: string, now?: number) => boolean
   cycleTarget: () => void
   useSkill: (skillId: SkillId, now?: number) => void
   tick: (dt: number, now: number) => void
@@ -166,6 +181,19 @@ let fxSeq = 1
 let npcSeq = 0
 let lastDoorEventAt = 0
 let nextBossAtElapsed = CONFIG.boss.intervalSec
+let chaserThreatAccumMs = 0
+
+// Cached layout bounds — layout is immutable and only changes on space events.
+let cachedBoundsLayout: SpaceLayoutState | null = null
+let cachedLayoutBounds: ReturnType<typeof layoutBoundsFromLayout> | null = null
+
+function boundsForLayout(layout: SpaceLayoutState): ReturnType<typeof layoutBoundsFromLayout> {
+  if (cachedBoundsLayout !== layout) {
+    cachedBoundsLayout = layout
+    cachedLayoutBounds = layoutBoundsFromLayout(layout, 0)
+  }
+  return cachedLayoutBounds ?? layoutBoundsFromLayout(layout, 0)
+}
 
 function failText(reason: string): string {
   switch (reason) {
@@ -226,6 +254,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   elapsedSec: 0,
   npcs: [],
   playerPos: [0, 0, 2.4],
+  playerYaw: 0,
   targetId: null,
   cooldownReadyAt: emptyCooldowns(),
   threat: 0,
@@ -265,6 +294,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   spaceEventToast: null,
   playerHidden: false,
   hideStartedAt: null,
+  bossEtaSec: null,
   lang: getLang(),
 
   setLang: (lang) => {
@@ -287,6 +317,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       elapsedSec: 0,
       npcs,
       playerPos: [0, 0, 2.4],
+      playerYaw: 0,
       targetId: npcs[0]?.id ?? null,
       cooldownReadyAt: emptyCooldowns(),
       threat: 0,
@@ -324,6 +355,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       spaceEventToast: null,
       playerHidden: false,
       hideStartedAt: null,
+      bossEtaSec: null,
     })
   },
 
@@ -343,6 +375,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hp: CONFIG.maxHp,
       npcs,
       playerPos: [0, 0, 2.4],
+      playerYaw: 0,
       targetId: npcs[0]?.id ?? null,
       cooldownReadyAt: emptyCooldowns(),
       threat: 0,
@@ -378,6 +411,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       spaceEventToast: null,
       playerHidden: false,
       hideStartedAt: null,
+      bossEtaSec: null,
     })
   },
 
@@ -385,7 +419,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().beginMission(now)
   },
 
-  setPlayerPos: (pos) => set({ playerPos: pos }),
+  setPlayerPos: (pos, yaw) =>
+    set(
+      yaw !== undefined ? { playerPos: pos, playerYaw: yaw } : { playerPos: pos },
+    ),
 
   setHideState: (hidden, now = performance.now()) =>
     set({
@@ -393,10 +430,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hideStartedAt: hidden ? now : null,
     }),
 
-  applyLatch: (openingId, now = performance.now()) =>
-    set((s) => ({
-      layout: latchOpening(s.layout, openingId, now, CONFIG.door.position),
-    })),
+  applyLatch: (openingId, now = performance.now()) => {
+    const state = get()
+    let layout = state.layout
+    if (openingId === MAIN_DOOR_OPENING_ID) {
+      layout = ensureMainDoorOpening(layout, CONFIG.door.position)
+    }
+    const opening = layout.openings.find((o) => o.id === openingId)
+    if (opening && canLatchOpening(opening, now)) {
+      set({ layout: latchOpening(layout, openingId, now, CONFIG.door.position) })
+      return true
+    }
+    set({
+      toast: {
+        id: fxSeq++,
+        text: t('toast_latchCooldown'),
+        until: now + 900,
+      },
+    })
+    return false
+  },
 
   cycleTarget: () => {
     const { npcs, targetId } = get()
@@ -418,7 +471,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   useSkill: (skillId, now = performance.now()) => {
     const state = get()
-    if (!state.alive || !state.briefingDone) return
+    if (!state.alive || !state.briefingDone || state.paused) return
     if (skillId === 'poop' && !isQUnlocked(state.level)) return
     if (skillId === 'civility' && !isEUnlocked(state.level)) return
     if (state.skillAction) return
@@ -433,6 +486,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       state.elapsedSec,
       state.cooldownReadyAt,
       state.level,
+      { facingYaw: state.playerYaw },
     )
     if (!preview.ok) {
       set({
@@ -447,16 +501,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const windup = CONFIG.skills[skillId].windup
+    const castYaw =
+      skillId === 'poop' ? state.playerYaw : faceYawToTarget(
+        state.playerPos,
+        state.npcs,
+        state.targetId,
+        skillId,
+      )
     set({
       skillAction: {
         skillId,
         until: now + windup * 1000,
-        faceYaw: faceYawToTarget(
-          state.playerPos,
-          state.npcs,
-          state.targetId,
-          skillId,
-        ),
+        faceYaw: castYaw,
       },
       // Reserve cooldown at windup start so spam is blocked
       cooldownReadyAt: {
@@ -511,7 +567,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let runtimeFoodSpots = state.runtimeFoodSpots
     let maxNpcs = state.maxNpcs
     let spaceEventToast = state.spaceEventToast
-    const layoutBounds = layoutBoundsFromLayout(layout, 0)
+    const layoutBounds = boundsForLayout(layout)
 
     // Resolve windup → apply skill with knockback
     if (skillAction && now >= skillAction.until) {
@@ -526,6 +582,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         state.elapsedSec,
         cds,
         state.level,
+        { facingYaw: skillAction.faceYaw },
       )
       if (result.ok) {
         const demoted = demotedBossIds(npcs, result.npcs)
@@ -557,7 +614,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           id: fxSeq++,
           npcIds: result.hitIds,
           skillId: skillAction.skillId,
-          until: now + (skillAction.skillId === 'megaphone' ? 800 : 500),
+          until: now + HIT_FX_MS[skillAction.skillId],
           playerPos: state.playerPos,
         }
         // Award XP for skill hits
@@ -636,22 +693,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (elapsedSec >= nextBossAtElapsed) {
       nextBossAtElapsed += CONFIG.boss.intervalSec
       if (!npcs.some((n) => n.role === 'boss')) {
-        // If at cap, evict a non-critical NPC first
-        if (npcs.length >= maxNpcs) {
+        // If at cap, evict a non-critical NPC first — it walks out, boss takes its seat.
+        if (npcs.filter((n) => !n.exiting).length >= maxNpcs) {
           const admission = planBossAdmission(npcs, now)
           if (admission && admission.type === 'evict') {
-            // Directly remove the evicted NPC — boss needs the slot immediately
-            npcs = npcs.filter((n) => n.id !== admission.npcId)
+            npcs = npcs.map((n) =>
+              n.id === admission.npcId
+                ? {
+                    ...n,
+                    exiting: true,
+                    status: 'walking' as const,
+                    foodId: null,
+                    statusUntil: now + 6000,
+                  }
+                : n,
+            )
           }
         }
-        // Spawn boss into a free seat
+        // Spawn boss into a free seat (evicted NPC's seat frees immediately)
         const occupiedSeats = new Set(
-          npcs.filter((n) => n.seatIndex >= 0).map((n) => n.seatIndex),
+          npcs
+            .filter((n) => n.seatIndex >= 0 && !n.exiting)
+            .map((n) => n.seatIndex),
         )
         const free = freeSeatIndexes(occupiedSeats)
-        if (free.length && npcs.length < maxNpcs) {
+        if (
+          free.length &&
+          npcs.filter((n) => !n.exiting).length < maxNpcs
+        ) {
           npcs = [...npcs, createBossNpc(free[0], now, elapsedSec, `boss-${++npcSeq}`)]
           bossSpawnThisBeat = true
+          toast = { id: fxSeq++, text: t('toast_bossSpawn'), until: now + 2500 }
         }
       }
     }
@@ -667,6 +739,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       CONFIG.door.position[2],
       0,
     )
+    // Early chaser access: sustained high threat (fills the 0-3min content gap).
+    const threatHigh = threat >= CONFIG.chaser.sustainedThreatThreshold
+    chaserThreatAccumMs =
+      elapsedSec >= CONFIG.chaser.minThreatElapsedSec && threatHigh
+        ? chaserThreatAccumMs + dt * 1000
+        : 0
     if (
       shouldSpawnChaser({
         phase,
@@ -677,12 +755,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         bossSpawnThisBeat,
         totalNpcCount: npcs.length,
         maxNpcs,
+        sustainedThreat:
+          chaserThreatAccumMs >= CONFIG.chaser.sustainedThreatSec * 1000,
       })
     ) {
       npcs = [
         ...npcs,
         createChaser(`chaser-${++npcSeq}`, CONFIG.door.position, doorRoomId, now),
       ]
+      toast = { id: fxSeq++, text: t('toast_chaserSpawn'), until: now + 2200 }
     }
 
     // Normal door traffic (timed / threat / seat plugins)
@@ -738,7 +819,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // --- Prop spawn ---
     if (shouldSpawnProp({ elapsedSec, nextPropAt, existingProps: props, alive: hp > 0 })) {
       const type = pickPropType(hp, CONFIG.maxHp)
-      const pos = sampleFloorPosition(runtimeTables, CONFIG.door.position)
+      const pos = sampleFloorPosition(runtimeTables, CONFIG.door.position, layout)
       const id = `prop-${propSeq + 1}`
       const prop = createProp(type, pos, now, id)
       props = [...props, prop]
@@ -761,6 +842,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     props = props.filter((p) => p.fadingSince === null || now - p.fadingSince < fadeDuration)
 
     const alive = hp > 0
+    const bossEtaSec = npcs.some((n) => n.role === 'boss')
+      ? null
+      : Math.max(0, nextBossAtElapsed - elapsedSec)
 
     // Inter-boss minor morph (C5) once per cooldown window
     const interBoss = maybeScheduleInterBossMinorMorph({
@@ -833,10 +917,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         if (remap && remap.has(n.seatIndex)) {
           const newIdx = remap.get(n.seatIndex)!
+          const newSeat = runtimeSeats[newIdx]
+          const seated =
+            n.status === 'idle' ||
+            n.status === 'silenced' ||
+            n.status === 'sealed'
           return {
             ...n,
             seatIndex: newIdx,
             roomId: roomIdForSeatIndex(layout, runtimeSeats, newIdx),
+            // Seated NPCs teleport to their new seat during the morph;
+            // in-transit NPCs keep walking.
+            position:
+              seated && newSeat
+                ? ([...newSeat] as [number, number, number])
+                : n.position,
           }
         }
         return {
@@ -897,6 +992,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selfNoiseUntil,
       hp,
       alive,
+      bossEtaSec,
       targetId,
       title: titleForTime(elapsedSec),
       toast,

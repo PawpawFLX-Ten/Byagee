@@ -5,8 +5,8 @@ import {
   beginHold,
   cancelHold,
   canEnterHide,
+  canLatchOpening,
   createHoldState,
-  createHideState,
   isHoldReady,
   isSearchEscalated,
   latchOpening,
@@ -154,6 +154,7 @@ describe('latchOpening', () => {
           toRoom: 'r1',
           position: [0, 0, -4] as [number, number, number],
           latchedUntil: 0,
+          lastLatchedAt: 0,
         },
       ],
     }
@@ -161,6 +162,31 @@ describe('latchOpening', () => {
     expect(next.openings[0].latchedUntil).toBe(
       5000 + CONFIG.hideLatch.latchDurationSec * 1000,
     )
+    expect(next.openings[0].lastLatchedAt).toBe(5000)
+  })
+
+  it('enforces re-latch cooldown', () => {
+    const layout = createInitialLayout()
+    const withDoor = {
+      ...layout,
+      openings: [
+        {
+          id: 'door-0',
+          fromRoom: 'r0',
+          toRoom: 'r1',
+          position: [0, 0, -4] as [number, number, number],
+          latchedUntil: 0,
+          lastLatchedAt: 10_000,
+        },
+      ],
+    }
+    expect(canLatchOpening(withDoor.openings[0], 12_000)).toBe(false)
+    expect(
+      canLatchOpening(
+        withDoor.openings[0],
+        10_000 + CONFIG.hideLatch.latchCooldownSec * 1000,
+      ),
+    ).toBe(true)
   })
 
   it('tickLatch clears expired latches', () => {
@@ -173,6 +199,7 @@ describe('latchOpening', () => {
           toRoom: 'r1',
           position: [0, 0, -4] as [number, number, number],
           latchedUntil: 100,
+          lastLatchedAt: 0,
         },
       ],
     }
@@ -192,6 +219,7 @@ describe('nearestLatchTarget', () => {
           toRoom: 'r1',
           position: [1, 0, 0] as [number, number, number],
           latchedUntil: 0,
+          lastLatchedAt: 0,
         },
       ],
     }

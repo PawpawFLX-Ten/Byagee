@@ -93,6 +93,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     hud_selfNoise: '自噪音',
     hud_pauseTitle: '暂停 (Esc)',
     hud_nauseaShort: '降恶心音',
+    hud_bossEta: 'BOSS 将至',
     hud_hint: 'WASD · 拖拽转镜 · Tab 换目标 · 长按空格躲藏/闩门 · 1拍 2胶条 3吼 4塞嘴',
     hud_survived: '存活',
     hud_deathTitle: '吧唧致死',
@@ -105,6 +106,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     toast_noTarget: '没有目标',
     toast_fail: '无法使用',
     toast_levelUp_prefix: '升级！',
+    toast_latchCooldown: '门闩还在冷却',
+    toast_bossSpawn: 'BOSS 登场！',
+    toast_chaserSpawn: '有人来查房了…',
 
     // === Space events ===
     spaceEvent_A1: '扩建：新包间',
@@ -235,6 +239,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     hud_selfNoise: 'SelfNoise',
     hud_pauseTitle: 'Pause (Esc)',
     hud_nauseaShort: 'Less Nausea',
+    hud_bossEta: 'BOSS inbound',
     hud_hint: 'WASD · Drag · Tab · Hold Space hide/latch · 1 Slap · 2 Tape · 3 Shout · 4 Dildo',
     hud_survived: 'Survived',
     hud_deathTitle: 'Byagee to Die',
@@ -247,6 +252,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     toast_noTarget: 'Target lost',
     toast_fail: 'Unavailable',
     toast_levelUp_prefix: 'Level-UP!',
+    toast_latchCooldown: 'Latch cooling down',
+    toast_bossSpawn: 'BOSS arrives!',
+    toast_chaserSpawn: 'Someone\'s coming to check…',
 
     // === Space events ===
     spaceEvent_A1: 'Expansion: new side room',
@@ -377,6 +385,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     hud_selfNoise: 'EigenGeluid',
     hud_pauseTitle: 'Pauze (Esc)',
     hud_nauseaShort: 'Minder Misselijk',
+    hud_bossEta: 'BOSS nadert',
     hud_hint: 'WASD · Sleep · Tab · Spatie vast verstop/sluit · 1 Klap · 2 Plak · 3 Schreeuw · 4 Dildo',
     hud_survived: 'Overleefd',
     hud_deathTitle: 'Byagee Dood',
@@ -389,6 +398,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     toast_noTarget: 'Doel verloren',
     toast_fail: 'Niet beschikbaar',
     toast_levelUp_prefix: 'Level-UP!',
+    toast_latchCooldown: 'Vergrendeling koelt af',
+    toast_bossSpawn: 'BOSS komt eraan!',
+    toast_chaserSpawn: 'Iemand komt checken…',
 
     // === Space events ===
     spaceEvent_A1: 'Uitbreiding: nieuwe zijkamer',

@@ -215,6 +215,7 @@ export const CONFIG: GameConfig = {
     spawnMargin: 0.8,
     tableMargin: 1.0,
     doorExclusionRadius: 2.0,
+    maxOnFloor: 3,
   },
   acoustics: {
     roomGateNeighbor: 0.3,
@@ -236,10 +237,14 @@ export const CONFIG: GameConfig = {
     baseLoudness: 0.9,
     walkSpeed: 2.4,
     neighborThreatShareToSpawn: 0.45,
+    minThreatElapsedSec: 60,
+    sustainedThreatThreshold: 0.5,
+    sustainedThreatSec: 6,
   },
   hideLatch: {
     holdSec: 0.4,
     latchDurationSec: 6,
+    latchCooldownSec: 12,
     searchEscalateSec: 8,
     interactRadius: 1.35,
   },

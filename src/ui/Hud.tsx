@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { unlockAudio, setReduceNausea as applyNauseaAudio } from '../game/audio'
 import { CONFIG, SKILL_ORDER } from '../game/config'
 import { useGameStore } from '../game/store'
@@ -15,34 +15,21 @@ function formatTime(sec: number): string {
 }
 
 export function Hud() {
-  const hp = useGameStore((s) => s.hp)
-  const threat = useGameStore((s) => s.threat)
-  const elapsedSec = useGameStore((s) => s.elapsedSec)
-  const phase = useGameStore((s) => s.phase)
+  // Rare-changing state only — everything per-frame is polled at 10Hz below.
   const alive = useGameStore((s) => s.alive)
   const briefingDone = useGameStore((s) => s.briefingDone)
-  const cooldownReadyAt = useGameStore((s) => s.cooldownReadyAt)
-  const playerPos = useGameStore((s) => s.playerPos)
-  const npcs = useGameStore((s) => s.npcs)
-  const maxNpcs = useGameStore((s) => s.maxNpcs)
-  const population = npcs.length
-  const hasBoss = npcs.some((n) => n.role === 'boss')
-  const targetId = useGameStore((s) => s.targetId)
-  const useSkill = useGameStore((s) => s.useSkill)
-  const cycle = useGameStore((s) => s.cycleTarget)
-  const restart = useGameStore((s) => s.restart)
   const toast = useGameStore((s) => s.toast)
+  const lastSkillOk = useGameStore((s) => s.lastSkillOk)
   const spaceEventToast = useGameStore((s) => s.spaceEventToast)
   const clearSpaceEventToast = useGameStore((s) => s.clearSpaceEventToast)
-  const lastSkillOk = useGameStore((s) => s.lastSkillOk)
-  const guideTip = useGameStore((s) => s.guideTip)
-  const reduceNausea = useGameStore((s) => s.reduceNausea)
-  const setReduceNausea = useGameStore((s) => s.setReduceNausea)
-  const selfNoise = useGameStore((s) => s.selfNoise)
-  const xp = useGameStore((s) => s.xp)
-  const level = useGameStore((s) => s.level)
   const paused = useGameStore((s) => s.paused)
   const togglePause = useGameStore((s) => s.togglePause)
+  const reduceNausea = useGameStore((s) => s.reduceNausea)
+  const setReduceNausea = useGameStore((s) => s.setReduceNausea)
+  const fireSkill = useGameStore((s) => s.useSkill)
+  const cycle = useGameStore((s) => s.cycleTarget)
+  const restart = useGameStore((s) => s.restart)
+  const props = useGameStore((s) => s.props)
   useGameStore((s) => s.lang) // re-render on language change
   const [, setTick] = useState(0)
 
@@ -61,12 +48,12 @@ export function Hud() {
     const onKey = (e: KeyboardEvent) => {
       void unlockAudio()
       if (!briefingDone) return
-      if (e.code === 'Digit1' || e.code === 'Numpad1') useSkill('slap')
-      if (e.code === 'Digit2' || e.code === 'Numpad2') useSkill('tape')
-      if (e.code === 'Digit3' || e.code === 'Numpad3') useSkill('megaphone')
-      if (e.code === 'Digit4' || e.code === 'Numpad4') useSkill('gag')
-      if (e.code === 'KeyQ') useSkill('poop')
-      if (e.code === 'KeyE') useSkill('civility')
+      if (e.code === 'Digit1' || e.code === 'Numpad1') fireSkill('slap')
+      if (e.code === 'Digit2' || e.code === 'Numpad2') fireSkill('tape')
+      if (e.code === 'Digit3' || e.code === 'Numpad3') fireSkill('megaphone')
+      if (e.code === 'Digit4' || e.code === 'Numpad4') fireSkill('gag')
+      if (e.code === 'KeyQ') fireSkill('poop')
+      if (e.code === 'KeyE') fireSkill('civility')
       if (e.code === 'Tab') {
         e.preventDefault()
         cycle()
@@ -76,26 +63,26 @@ export function Hud() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [useSkill, cycle, restart, alive, briefingDone, togglePause])
+  }, [fireSkill, cycle, restart, alive, briefingDone, togglePause])
 
-  // Must stay above any early return — hooks order cannot change after briefing.
-  const edge = useMemo(() => {
-    const target = npcs.find((n) => n.id === targetId)
-    if (!target || !alive) return null
-    const dx = target.position[0] - playerPos[0]
-    const dz = target.position[2] - playerPos[2]
-    return Math.atan2(dx, -dz)
-  }, [npcs, targetId, playerPos, alive])
-
-  const props = useGameStore((s) => s.props)
-
-  const propEdge = useMemo(() => {
-    const prop = props.find((p) => p.fadingSince === null)
-    if (!prop) return null
-    const dx = prop.position[0] - playerPos[0]
-    const dz = prop.position[2] - playerPos[2]
-    return Math.atan2(dx, -dz)
-  }, [props, playerPos])
+  // Volatile values snapshotted at render time (10Hz tick + rare-key rerenders).
+  const s = useGameStore.getState()
+  const hp = s.hp
+  const threat = s.threat
+  const elapsedSec = s.elapsedSec
+  const phase = s.phase
+  const cooldownReadyAt = s.cooldownReadyAt
+  const npcs = s.npcs
+  const playerPos = s.playerPos
+  const xp = s.xp
+  const level = s.level
+  const selfNoise = s.selfNoise
+  const bossEtaSec = s.bossEtaSec
+  const guideTip = s.guideTip
+  const population = npcs.length
+  const hasBoss = npcs.some((n) => n.role === 'boss')
+  const targetId = s.targetId
+  const maxNpcs = s.maxNpcs
 
   if (!briefingDone) return null
 
@@ -111,6 +98,25 @@ export function Hud() {
   const showToast = toast && now < toast.until
 
   const SKILL_KEYS = ['1', '2', '3', '4', 'Q', 'E'] as const
+
+  // Edge cue: target direction from player (recomputed each render).
+  const target = npcs.find((n) => n.id === targetId)
+  let edge: number | null = null
+  if (target && alive) {
+    const dx = target.position[0] - playerPos[0]
+    const dz = target.position[2] - playerPos[2]
+    edge = Math.atan2(dx, -dz)
+  }
+
+  const prop = props.find((p) => p.fadingSince === null)
+  let propEdge: number | null = null
+  if (prop) {
+    const dx = prop.position[0] - playerPos[0]
+    const dz = prop.position[2] - playerPos[2]
+    propEdge = Math.atan2(dx, -dz)
+  }
+
+  const bossInbound = bossEtaSec !== null && bossEtaSec > 0 && bossEtaSec <= 12
 
   return (
     <div className={`hud ${threatClass === 'hard' ? 'danger' : ''}`}>
@@ -154,6 +160,7 @@ export function Hud() {
           {selfNoise > 0 && <span className="self-noise">{t('hud_selfNoise')}</span>}
           <span className="population">{population}/{maxNpcs}</span>
           {hasBoss && <span className="boss-cue">BOSS</span>}
+          {bossInbound && <span className="boss-eta">{t('hud_bossEta')} {Math.ceil(bossEtaSec!)}s</span>}
         </div>
         <label className="hud-nausea">
           <input
@@ -181,7 +188,7 @@ export function Hud() {
               className={`skill ${ready ? 'ready' : 'cd'} skill-${id}${locked ? ' locked' : ''}`}
               onClick={() => {
                 void unlockAudio()
-                useSkill(id as SkillId)
+                fireSkill(id as SkillId)
               }}
               disabled={!alive || locked}
             >
