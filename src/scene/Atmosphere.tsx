@@ -1,25 +1,17 @@
 import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import type { AmbientLight, DirectionalLight, Group, HemisphereLight, PointLight } from 'three'
-import { Color, DoubleSide, Fog } from 'three'
+import type { AmbientLight, DirectionalLight, HemisphereLight } from 'three'
+import { Color, Fog } from 'three'
 import { inFaceRadius } from '../game/chaser'
 import { detectDevice } from '../game/deviceDetect'
 import { useGameStore } from '../game/store'
 
 /** Wall cabinets — hide targets wired into hideLatch proximity. */
 export const CABINET_POSITIONS: [number, number, number][] = [
-  [-4.15, 0, 3.6],
-  [4.15, 0, 3.6],
-  [-4.15, 0, -2.8],
-  [4.15, 0, -2.8],
-]
-
-const CEILING_LAMPS: [number, number, number][] = [
-  [-2.5, 2.35, -1.5],
-  [2.5, 2.35, -1.5],
-  [0, 2.35, 2.2],
-  [-1.5, 2.35, 1.0],
-  [1.8, 2.35, 0.5],
+  [3.6, 0, -4.75],
+  [-3.6, 0, 4.75],
+  [-4.75, 0, -3.6],
+  [4.75, 0, 3.6],
 ]
 
 const WALL_SCREENS: { pos: [number, number, number]; rotY: number }[] = [
@@ -36,69 +28,29 @@ function threatColor(threat: number, out: Color): Color {
   )
 }
 
-function Lamp({ position, phase, mobile }: { position: [number, number, number]; phase: number; mobile: boolean }) {
-  const shade = useRef<Group>(null)
-  const light = useRef<PointLight>(null)
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime + phase
-    if (shade.current) {
-      shade.current.rotation.z = Math.sin(t * 1.1) * 0.06
-      shade.current.rotation.x = Math.sin(t * 0.7 + 1) * 0.03
-    }
-    if (light.current && !mobile) {
-      light.current.intensity = 0.55 + Math.sin(t * 2.3) * 0.08
-    }
-  })
-
-  return (
-    <group position={position}>
-      <mesh position={[0, -0.12, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.35, 6]} />
-        <meshStandardMaterial color="#4a4035" metalness={0.4} roughness={0.5} />
-      </mesh>
-      <group ref={shade} position={[0, -0.32, 0]}>
-        <mesh>
-          <coneGeometry args={[0.22, 0.18, 12, 1, true]} />
-          <meshStandardMaterial
-            color="#f5e6c8"
-            emissive="#ffcc88"
-            emissiveIntensity={0.15}
-            side={DoubleSide}
-          />
-        </mesh>
-      </group>
-      {!mobile && (
-        <pointLight
-          ref={light}
-          position={[0, -0.45, 0]}
-          color="#ffddb0"
-          intensity={0.6}
-          distance={7}
-          decay={2}
-        />
-      )}
-    </group>
-  )
-}
-
 function Cabinet({ position }: { position: [number, number, number] }) {
-  const towardCenter = position[0] < 0 ? 1 : -1
+  const towardX = position[0] < 0 ? 1 : -1
+  const towardZ = position[2] < 0 ? 1 : -1
+  // Face the room center: north/south cabinets face ±Z, east/west face ±X.
+  const rotY =
+    Math.abs(position[0]) > Math.abs(position[2])
+      ? (towardX > 0 ? -Math.PI / 2 : Math.PI / 2)
+      : (towardZ > 0 ? Math.PI : 0)
   return (
-    <group position={position} rotation={[0, towardCenter > 0 ? -Math.PI / 2 : Math.PI / 2, 0]}>
+    <group position={position} rotation={[0, rotY, 0]}>
       <mesh position={[0, 0.9, 0]} castShadow>
-        <boxGeometry args={[1.1, 1.8, 0.45]} />
+        <boxGeometry args={[1.0, 1.8, 0.5]} />
         <meshStandardMaterial color="#5a4a3a" roughness={0.85} />
       </mesh>
-      <mesh position={[0, 0.9, 0.24]}>
-        <boxGeometry args={[1.0, 1.65, 0.04]} />
+      <mesh position={[0, 0.9, 0.27]}>
+        <boxGeometry args={[0.9, 1.65, 0.04]} />
         <meshStandardMaterial color="#3a3028" />
       </mesh>
-      <mesh position={[-0.35, 0.9, 0.26]}>
+      <mesh position={[-0.32, 0.9, 0.29]}>
         <sphereGeometry args={[0.04, 8, 8]} />
         <meshStandardMaterial color="#c8a050" metalness={0.5} roughness={0.4} />
       </mesh>
-      <mesh position={[0.35, 0.9, 0.26]}>
+      <mesh position={[0.32, 0.9, 0.29]}>
         <sphereGeometry args={[0.04, 8, 8]} />
         <meshStandardMaterial color="#c8a050" metalness={0.5} roughness={0.4} />
       </mesh>
@@ -123,7 +75,6 @@ function WallScreen({ pos, rotY }: { pos: [number, number, number]; rotY: number
 
 export function Atmosphere() {
   const { scene } = useThree()
-  const tables = useGameStore((s) => s.runtimeTables)
   const mobile = useMemo(() => detectDevice().isTouch, [])
 
   const ambientRef = useRef<AmbientLight>(null)
@@ -131,7 +82,6 @@ export function Atmosphere() {
   const dirRef = useRef<DirectionalLight>(null)
   const fogColor = useMemo(() => new Color(), [])
   const keyColor = useMemo(() => new Color(), [])
-
   useFrame(() => {
     const { npcs, playerRoomId, playerPos, threat } = useGameStore.getState()
     const roomSmackers = npcs.filter(
@@ -174,8 +124,6 @@ export function Atmosphere() {
     }
   })
 
-  const tableLights = mobile ? tables.slice(0, 2) : tables
-
   return (
     <group>
       <ambientLight ref={ambientRef} intensity={0.42} />
@@ -190,21 +138,14 @@ export function Atmosphere() {
         intensity={0.55}
         shadow-mapSize={mobile ? [512, 512] : [1024, 1024]}
       />
-
-      {CEILING_LAMPS.map((pos, i) => (
-        <Lamp key={i} position={pos} phase={i * 1.7} mobile={mobile} />
-      ))}
-
-      {tableLights.map((t) => (
-        <pointLight
-          key={`tbl-${t.id}`}
-          position={[t.position[0], t.topY + 0.6, t.position[2]]}
-          color="#ffb878"
-          intensity={mobile ? 0.35 : 0.5}
-          distance={5}
-          decay={2}
-        />
-      ))}
+      {/* Single warm overhead light replaces per-table/lamp point lights. */}
+      <pointLight
+        position={[0, 3, 0]}
+        color="#ffd9a8"
+        intensity={mobile ? 0.4 : 0.65}
+        distance={14}
+        decay={2}
+      />
 
       {CABINET_POSITIONS.map((pos, i) => (
         <Cabinet key={i} position={pos} />
