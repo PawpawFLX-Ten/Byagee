@@ -46,6 +46,11 @@ function assertSanity(step: number) {
     expect(n.statusUntil).toBeGreaterThan(0)
     expect(ids.has(n.id), `unique id ${n.id} @${step}`).toBe(false)
     ids.add(n.id)
+    if (n.role === 'boss') {
+      expect(Number.isFinite(n.pulseChargeUntil), `boss pulse @${step}`).toBe(true)
+      expect(Number.isFinite(n.pulseCooldownUntil), `boss pulse cd @${step}`).toBe(true)
+      expect(Number.isFinite(n.pulseFiredAt), `boss pulse fired @${step}`).toBe(true)
+    }
   }
   expect(s.props.length).toBeLessThanOrEqual(CONFIG.props.maxOnFloor)
   for (const p of s.props) {
@@ -74,7 +79,10 @@ function runFrames(frames: number, dt = DT, startNow = 1_000_000): number {
   return (now - startNow) / 1000
 }
 
-function forceSpaceEvent(eventId: 'A1' | 'A2' | 'A3' | 'C1' | 'C2' | 'C3' | 'C5', now: number) {
+function forceSpaceEvent(
+  eventId: 'A1' | 'A2' | 'A3' | 'A5' | 'C1' | 'C2' | 'C3' | 'C5' | 'C6',
+  now: number,
+) {
   useGameStore.setState({
     queuedSpaceEventId: eventId,
     pendingSpaceEventAt: null,
@@ -196,7 +204,7 @@ describe('stress: 20 minute marathon with everything enabled', () => {
         // Inject one space event every ~60s of game time.
         const gameSec = (now - 4_000_000) / 1000
         if (gameSec % 60 < 5 && i % 2 === 0) {
-          const pick = ['A1', 'A2', 'A3', 'C1', 'C2', 'C3', 'C5'][i % 7] as const
+          const pick = ['A1', 'A2', 'A3', 'A5', 'C1', 'C2', 'C3', 'C6'][i % 8] as const
           forceSpaceEvent(pick, now)
         }
         const cur = useGameStore.getState()

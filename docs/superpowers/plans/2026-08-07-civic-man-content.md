@@ -1,6 +1,6 @@
 # Civic Man — 内容扩充实施计划
 
-> **For agentic workers:** 按 superpowers:executing-plans 逐任务实施。步骤用 checkbox（`- [ ]`）跟踪。
+> **For agentic workers:** 按 superpowers:executing-plans 逐任务实施。步骤用 checkbox（`- [x]`）跟踪。
 
 **目标:** 按 `docs/superpowers/specs/2026-08-07-civic-man-content-design.md` 实现 Boss 狂暴脉冲与 A5/C6 空间事件。
 
@@ -36,15 +36,15 @@ README.md                      # 一行
 
 ### Task 1: Boss 脉冲逻辑 + 测试
 
-- [ ] **Step 1: types/config** — NpcState 三字段；`CONFIG.boss.pulse*` 按 spec。
+- [x] **Step 1: types/config** — NpcState 三字段；`CONFIG.boss.pulse*` 按 spec。
 
-- [ ] **Step 2: 失败测试** — 状态机：冷却结束进入蓄力、蓄力到期释放（催化一次）、释放后冷却；打断：蓄力中命中→charge 清空 + cooldown=now+4s；非蓄力打断无效；降级/杀清字段。
+- [x] **Step 2: 失败测试** — 状态机：冷却结束进入蓄力、蓄力到期释放（催化一次）、释放后冷却；打断：蓄力中命中→charge 清空 + cooldown=now+4s；非蓄力打断无效；降级/杀清字段。
 
-- [ ] **Step 3: tickBossRage 重写** — 催化仅在释放 tick 执行一次；新增 `interruptBossPulse(boss, now)`。
+- [x] **Step 3: tickBossRage 重写** — 催化仅在释放 tick 执行一次；新增 `interruptBossPulse(boss, now)`。
 
-- [ ] **Step 4: store 接线** — 技能结算 ok 后，对命中 Boss 调 `interruptBossPulse`。
+- [x] **Step 4: store 接线** — 技能结算 ok 后，对命中 Boss 调 `interruptBossPulse`。
 
-- [ ] **Step 5: `npm test` PASS + commit**
+- [x] **Step 5: `npm test` PASS + commit**
 
 ```bash
 git commit -m "feat(boss): rage pulse state machine with interrupt window"
@@ -54,11 +54,11 @@ git commit -m "feat(boss): rage pulse state machine with interrupt window"
 
 ### Task 2: 脉冲场景展示
 
-- [ ] **Step 1: Npcs.tsx 蓄力环** — `pulseChargeUntil > now` 时金色 ring 由小变大（useFrame 读 live）。
+- [x] **Step 1: Npcs.tsx 蓄力环** — `pulseChargeUntil > now` 时金色 ring 由小变大（useFrame 读 live）。
 
-- [ ] **Step 2: GameCanvas 微震** — `pulseFiredAt` 距今 <500ms 镜头微震。
+- [x] **Step 2: GameCanvas 微震** — `pulseFiredAt` 距今 <500ms 镜头微震。
 
-- [ ] **Step 3: 手测冒烟 + commit**
+- [x] **Step 3: 手测冒烟 + commit**
 
 ```bash
 git commit -m "feat(scene): boss pulse charge ring and impact shake"
@@ -68,15 +68,15 @@ git commit -m "feat(scene): boss pulse charge ring and impact shake"
 
 ### Task 3: A5/C6 空间事件
 
-- [ ] **Step 1: types** — `SpaceEventId += 'A5'|'C6'`；`EVENTS` 表 += 两行（late pool, weightLate 2）。
+- [x] **Step 1: types** — `SpaceEventId += 'A5'|'C6'`；`EVENTS` 表 += 两行（late pool, weightLate 2）。
 
-- [ ] **Step 2: 失败测试** — A5：新房间+门、圆桌 4 座 + 吧台桌 2 座、1 障碍、maxNpcs 增 6；C6：3 障碍、座位与 maxNpcs 不变；spaceDirector：A5/C6 不在首奖池、late 池可出。
+- [x] **Step 2: 失败测试** — A5：新房间+门、圆桌 4 座 + 吧台桌 2 座、1 障碍、maxNpcs 增 6；C6：3 障碍、座位与 maxNpcs 不变；spaceDirector：A5/C6 不在首奖池、late 池可出。
 
-- [ ] **Step 3: applyA5/applyC6** — 复用 `addRoomConnected`/`appendTableBundle`/obstacles 模式；switch 接入。
+- [x] **Step 3: applyA5/applyC6** — 复用 `addRoomConnected`/`appendTableBundle`/obstacles 模式；switch 接入。
 
-- [ ] **Step 4: i18n** — `spaceEvent_A5`「餐吧角」/`spaceEvent_C6`「屏风阵」×3 语。
+- [x] **Step 4: i18n** — `spaceEvent_A5`「餐吧角」/`spaceEvent_C6`「屏风阵」×3 语。
 
-- [ ] **Step 5: `npm test` PASS + commit**
+- [x] **Step 5: `npm test` PASS + commit**
 
 ```bash
 git commit -m "feat(space): bar corner A5 and screen array C6 events"
@@ -86,9 +86,9 @@ git commit -m "feat(space): bar corner A5 and screen array C6 events"
 
 ### Task 4: 收尾
 
-- [ ] **Step 1: quality.test 扩展** — 长局模拟含 A5/C6 注入 + 狂暴脉冲存在时的不变量。
+- [x] **Step 1: quality.test 扩展** — 长局模拟含 A5/C6 注入 + 狂暴脉冲存在时的不变量。
 
-- [ ] **Step 2: README + 计划勾选 + `npm test && lint && build` + commit**
+- [x] **Step 2: README + 计划勾选 + `npm test && lint && build` + commit**
 
 ```bash
 git commit -m "docs: content pass README and plan complete"
