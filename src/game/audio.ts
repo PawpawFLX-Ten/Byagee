@@ -19,6 +19,7 @@ export function reverbAmountForArea(area: number): number {
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
 let chewBus: GainNode | null = null
+let reverbGain: GainNode | null = null
 let chewNodes: Map<
   string,
   {
@@ -47,8 +48,39 @@ function ac(): AudioContext | null {
     chewBus = ctx.createGain()
     chewBus.gain.value = 1
     chewBus.connect(master)
+    // Procedural reverb: decaying-noise impulse → convolution → wet send.
+    const convolver = ctx.createConvolver()
+    convolver.buffer = buildImpulse(ctx, 1.2, 2.6)
+    reverbGain = ctx.createGain()
+    reverbGain.gain.value = 0
+    chewBus.connect(convolver)
+    convolver.connect(reverbGain)
+    reverbGain.connect(master)
   }
   return ctx
+}
+
+/** Stereo impulse of exponentially decaying noise — one-shot reverb tail. */
+function buildImpulse(c: AudioContext, seconds: number, decay: number): AudioBuffer {
+  const rate = c.sampleRate
+  const len = Math.floor(rate * seconds)
+  const buf = c.createBuffer(2, len, rate)
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch)
+    for (let i = 0; i < len; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay)
+    }
+  }
+  return buf
+}
+
+/** Ramp the wet reverb send; 0 kills the tail entirely. */
+function setChewReverb(amount: number): void {
+  if (!reverbGain || !ctx) return
+  reverbGain.gain.linearRampToValueAtTime(
+    Math.max(0, Math.min(1, amount)),
+    ctx.currentTime + 0.12,
+  )
 }
 
 export async function unlockAudio(): Promise<void> {
@@ -232,13 +264,22 @@ export type ChewSource = {
   position: [number, number, number]
 }
 
+export type ChewMixOptions = {
+  /** Per-source room gate (1 = same room). Mirrors threat acoustics. */
+  gateFor?: (id: string) => number
+  /** Wet reverb send 0..1 for the player's room; 0 when no sources. */
+  reverbAmount?: number
+}
+
 /**
- * Keep chew loops in sync and spatialize by distance.
- * Near = bright/wet; far = muffled; many sources = louder wall.
+ * Keep chew loops in sync and spatialize by distance + room acoustics.
+ * Near = bright/wet; far = muffled; other rooms quieter and darker;
+ * many sources = louder wall. Reverb wet tracks the room size.
  */
 export function syncChews(
   sources: ChewSource[],
   playerPos: [number, number, number],
+  opts: ChewMixOptions = {},
 ) {
   const ids = sources.map((s) => s.id)
   const set = new Set(ids)
@@ -256,16 +297,23 @@ export function syncChews(
     const dist = distance3(src.position, playerPos)
     // 0m → 1, ~6m → ~0.22
     const atten = 1 / (1 + dist * 0.45)
-    const targetGain = Math.min(0.55, 0.1 + atten * 0.32) * wallBoost
-    const cutoff = reduceNausea
+    const gate = Math.min(1, Math.max(0, opts.gateFor?.(src.id) ?? 1))
+    // Room gate: same room full; distant rooms quieter and darker.
+    const gateGain = 0.55 + 0.45 * gate
+    const gateCutoff = 0.75 + 0.25 * gate
+    const targetGain =
+      Math.min(0.55, 0.1 + atten * 0.32) * wallBoost * gateGain
+    const cutoff = (reduceNausea
       ? 400 + atten * 500
-      : 500 + atten * 1600
+      : 500 + atten * 1600) * gateCutoff
     node.gain.gain.linearRampToValueAtTime(targetGain, ctx.currentTime + 0.05)
     node.filter.frequency.linearRampToValueAtTime(
       cutoff,
       ctx.currentTime + 0.05,
     )
   }
+
+  setChewReverb(count > 0 ? (opts.reverbAmount ?? 0) : 0)
 }
 
 export function playSkill(skillId: SkillId) {

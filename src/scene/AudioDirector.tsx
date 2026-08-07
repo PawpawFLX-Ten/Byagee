@@ -4,13 +4,18 @@ import {
   playDeath,
   playFail,
   playSkill,
+  reverbAmountForArea,
   setReduceNausea as applyNauseaAudio,
   setThreatLevel,
   syncChews,
   unlockAudio,
 } from '../game/audio'
+import { floorFactor, openingFactor, roomGate } from '../game/acoustics'
+import { inFaceRadius } from '../game/chaser'
 import { CONFIG } from '../game/config'
+import { hopDistance, latchedOnPath } from '../game/spaceLayout'
 import { useGameStore } from '../game/store'
+import type { RoomId } from '../game/types'
 
 /** Bridges game state → procedural audio. */
 export function AudioDirector() {
@@ -67,10 +72,37 @@ export function AudioDirector() {
         return
       }
       if (!isAudioUnlocked()) return
-      const sources = s.npcs
-        .filter((n) => n.status === 'smacking')
-        .map((n) => ({ id: n.id, position: n.position }))
-      syncChews(sources, s.playerPos)
+      const smackers = s.npcs.filter((n) => n.status === 'smacking')
+      const sources = smackers.map((n) => ({ id: n.id, position: n.position }))
+
+      // Same acoustics gates as threat: other rooms quieter + darker,
+      // latched doors muffle more, face-smacking chasers are full volume.
+      const layout = s.layout
+      const playerRoom: RoomId = s.playerRoomId
+      const playerRoomDef = layout.rooms.find((r) => r.id === playerRoom)
+      const playerFloor = playerRoomDef?.floor ?? 0
+      const floorOf = new Map<RoomId, number>(
+        layout.rooms.map((r) => [r.id, r.floor]),
+      )
+      const now = performance.now()
+      const gateFor = (id: string): number => {
+        const npc = smackers.find((n) => n.id === id)
+        if (!npc) return 1
+        if (npc.role === 'chaser' && inFaceRadius(npc, s.playerPos)) return 1
+        const gate =
+          roomGate(playerRoom, npc.roomId, hopDistance(layout, playerRoom, npc.roomId)) *
+          openingFactor(latchedOnPath(layout, playerRoom, npc.roomId, now)) *
+          floorFactor(playerRoom === npc.roomId, floorOf.get(npc.roomId) === playerFloor)
+        return gate
+      }
+      const area = playerRoomDef
+        ? (playerRoomDef.max[0] - playerRoomDef.min[0]) *
+          (playerRoomDef.max[1] - playerRoomDef.min[1])
+        : 0
+      syncChews(sources, s.playerPos, {
+        gateFor,
+        reverbAmount: reverbAmountForArea(area),
+      })
       if (s.threat >= CONFIG.hardThreat) setThreatLevel(2)
       else if (s.threat >= CONFIG.softThreat) setThreatLevel(1)
       else setThreatLevel(0)
