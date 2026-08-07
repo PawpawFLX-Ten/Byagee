@@ -1,6 +1,6 @@
 # Civic Man — NPC 剪影 Archetype 实施计划
 
-> **For agentic workers:** 按 superpowers:executing-plans 逐任务实施。步骤用 checkbox（`- [ ]`）跟踪。
+> **For agentic workers:** 按 superpowers:executing-plans 逐任务实施。步骤用 checkbox（`- [x]`）跟踪。
 
 **目标:** 按 `docs/superpowers/specs/2026-08-07-civic-man-archetypes-design.md` 给食客加几何剪影（头饰+体型）。
 
@@ -40,7 +40,7 @@ src/game/__tests__/doorSystem.test.ts  # 扩展
 
 **文件:** `archetype.ts`(NEW) / `types.ts` / `config.ts` / `npcFsm.ts` / `doorSystem.ts` / `bossModules.ts` / `chaser.ts` + 4 个测试文件
 
-- [ ] **Step 1: 类型与 CONFIG**
+- [x] **Step 1: 类型与 CONFIG**
 
 `types.ts`:
 
@@ -57,13 +57,13 @@ buildWeights: Record<NpcBuild, number>
 
 `config.ts`: `diner: { archetypeWeights: { tophat: 20, bowler: 15, chef: 15, cap: 25, bun: 15, none: 10 }, buildWeights: { slim: 25, normal: 50, stout: 25 } }`
 
-- [ ] **Step 2: 失败测试** — `archetype.test.ts`：pick 只出合法值、权重和=100、种子确定性；`createNpcs` 全量带字段；`createChaser` = none/slim；`createBossNpc` = tophat/stout；`createNormalFromDoor` 带字段。
+- [x] **Step 2: 失败测试** — `archetype.test.ts`：pick 只出合法值、权重和=100、种子确定性；`createNpcs` 全量带字段；`createChaser` = none/slim；`createBossNpc` = tophat/stout；`createNormalFromDoor` 带字段。
 
-- [ ] **Step 3: `archetype.ts` 实现** — 加权随机（单次 rng * 累计权重），导出 `pickArchetype(rng)` / `pickBuild(rng)` / `BossArchetype` / `ChaserBuild` 常量。
+- [x] **Step 3: `archetype.ts` 实现** — 加权随机（单次 rng * 累计权重），导出 `pickArchetype(rng)` / `pickBuild(rng)` / `BossArchetype` / `ChaserBuild` 常量。
 
-- [ ] **Step 4: 接入四个生成点**。
+- [x] **Step 4: 接入四个生成点**。
 
-- [ ] **Step 5: `npm test` PASS + commit**
+- [x] **Step 5: `npm test` PASS + commit**
 
 ```bash
 git commit -m "feat(diner): silhouette archetype data and spawn assignment"
@@ -75,15 +75,15 @@ git commit -m "feat(diner): silhouette archetype data and spawn assignment"
 
 **文件:** `Npcs.tsx`
 
-- [ ] **Step 1: `DinerSilhouette` 组件** — 按 archetype 渲染头饰（tophat/bowler/chef/cap/bun），挂 head group 上方；按 build 调整躯干宽度 + stout 腹部球。`castShadow`。
+- [x] **Step 1: `DinerSilhouette` 组件** — 按 archetype 渲染头饰（tophat/bowler/chef/cap/bun），挂 head group 上方；按 build 调整躯干宽度 + stout 腹部球。`castShadow`。
 
-- [ ] **Step 2: 接线** — NpcMesh 内 `archetype`/`build` 读取，头饰 `scale` 跟随根组 scale（Boss 1.4× 自动放大，接受）。
+- [x] **Step 2: 接线** — NpcMesh 内 `archetype`/`build` 读取，头饰 `scale` 跟随根组 scale（Boss 1.4× 自动放大，接受）。
 
-- [ ] **Step 3: 可读性自查** — 头饰最大 y 不超过名牌高度；不挡嘴部。
+- [x] **Step 3: 可读性自查** — 头饰最大 y 不超过名牌高度；不挡嘴部。
 
-- [ ] **Step 4: 手动冒烟**（桌面 dev 即可）— 开局食客带帽率 ~90%，Boss 礼帽壮实，追杀客无帽瘦高。
+- [x] **Step 4: 手动冒烟**（桌面 dev 即可）— 开局食客带帽率 ~90%，Boss 礼帽壮实，追杀客无帽瘦高。
 
-- [ ] **Step 5: `npm test && npm run lint && npm run build` PASS + commit**
+- [x] **Step 5: `npm test && npm run lint && npm run build` PASS + commit**
 
 ```bash
 git commit -m "feat(scene): render silhouette hats and builds on diners"
