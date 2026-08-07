@@ -133,6 +133,10 @@ npm run build
 ```text
 checkpoint/pre-space-director — 功能开发前可玩版本
 checkpoint/space-director-task-N — 各任务还原点（N=1…11）
+checkpoint/pre-upstairs — 楼上扩展开发前可玩版本
+checkpoint/upstairs-task-N — 楼上扩展各任务还原点（N=1…6）
+checkpoint/upstairs-fx — 门动画与事件反馈还原点
+checkpoint/upstairs-perf — 性能优化还原点
 ```
 
 检出示例：`git checkout checkpoint/space-director-task-10`
