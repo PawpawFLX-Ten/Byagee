@@ -3,6 +3,7 @@ import { unlockAudio, setReduceNausea as applyNauseaAudio } from '../game/audio'
 import { CONFIG, SKILL_ORDER } from '../game/config'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
+import { computeScore } from '../game/achievements'
 import { SkillIcon } from './SkillIcon'
 import type { SkillId } from '../game/types'
 import { titleForTime } from '../game/titles'
@@ -30,13 +31,27 @@ export function Hud() {
   const cycle = useGameStore((s) => s.cycleTarget)
   const restart = useGameStore((s) => s.restart)
   const props = useGameStore((s) => s.props)
+  const achievementQueue = useGameStore((s) => s.achievementQueue)
+  const shiftAchievementToast = useGameStore((s) => s.shiftAchievementToast)
   useGameStore((s) => s.lang) // re-render on language change
   const [, setTick] = useState(0)
+  const [achVisible, setAchVisible] = useState(false)
 
   useEffect(() => {
     const id = window.setInterval(() => setTick((t) => t + 1), 100)
     return () => window.clearInterval(id)
   }, [])
+
+  // Achievement toasts: show queue head for 2.5s, then shift.
+  useEffect(() => {
+    if (achievementQueue.length === 0) return
+    setAchVisible(true)
+    const id = window.setTimeout(() => {
+      setAchVisible(false)
+      shiftAchievementToast()
+    }, 2500)
+    return () => window.clearTimeout(id)
+  }, [achievementQueue, shiftAchievementToast])
 
   useEffect(() => {
     if (!spaceEventToast) return
@@ -83,6 +98,12 @@ export function Hud() {
   const hasBoss = npcs.some((n) => n.role === 'boss')
   const targetId = s.targetId
   const maxNpcs = s.maxNpcs
+  const stats = s.stats
+  const bossesCleared = s.bossesCleared
+  const best = s.best
+  const isNewBest = s.isNewBest
+  const lastScore = s.lastScore
+  const unlockedThisRun = s.unlockedThisRun
 
   if (!briefingDone) return null
 
@@ -117,6 +138,15 @@ export function Hud() {
   }
 
   const bossInbound = bossEtaSec !== null && bossEtaSec > 0 && bossEtaSec <= 12
+  const liveScore = computeScore({
+    elapsedSec,
+    skillHits: stats.skillHits,
+    bossesCleared,
+    propsPicked: stats.propsPicked,
+    spaceEvents: stats.spaceEvents,
+    chaserKnockbacks: stats.chaserKnockbacks,
+    level,
+  })
 
   return (
     <div className={`hud ${threatClass === 'hard' ? 'danger' : ''}`}>
@@ -159,6 +189,7 @@ export function Hud() {
           <span className="phase">{phase}</span>
           {selfNoise > 0 && <span className="self-noise">{t('hud_selfNoise')}</span>}
           <span className="population">{population}/{maxNpcs}</span>
+          <span className="score-chip" title={t('score_label')}>{liveScore}</span>
           {hasBoss && <span className="boss-cue">BOSS</span>}
           {bossInbound && <span className="boss-eta">{t('hud_bossEta')} {Math.ceil(bossEtaSec!)}s</span>}
         </div>
@@ -239,6 +270,13 @@ export function Hud() {
         <div className="toast guide">{guideTip}</div>
       )}
 
+      {achVisible && achievementQueue[0] && (
+        <div className="achievement-toast">
+          <strong>{t(`ach_${achievementQueue[0]}`)}</strong>
+          <span>{t(`ach_${achievementQueue[0]}_desc`)}</span>
+        </div>
+      )}
+
       {!alive && (
         <div className="death">
           <h1>{t('hud_deathTitle')}</h1>
@@ -246,6 +284,36 @@ export function Hud() {
             {t('hud_survived')} <strong>{formatTime(elapsedSec)}</strong>
           </p>
           <p className="title-badge">{titleForTime(elapsedSec)}</p>
+          {isNewBest && <p className="new-record">{t('new_record')}</p>}
+          <div className="score-box">
+            <div className="score-total">
+              <strong>{lastScore}</strong>
+              <em>{t('score_label')}</em>
+            </div>
+            <ul className="score-breakdown">
+              <li>{t('score_survival')} <span>{Math.floor(elapsedSec)}</span></li>
+              <li>{t('score_hits')} <span>{stats.skillHits}×10</span></li>
+              <li>{t('score_bosses')} <span>{bossesCleared}×250</span></li>
+              <li>{t('score_events')} <span>{stats.spaceEvents}×100</span></li>
+              <li>{t('score_props')} <span>{stats.propsPicked}×50</span></li>
+              <li>{t('score_chasers')} <span>{stats.chaserKnockbacks}×75</span></li>
+            </ul>
+            {best && (
+              <p className="best-record">
+                {t('best_record')} <strong>{best.score}</strong>
+              </p>
+            )}
+          </div>
+          {unlockedThisRun.length > 0 && (
+            <ul className="run-achievements">
+              {unlockedThisRun.map((id) => (
+                <li key={id}>
+                  <strong>{t(`ach_${id}`)}</strong>
+                  <span>{t(`ach_${id}_desc`)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="restart">{t('hud_deathRestart')}</p>
           <button type="button" onClick={() => restart()}>
             {t('hud_restart')}

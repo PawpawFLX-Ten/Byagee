@@ -83,6 +83,7 @@ export function Briefing() {
   const setReduceNausea = useGameStore((s) => s.setReduceNausea)
   const lang = useGameStore((s) => s.lang)
   const setLang = useGameStore((s) => s.setLang)
+  const best = useGameStore((s) => s.best)
   const [showDonation, setShowDonation] = useState(false)
 
   if (briefingDone) return null
@@ -116,6 +117,11 @@ export function Briefing() {
         </div>
         <p className="lede">
           {t('briefing_lede')}
+          {best && (
+            <em className="best-line">
+              {t('best_record')} {best.score}
+            </em>
+          )}
         </p>
 
         <h2>{t('briefing_tools')}</h2>

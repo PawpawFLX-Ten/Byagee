@@ -236,6 +236,117 @@ body,
   opacity: 0.8;
 }
 
+.new-record {
+  color: #f0c14a;
+  font-weight: 700;
+  font-size: 20px;
+  animation: toast-in 0.3s ease-out;
+  margin: 0;
+}
+
+.score-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(240, 193, 74, 0.35);
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-width: 260px;
+}
+
+.score-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.score-total strong {
+  font-size: 34px;
+  color: #f0c14a;
+}
+
+.score-total em {
+  font-style: normal;
+  opacity: 0.75;
+}
+
+.score-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.score-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 2px 0;
+  opacity: 0.9;
+}
+
+.score-breakdown span {
+  color: #f0c14a;
+}
+
+.best-record {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.run-achievements {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.run-achievements li {
+  display: flex;
+  gap: 8px;
+  background: rgba(240, 193, 74, 0.12);
+  border-left: 3px solid #f0c14a;
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+
+.run-achievements span {
+  opacity: 0.75;
+}
+
+.achievement-toast {
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(240, 193, 74, 0.92), rgba(214, 150, 32, 0.92));
+  color: #1a1510;
+  box-shadow: 0 0 24px rgba(240, 193, 74, 0.45);
+  animation: toast-in 0.2s ease-out;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.achievement-toast strong {
+  font-size: 16px;
+}
+
+.achievement-toast span {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
 .death button {
   margin-top: 8px;
   padding: 10px 22px;
@@ -318,6 +429,13 @@ body,
 .population {
   font-size: 12px;
   opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-chip {
+  font-size: 12px;
+  color: #f0c14a;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -444,6 +562,14 @@ body,
   margin: 0 0 8px;
   font-size: 14px;
   opacity: 0.9;
+}
+
+.briefing .lede .best-line {
+  display: block;
+  margin-top: 6px;
+  color: #f0c14a;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .briefing h2 {
