@@ -87,6 +87,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     vol_sfx: '音效',
     vol_voice: '喊话语音',
     resume_run: '继续上局',
+    daily_title: '每日挑战',
+    daily_best: '今日最佳',
     briefing_go: '出警 · 开始制裁',
     briefing_foot: 'WASD 移动 · 短按空格跳跃 · 长按空格躲桌下/闩门 · 拖拽转镜 · Tab 换目标 · 噪音越大掉血越狠',
 
@@ -269,6 +271,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     vol_sfx: 'SFX',
     vol_voice: 'Shout voice',
     resume_run: 'Resume run',
+    daily_title: 'Daily run',
+    daily_best: 'Best today',
     briefing_go: 'Yo yo yo!',
     briefing_foot: 'WASD movement · Tap Space to jump · Hold Space to hide under table / latch door · Drag camera · Tab to aim · Louder = more HP damage',
 
@@ -451,6 +455,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     vol_sfx: 'Geluidseffecten',
     vol_voice: 'Schreeuwstem',
     resume_run: 'Hervat',
+    daily_title: 'Daguitdaging',
+    daily_best: 'Beste vandaag',
     briefing_go: 'Yo yo yo!',
     briefing_foot: 'WASD bewegen · Spatie tik = sprong · Spatie vasthouden = verstoppen/sluiten · Sleep camera · Tab richting · Hoe luider, hoe destructiever',
 

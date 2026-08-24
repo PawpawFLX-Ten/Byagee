@@ -6,6 +6,7 @@ import {
   setSfxVolume,
   setVoiceVolume,
 } from '../game/audio'
+import { todaySeed, installDailyRandom, restoreRandom, loadDailyBest } from '../game/daily'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
 import type { Lang } from '../game/i18n'
@@ -148,6 +149,7 @@ export function Briefing() {
   const best = useGameStore((s) => s.best)
   const [showDonation, setShowDonation] = useState(false)
   const [resumable] = useState(() => useGameStore.getState().hasResumableRun())
+  const dailyBest = loadDailyBest()
 
   if (briefingDone) return null
 
@@ -224,10 +226,25 @@ export function Briefing() {
           className="briefing-go"
           onClick={() => {
             void unlockAudio()
+            restoreRandom()
             beginMission()
           }}
         >
           {t('briefing_go')}
+        </button>
+        <button
+          type="button"
+          className="briefing-go briefing-daily"
+          onClick={() => {
+            void unlockAudio()
+            installDailyRandom(todaySeed())
+            beginMission()
+          }}
+        >
+          {t('daily_title')} #{todaySeed()}
+          {dailyBest !== null && (
+            <em className="daily-best">{t('daily_best')} {dailyBest}</em>
+          )}
         </button>
         {resumable && (
           <button

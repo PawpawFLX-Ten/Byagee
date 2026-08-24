@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { CONFIG, SKILL_ORDER } from './config'
 import { createBossNpc, interruptBossPulse, tickBossRage } from './bossModules'
+import { getDailySeed, installDailyRandom, isDailyActive, restoreRandom, saveDailyBest } from './daily'
 import {
   clockGapShiftMs,
   shiftCooldownClock,
@@ -273,6 +274,7 @@ function snapshotState(s: GameStore): object {
     spaceEventAt: s.spaceEventAt,
     playerHidden: s.playerHidden,
     hideStartedAt: s.hideStartedAt,
+    dailySeed: getDailySeed(),
   }
 }
 
@@ -683,7 +685,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // All stored stamps are in the pre-refresh wall-clock domain — shift
       // the whole snapshot forward by the gap so timers resume realistically.
       const shiftMs = now - data.savedAt
-      const state = data.state as unknown as GameStore
+      const rawState = data.state as Record<string, unknown>
+      // Daily runs keep their seeded RNG after a refresh — deterministic again.
+      const dailySeed = typeof rawState.dailySeed === 'number' ? rawState.dailySeed : null
+      delete rawState.dailySeed
+      const state = rawState as unknown as GameStore
+      if (dailySeed !== null) installDailyRandom(dailySeed)
       state.npcs = (state.npcs as NpcState[]).map((n) => shiftNpcClock(n, shiftMs))
       state.props = (state.props as PropState[]).map((p) => shiftPropClock(p, shiftMs))
       state.layout = shiftLayoutClock(state.layout as SpaceLayoutState, shiftMs)
@@ -1340,6 +1347,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         level,
       })
       clearSavedRun()
+      if (isDailyActive()) {
+        saveDailyBest(lastScore)
+        restoreRandom()
+      }
       if (!best || lastScore > best.score) {
         isNewBest = true
         best = { score: lastScore, survivalSec: Math.floor(elapsedSec), bossesCleared }

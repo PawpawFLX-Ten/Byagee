@@ -7,6 +7,7 @@ import { computeScore } from '../game/achievements'
 import { SkillIcon } from './SkillIcon'
 import type { SkillId } from '../game/types'
 import { titleForTime } from '../game/titles'
+import { getLastDailySeed, loadDailyBest } from '../game/daily'
 import { xpForNextLevel, MAX_LEVEL, isQUnlocked, isEUnlocked } from '../game/progression'
 
 function formatTime(sec: number): string {
@@ -315,6 +316,12 @@ export function Hud() {
             </ul>
           )}
           <p className="restart">{t('hud_deathRestart')}</p>
+          {getLastDailySeed() !== null && (
+            <p className="daily-note">
+              {t('daily_title')} #{getLastDailySeed()}
+              <span> · {t('daily_best')} {loadDailyBest() ?? lastScore}</span>
+            </p>
+          )}
           <button type="button" onClick={() => restart()}>
             {t('hud_restart')}
           </button>
