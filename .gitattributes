@@ -1,0 +1,20 @@
+# Normalize line endings: LF in the repo for all text sources.
+# Prevents phantom "modified" diffs from CRLF working trees (core.autocrlf).
+* text=auto
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+
+# Binary assets — never normalize.
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.glb binary
