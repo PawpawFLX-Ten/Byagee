@@ -169,4 +169,20 @@ describe('rage pulse state machine', () => {
     expect(gone.npc.pulseCooldownUntil).toBe(0)
     expect(gone.npc.pulseFiredAt).toBe(0)
   })
+
+  it('keeps charge progress in npcs even when the caller ignores .boss', () => {
+    // Regression: the store used to discard rageResult.boss, so a charge
+    // written only to the local copy reset every frame and never fired.
+    const b = ragingBoss({ pulseCooldownUntil: 0 })
+    let npcs: NpcState[] = [b]
+    const chargeDone = 10_000 + CONFIG.boss.pulseChargeMs
+    for (let now = 10_000; now <= chargeDone; now += 16) {
+      const found = npcs.find((n) => n.role === 'boss')
+      if (!found) break
+      npcs = tickBossRage(found, npcs, now).npcs
+    }
+    const fired = npcs.find((n) => n.role === 'boss')
+    expect(fired?.pulseFiredAt).toBeGreaterThan(0)
+    expect(fired?.pulseChargeUntil).toBe(0)
+  })
 })

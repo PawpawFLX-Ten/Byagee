@@ -65,14 +65,12 @@ export function planDoorAction(args: {
     if (threat <= CONFIG.door.threatExitBiasBelow) preferEnter = false
   }
 
-  if (preferEnter && !atCap) {
-    if (plugins.seat && free.length === 0) {
-      // cannot enter
-    } else if (free.length > 0) {
-      return { type: 'enter', seatIndex: free[0] }
-    } else if (!plugins.seat) {
-      if (free.length > 0) return { type: 'enter', seatIndex: free[0] }
-    }
+  // Enter only when a seat is actually free — the seat plugin only decides
+  // whether a full house blocks the attempt outright or falls through to the
+  // exit logic below. (Kept as one guard so an `undefined` seatIndex is
+  // structurally impossible.)
+  if (preferEnter && !atCap && free.length > 0) {
+    return { type: 'enter', seatIndex: free[0] }
   }
 
   const exit = pickExitCandidate(npcs, now)

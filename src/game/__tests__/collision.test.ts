@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CHAR_RADIUS,
   clampToLayout,
+  knockbackFrom,
   layoutBoundsFromLayout,
   moveWithCollision,
   resolveObstaclesCollision,
@@ -245,5 +246,39 @@ describe('floor-aware collision', () => {
     const foot: [number, number] = [0.5, -3.2]
     const [fz] = resolveObstaclesCollision(foot[0], foot[1], colliders, CHAR_RADIUS, 1, 1.5)
     expect(Math.abs(fz - foot[1])).toBeGreaterThan(0.01)
+  })
+})
+
+describe('knockbackFrom anti-tunneling', () => {
+  // Thin vertical wall slab: x ∈ [0, 0.1], z ∈ [-5, 5].
+  const wall = [{ id: 'wall', min: [0, -5] as [number, number], max: [0.1, 5] as [number, number] }]
+
+  it('a long knockback stops at the near side of a thin wall', () => {
+    // Victim right of the wall, attacker behind them → pushed left into it.
+    const from: [number, number, number] = [2.8, 0, 0]
+    const to: [number, number, number] = [0.6, 0, 0]
+    const [x, z] = knockbackFrom(from, to, CONFIG.chaser.knockbackDist, [], [], wall)
+    // Old single-step code landed at x ≈ -1.6 — fully through the slab.
+    expect(x).toBeGreaterThan(0.1)
+    expect(z).toBeCloseTo(0, 5)
+  })
+
+  it('a long diagonal knockback keeps its full distance in open space', () => {
+    // Stay inside the default clampRoom limits so nothing interferes.
+    const from: [number, number, number] = [0, 0, 0]
+    const to: [number, number, number] = [1.2, 0, 1.6] // |to| = 2
+    const strength = 2.2
+    const [x, z] = knockbackFrom(from, to, strength, [], [])
+    const travelled = Math.hypot(x - to[0], z - to[2])
+    expect(travelled).toBeCloseTo(strength, 5)
+  })
+
+  it('a short knockback behaves as a single resolved step', () => {
+    const from: [number, number, number] = [2.8, 0, 0]
+    const to: [number, number, number] = [0.6, 0, 0]
+    const [x] = knockbackFrom(from, to, 0.25, [], [], wall)
+    // 0.6 - 0.25 = 0.35 — inside the interception band, resolved to the wall face.
+    expect(x).toBeGreaterThanOrEqual(0.1 + CHAR_RADIUS - 0.01)
+    expect(x).toBeLessThan(0.6)
   })
 })

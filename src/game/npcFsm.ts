@@ -377,6 +377,18 @@ export function tickNpcs(
       }
     }
 
+    // Defensive: a 'walking' NPC without a food target would fall through
+    // every branch below and freeze permanently while occupying population
+    // capacity — route it back into the idle rotation instead.
+    if (next.status === 'walking' && !next.foodId) {
+      return {
+        ...next,
+        status: 'idle' as const,
+        statusUntil: now + 500,
+        stuckTicks: 0,
+      }
+    }
+
     if (now < next.statusUntil) return next
 
     if (next.status === 'silenced' || next.status === 'sealed') {

@@ -96,6 +96,49 @@ describe('npc cross-room walking with walls', () => {
   })
 })
 
+describe('npc walking without a food target', () => {
+  it('falls back to idle instead of freezing forever', () => {
+    resetRuntimeSpace()
+    let npcs = createNpcs(0).map((n, i) =>
+      i === 0
+        ? {
+            ...n,
+            status: 'walking' as const,
+            foodId: null,
+            statusUntil: 999_999,
+          }
+        : { ...n, status: 'idle' as const, statusUntil: 999_999, foodId: null },
+    )
+    const bounds = layoutBoundsFromLayout(createInitialLayout(), 0)
+    // One tick must rescue the zombie — not wait out its long statusUntil.
+    const result = tickNpcs(
+      npcs, 100, 30, 0.1,
+      [0, 0, 0],
+      [],
+      bounds,
+      createInitialLayout(),
+    )
+    npcs = result.npcs
+    expect(npcs[0]!.status).toBe('idle')
+    expect(npcs[0]!.statusUntil).toBeLessThan(999_999)
+
+    // And it rejoins the rotation: eventually walking toward a food again.
+    let now = 100
+    for (let i = 0; i < 40; i++) {
+      now += 100
+      npcs = tickNpcs(
+        npcs, now, 30, 0.1,
+        [0, 0, 0],
+        [],
+        bounds,
+        createInitialLayout(),
+      ).npcs
+    }
+    expect(['walking', 'smacking']).toContain(npcs[0]!.status)
+    expect(npcs[0]!.foodId).not.toBeNull()
+  })
+})
+
 describe('npc upstairs walking', () => {
   function upstairs() {
     return applySpaceEvent({

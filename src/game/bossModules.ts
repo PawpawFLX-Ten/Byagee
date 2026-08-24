@@ -170,7 +170,7 @@ export function tickBossRage(
 
   // Still charging — no catalyst yet.
   if (boss.pulseChargeUntil > 0 && now < boss.pulseChargeUntil) {
-    return { boss, npcs }
+    return { boss, npcs: npcs.map((n) => (n.id === boss.id ? boss : n)) }
   }
 
   // Charge finished → fire a single burst.
@@ -200,7 +200,9 @@ export function tickBossRage(
       }
       return o
     })
-    if (!changed) return { boss, npcs }
+    if (!changed) {
+      return { boss, npcs: npcs.map((n) => (n.id === boss.id ? boss : n)) }
+    }
     return { boss, npcs: next.map((n) => (n.id === boss.id ? boss : n)) }
   }
 

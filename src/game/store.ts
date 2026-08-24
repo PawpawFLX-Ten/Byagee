@@ -2,6 +2,14 @@ import { create } from 'zustand'
 import { CONFIG, SKILL_ORDER } from './config'
 import { createBossNpc, interruptBossPulse, tickBossRage } from './bossModules'
 import {
+  clockGapShiftMs,
+  shiftCooldownClock,
+  shiftLayoutClock,
+  shiftNpcClock,
+  shiftPropClock,
+  shiftStamp,
+} from './gameClock'
+import {
   chaserExhaustSecForRound,
   createChaser,
   inFaceRadius,
@@ -203,6 +211,8 @@ export interface GameStore {
 let fxSeq = 1
 let npcSeq = 0
 let lastDoorEventAt = 0
+/** Wall-clock ms of the last executed tick — gap detection for pause/tab-away. */
+let lastTickAtMs = 0
 let nextBossAtElapsed = CONFIG.boss.intervalSec
 let nextChaserAtElapsed = CONFIG.chaser.firstAtSec
 let chaserRound = 0
@@ -357,6 +367,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const npcs = createNpcs(now)
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
+    lastTickAtMs = 0
     nextBossAtElapsed = CONFIG.boss.intervalSec
     nextChaserAtElapsed = CONFIG.chaser.firstAtSec
     chaserRound = 0
@@ -423,6 +434,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const npcs = createNpcs(now)
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
+    lastTickAtMs = 0
     nextBossAtElapsed = CONFIG.boss.intervalSec
     nextChaserAtElapsed = CONFIG.chaser.firstAtSec
     chaserRound = 0
@@ -532,13 +544,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setReduceNausea: (on) => set({ reduceNausea: on }),
 
-  togglePause: () => set((s) => {
-    if (!s.paused) {
-      return { paused: true, pausedAt: performance.now() }
-    }
-    const pauseDuration = performance.now() - (s.pausedAt || performance.now())
-    return { paused: false, startedAt: s.startedAt + pauseDuration, pausedAt: 0 }
-  }),
+  togglePause: () =>
+    set((s) => ({ paused: !s.paused, pausedAt: s.paused ? 0 : performance.now() })),
 
   useSkill: (skillId, now = performance.now()) => {
     const state = get()
@@ -614,13 +621,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let npcs = state.npcs
     let cooldownReadyAt = state.cooldownReadyAt
-    let selfNoise = now < state.selfNoiseUntil ? state.selfNoise : 0
+    let selfNoise = state.selfNoise
     let selfNoiseUntil = state.selfNoiseUntil
-    let hitFx = state.hitFx && now > state.hitFx.until ? null : state.hitFx
+    let hitFx = state.hitFx
     let skillAction = state.skillAction
-    let toast = state.toast && now > state.toast.until ? null : state.toast
+    let toast = state.toast
     let newXp = state.xp
     let plungerUntil = state.plungerUntil
+    let shoutBannerUntil = state.shoutBannerUntil
     let healFromSkill = 0
     let levelUpAt = state.levelUpAt
     let props = state.props
@@ -633,13 +641,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let queuedSpaceEventId = state.queuedSpaceEventId
     let lastSpaceEventAt = state.lastSpaceEventAt
     let minorMorphsSinceBoss = state.minorMorphsSinceBoss
-    let layout = tickLatch(state.layout, now)
+    let layout = state.layout
     let runtimeTables = state.runtimeTables
     let runtimeSeats = state.runtimeSeats
     let runtimeFoodSpots = state.runtimeFoodSpots
     let maxNpcs = state.maxNpcs
     let spaceEventToast = state.spaceEventToast
     let spaceEventAt = state.spaceEventAt
+
+    // Pause / tab-away: shift every absolute-ms stamp forward by the wall
+    // gap so timers resume exactly where they froze (no free cooldowns,
+    // no off-screen status expiry, no phase skips). Must run before any
+    // expiry checks below — they compare against the post-gap `now`.
+    const gapShiftMs = clockGapShiftMs(lastTickAtMs, now)
+    lastTickAtMs = now
+    if (gapShiftMs > 0) {
+      npcs = npcs.map((n) => shiftNpcClock(n, gapShiftMs))
+      props = props.map((p) => shiftPropClock(p, gapShiftMs))
+      layout = shiftLayoutClock(layout, gapShiftMs)
+      cooldownReadyAt = shiftCooldownClock(cooldownReadyAt, gapShiftMs) as typeof cooldownReadyAt
+      selfNoiseUntil += gapShiftMs
+      hitFx = hitFx ? { ...hitFx, until: hitFx.until + gapShiftMs } : hitFx
+      skillAction = skillAction ? { ...skillAction, until: skillAction.until + gapShiftMs } : skillAction
+      toast = toast ? { ...toast, until: toast.until + gapShiftMs } : toast
+      plungerUntil = shiftStamp(plungerUntil, gapShiftMs)
+      levelUpAt = shiftStamp(levelUpAt, gapShiftMs)
+      shoutBannerUntil = shiftStamp(shoutBannerUntil, gapShiftMs)
+      pendingSpaceEventAt =
+        pendingSpaceEventAt !== null ? pendingSpaceEventAt + gapShiftMs : null
+      lastSpaceEventAt = shiftStamp(lastSpaceEventAt, gapShiftMs)
+      spaceEventAt = spaceEventAt !== null ? spaceEventAt + gapShiftMs : null
+      lastDoorEventAt += gapShiftMs
+    }
+    const hideStartedAt =
+      state.hideStartedAt !== null ? state.hideStartedAt + gapShiftMs : null
+    const startedAt = state.startedAt + gapShiftMs
+
+    // Expiry passes — only meaningful once stamps are in the shifted domain.
+    selfNoise = now < selfNoiseUntil ? selfNoise : 0
+    if (hitFx && now > hitFx.until) hitFx = null
+    if (toast && now > toast.until) toast = null
+    layout = tickLatch(layout, now)
     const layoutBounds = boundsForLayout(layout)
 
     // Resolve windup → apply skill with knockback
@@ -739,7 +781,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       skillAction = null
     }
 
-    const elapsedSec = (now - state.startedAt) / 1000
+    const elapsedSec = (now - startedAt) / 1000
     const phase = getPhase(elapsedSec)
     // NPCs are guided through door gaps by waypointToward; only the player
     // gets wall colliders (see World.tsx) to avoid per-tick full-wall cost.
@@ -758,7 +800,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     npcs = tickResult.npcs.filter((n) => !tickResult.despawnIds.includes(n.id))
 
     const playerHidden = state.playerHidden
-    const hideEscalated = isSearchEscalated(state.hideStartedAt, now)
+    const hideEscalated = isSearchEscalated(hideStartedAt, now)
     const playerFloor = floorFromPlayerY(state.playerPos[1])
     const playerRoomId = roomIdAt(
       layout,
@@ -962,8 +1004,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // --- Remove fully faded props ---
+    // Only rebuild the array when something actually faded away, so the
+    // array identity stays stable and subscribers don't re-render each tick.
     const fadeDuration = 300 // ms
-    props = props.filter((p) => p.fadingSince === null || now - p.fadingSince < fadeDuration)
+    if (props.some((p) => p.fadingSince !== null && now - p.fadingSince >= fadeDuration)) {
+      props = props.filter((p) => p.fadingSince === null || now - p.fadingSince < fadeDuration)
+    }
 
     const alive = hp > 0
     const bossEtaSec = npcs.some((n) => n.role === 'boss')
@@ -1168,8 +1214,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       skillAction,
       cooldownReadyAt,
       guideTip: guideForElapsed(elapsedSec),
-      shoutBannerUntil:
-        now > state.shoutBannerUntil ? 0 : state.shoutBannerUntil,
+      shoutBannerUntil: now > shoutBannerUntil ? 0 : shoutBannerUntil,
       xp: newXp,
       level,
       plungerUntil,

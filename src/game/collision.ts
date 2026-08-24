@@ -411,6 +411,14 @@ export function moveWithCollision(
   return [nx, nz]
 }
 
+/**
+ * Largest single-step displacement that cannot tunnel past a wall: the
+ * resolve pass only catches overlaps, and the effective interception band
+ * of a thin wall is ±(wallThickness + CHAR_RADIUS). Steps beyond that can
+ * land fully on the far side and slip through.
+ */
+const MAX_STEP_NO_TUNNEL = 0.3
+
 /** Nudge target away from attacker (light knockback). */
 export function knockbackFrom(
   from: [number, number, number],
@@ -428,5 +436,22 @@ export function knockbackFrom(
   const len = Math.hypot(dx, dz) || 1
   dx = (dx / len) * strength
   dz = (dz / len) * strength
-  return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles, bounds, floor, agentY)
+
+  const dist = Math.hypot(dx, dz)
+  if (dist <= MAX_STEP_NO_TUNNEL) {
+    return moveWithCollision(to[0], to[2], dx, dz, tables, others, CHAR_RADIUS, obstacles, bounds, floor, agentY)
+  }
+
+  // Substep long knockbacks along the same absolute direction so each
+  // segment stays inside the resolvable band — pressing against a wall
+  // instead of teleporting through it.
+  const steps = Math.ceil(dist / MAX_STEP_NO_TUNNEL)
+  const sdx = dx / steps
+  const sdz = dz / steps
+  let nx = to[0]
+  let nz = to[2]
+  for (let i = 0; i < steps; i++) {
+    ;[nx, nz] = moveWithCollision(nx, nz, sdx, sdz, tables, others, CHAR_RADIUS, obstacles, bounds, floor, agentY)
+  }
+  return [nx, nz]
 }

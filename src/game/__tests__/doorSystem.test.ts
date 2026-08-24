@@ -74,4 +74,30 @@ describe('doorSystem', () => {
     })
     expect(action?.type).not.toBe('enter')
   })
+
+  it('full house below cap never yields an enter with an undefined seat', () => {
+    // Under cap (enter preferred) but every seat taken — the plan must fall
+    // through to exit/null, never `enter` with seatIndex undefined.
+    const maxNpcs = 10
+    const npcs = Array.from({ length: 4 }, (_, i) =>
+      stubNpc({ id: `n${i}`, seatIndex: i }),
+    )
+    for (const elapsedSec of [5, 60, 200]) {
+      const action = planDoorAction({
+        npcs,
+        elapsedSec,
+        now: elapsedSec * 1000,
+        threat: 0.1,
+        lastDoorEventAt: 0,
+        occupiedSeatIndexes: new Set([0, 1, 2, 3, 4, 5, 6, 7]),
+      })
+      if (action?.type === 'enter') {
+        expect(action.seatIndex, `elapsed ${elapsedSec}`).toBeNumber()
+        expect(action.seatIndex).toBeGreaterThanOrEqual(0)
+      } else {
+        expect(['exit', 'evict', null]).toContain(action?.type ?? null)
+      }
+      expect(npcs.length).toBeLessThan(maxNpcs)
+    }
+  })
 })
