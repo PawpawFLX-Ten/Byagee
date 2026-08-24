@@ -140,3 +140,22 @@ checkpoint/upstairs-perf — 性能优化还原点
 ```
 
 检出示例：`git checkout checkpoint/space-director-task-10`
+
+## 稳定性与性能加固（2026-08）
+
+- **Boss 狂暴脉冲复活**：`tickBossRage` 现在把蓄力中的 boss 写回 `npcs`——蓄力环、打断窗口、脉冲催化（解除封印/催吧唧）与震屏全链路恢复。
+- **暂停/切屏时间冻结**：新增 `gameClock.ts` 时间戳平移——tick 检测 >200ms 墙钟间隙，将所有绝对毫秒戳（技能 CD、沉默/封印到期、门闩、追杀客眩晕、事件计时）整体前移，ESC 暂停和切后台不再送免费冷却或跳阶段。
+- **击退防穿墙**：`knockbackFrom` 将 >0.3m 位移分段子步进，2.2m 拍飞贴墙滑停，不再瞬移进隔壁房间。
+- **每帧重渲染清零**：`props.filter` 条件性重建保持数组引用稳定；threat 订阅量化至 0.05 步长；移动端 Bloom 彻底卸载（原 `intensity={0}` 仍跑渲染链）。
+- **阴影收窄**：桌腿/食物/楼梯退出阴影 pass；方向光显式 ±16 shadow-camera 覆盖扩建房间，桌面端 shadow map 升至 2048。
+- **共享资源单例**：`materials.ts` / `geometries.ts`——NPC 身体五官帽子、家具食物门框、道具柜子从数百个独立材质/几何实例收敛为约 40 个共享单例（R3F v9 对 prop 传入资源不 dispose，fadeWall 与运行时换色材质保持独享）。
+- **首屏 -75%**：`GameCanvas` 懒加载分块；首屏 payload 410KB → 102KB gzip。诊断钩子 `window.__THREE_GAME_DIAGNOSTICS__`（draw calls / FPS / memory）。
+- **测试守门**：255 → 284 个测试，覆盖 store 集成狂暴链路、暂停时间冻结、击退穿墙、时钟单元、每日种子确定性。
+- **工程**：`.gitattributes` 归一化行尾（根治 CRLF 幻影差异）；oxlint 忽略构建产物；GitHub Actions CI（lint + test + build，push 自动门禁）。
+
+## 产品新特性（2026-08）
+
+- **音量控制**：开屏卡片 🔊 展开音效/喊话语音滑条，按浏览器持久化；噪声缓冲按长度缓存（点击不再重建 Float32Array）。
+- **PWA**：可安装、离线可玩——程序化生成的胶带封条图标（192/512，`scripts/make-icons.mjs` 零依赖 PNG 编码），`sw.js` 网络优先导航 + stale-while-revalidate 资源缓存，manifest 适配相对部署。
+- **断线续局**：活跃局每 5 秒 + 页面隐藏时快照（2 小时有效期）；刷新后开屏出现「继续上局」，恢复时把全部时间戳按刷新间隙平移，玩法无缝续接；死亡即清除。
+- **每日种子挑战**：每天同一种子（日期 FNV 哈希 → LCG 驱动全模拟，与测试同款确定性手法），开屏显示「每日挑战 · 种子 XXX」与今日最佳，死亡结算面板显示种子/得分，同一天内用 R 重开仍是同一局。
