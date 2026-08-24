@@ -4,6 +4,8 @@ import type { AmbientLight, DirectionalLight, HemisphereLight, PointLight } from
 import { Color, Fog } from 'three'
 import { inFaceRadius } from '../game/chaser'
 import { detectDevice } from '../game/deviceDetect'
+import { stdMat } from './materials'
+import { boxGeo, planeGeo, sphereGeo } from './geometries'
 import { useGameStore } from '../game/store'
 
 /** Wall cabinets — hide targets wired into hideLatch proximity. */
@@ -38,22 +40,23 @@ function Cabinet({ position }: { position: [number, number, number] }) {
       : (towardZ > 0 ? Math.PI : 0)
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <mesh position={[0, 0.9, 0]} castShadow>
-        <boxGeometry args={[1.0, 1.8, 0.5]} />
-        <meshStandardMaterial color="#5a4a3a" roughness={0.85} />
-      </mesh>
-      <mesh position={[0, 0.9, 0.27]}>
-        <boxGeometry args={[0.9, 1.65, 0.04]} />
-        <meshStandardMaterial color="#3a3028" />
-      </mesh>
-      <mesh position={[-0.32, 0.9, 0.29]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
-        <meshStandardMaterial color="#c8a050" metalness={0.5} roughness={0.4} />
-      </mesh>
-      <mesh position={[0.32, 0.9, 0.29]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
-        <meshStandardMaterial color="#c8a050" metalness={0.5} roughness={0.4} />
-      </mesh>
+      <mesh
+        position={[0, 0.9, 0]}
+        castShadow
+        material={stdMat('#5a4a3a', { roughness: 0.85 })}
+        geometry={boxGeo(1.0, 1.8, 0.5)}
+      />
+      <mesh position={[0, 0.9, 0.27]} material={stdMat('#3a3028')} geometry={boxGeo(0.9, 1.65, 0.04)} />
+      <mesh
+        position={[-0.32, 0.9, 0.29]}
+        material={stdMat('#c8a050', { metalness: 0.5, roughness: 0.4 })}
+        geometry={sphereGeo(0.04, 8, 8)}
+      />
+      <mesh
+        position={[0.32, 0.9, 0.29]}
+        material={stdMat('#c8a050', { metalness: 0.5, roughness: 0.4 })}
+        geometry={sphereGeo(0.04, 8, 8)}
+      />
     </group>
   )
 }
@@ -61,14 +64,12 @@ function Cabinet({ position }: { position: [number, number, number] }) {
 function WallScreen({ pos, rotY }: { pos: [number, number, number]; rotY: number }) {
   return (
     <group position={pos} rotation={[0, rotY, 0]}>
-      <mesh>
-        <boxGeometry args={[0.9, 0.55, 0.06]} />
-        <meshStandardMaterial color="#2a2820" />
-      </mesh>
-      <mesh position={[0, 0, 0.04]}>
-        <planeGeometry args={[0.78, 0.42]} />
-        <meshStandardMaterial color="#1a3040" emissive="#224455" emissiveIntensity={0.25} />
-      </mesh>
+      <mesh material={stdMat('#2a2820')} geometry={boxGeo(0.9, 0.55, 0.06)} />
+      <mesh
+        position={[0, 0, 0.04]}
+        material={stdMat('#1a3040', { emissive: '#224455', emissiveIntensity: 0.25 })}
+        geometry={planeGeo(0.78, 0.42)}
+      />
     </group>
   )
 }
@@ -149,7 +150,13 @@ export function Atmosphere() {
         castShadow={!mobile}
         position={[3, 7, 2]}
         intensity={0.55}
-        shadow-mapSize={mobile ? [512, 512] : [1024, 1024]}
+        shadow-mapSize={mobile ? [512, 512] : [2048, 2048]}
+        shadow-camera-left={-16}
+        shadow-camera-right={16}
+        shadow-camera-top={16}
+        shadow-camera-bottom={-16}
+        shadow-camera-near={0.5}
+        shadow-camera-far={30}
       />
       {/* Single warm overhead light replaces per-table/lamp point lights. */}
       <pointLight

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group, Mesh } from 'three'
 import { useGameStore, HIT_FX_MS } from '../game/store'
+import { stdMat } from './materials'
 import type { SkillId } from '../game/types'
 
 const FX_COLOR: Record<SkillId, string> = {
@@ -247,9 +248,8 @@ function PlungerItem({ id }: { id: string }) {
   return (
     <group ref={ref}>
       {/* Plunger handle */}
-      <mesh position={[0, 2.1, 0]}>
+      <mesh position={[0, 2.1, 0]} material={stdMat('#8b6914')}>
         <cylinderGeometry args={[0.04, 0.04, 0.6, 8]} />
-        <meshStandardMaterial color="#8b6914" />
       </mesh>
       {/* Plunger cup (rubber) */}
       <mesh position={[0, 1.75, 0]}>

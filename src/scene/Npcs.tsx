@@ -6,6 +6,13 @@ import { Select } from '@react-three/postprocessing'
 import type { Group, Mesh } from 'three'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
+import { stdMat } from './materials'
+import {
+  boxGeo,
+  capsuleGeo,
+  cylinderGeo,
+  sphereGeo,
+} from './geometries'
 import { CONFIG } from '../game/config'
 import { smackDamageDelayFor } from '../game/threat'
 import type { NpcArchetype, NpcState, SkillId } from '../game/types'
@@ -38,61 +45,34 @@ function DinerSilhouette({
     case 'tophat':
       return (
         <group>
-          <mesh position={[0, 0.42, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.22, 0.03, 16]} />
-            <meshStandardMaterial color="#1a1a1a" />
-          </mesh>
-          <mesh position={[0, 0.535, 0]} castShadow>
-            <cylinderGeometry args={[0.11, 0.115, 0.22, 14]} />
-            <meshStandardMaterial color="#1a1a1a" />
-          </mesh>
+          <mesh position={[0, 0.42, 0]} castShadow material={stdMat('#1a1a1a')} geometry={cylinderGeo(0.2, 0.22, 0.03, 16)} />
+          <mesh position={[0, 0.535, 0]} castShadow material={stdMat('#1a1a1a')} geometry={cylinderGeo(0.11, 0.115, 0.22, 14)} />
         </group>
       )
     case 'bowler':
       return (
         <group>
-          <mesh position={[0, 0.42, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.22, 0.03, 16]} />
-            <meshStandardMaterial color="#4a3322" />
-          </mesh>
-          <mesh position={[0, 0.45, 0]} castShadow>
-            <sphereGeometry args={[0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color="#4a3322" />
-          </mesh>
+          <mesh position={[0, 0.42, 0]} castShadow material={stdMat('#4a3322')} geometry={cylinderGeo(0.2, 0.22, 0.03, 16)} />
+          <mesh position={[0, 0.45, 0]} castShadow material={stdMat('#4a3322')} geometry={sphereGeo(0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)} />
         </group>
       )
     case 'chef':
       return (
         <group>
-          <mesh position={[0, 0.45, 0]} castShadow>
-            <cylinderGeometry args={[0.13, 0.15, 0.1, 14]} />
-            <meshStandardMaterial color="#f5f5f0" />
-          </mesh>
-          <mesh position={[0, 0.55, 0]} castShadow>
-            <cylinderGeometry args={[0.1, 0.12, 0.1, 14]} />
-            <meshStandardMaterial color="#f5f5f0" />
-          </mesh>
+          <mesh position={[0, 0.45, 0]} castShadow material={stdMat('#f5f5f0')} geometry={cylinderGeo(0.13, 0.15, 0.1, 14)} />
+          <mesh position={[0, 0.55, 0]} castShadow material={stdMat('#f5f5f0')} geometry={cylinderGeo(0.1, 0.12, 0.1, 14)} />
         </group>
       )
     case 'cap':
       return (
         <group>
-          <mesh position={[0, 0.43, 0]} castShadow>
-            <sphereGeometry args={[0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color={color} />
-          </mesh>
-          <mesh position={[0, 0.43, 0.17]} castShadow>
-            <boxGeometry args={[0.2, 0.02, 0.14]} />
-            <meshStandardMaterial color={color} />
-          </mesh>
+          <mesh position={[0, 0.43, 0]} castShadow material={stdMat(color)} geometry={sphereGeo(0.15, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)} />
+          <mesh position={[0, 0.43, 0.17]} castShadow material={stdMat(color)} geometry={boxGeo(0.2, 0.02, 0.14)} />
         </group>
       )
     case 'bun':
       return (
-        <mesh position={[0, 0.18, -0.2]} castShadow>
-          <sphereGeometry args={[0.08, 10, 10]} />
-          <meshStandardMaterial color="#2a2118" />
-        </mesh>
+        <mesh position={[0, 0.18, -0.2]} castShadow material={stdMat('#2a2118')} geometry={sphereGeo(0.08, 10, 10)} />
       )
     default:
       return null
@@ -340,102 +320,67 @@ function NpcMeshImpl({
   return (
     <Select enabled={npc.id === useGameStore.getState().targetId}>
     <group ref={root} position={npc.position} rotation={[0, npc.facing, 0]} scale={npc.scale * variance}>
-      <mesh position={[0, isChaser ? 0.48 : 0.42, 0]} castShadow>
-        <capsuleGeometry args={[torsoWidth, isChaser ? 0.42 : 0.35, 4, 8]} />
-        <meshStandardMaterial color={bodyColor} />
-      </mesh>
+      <mesh
+        position={[0, isChaser ? 0.48 : 0.42, 0]}
+        castShadow
+        material={stdMat(bodyColor)}
+        geometry={capsuleGeo(torsoWidth, isChaser ? 0.42 : 0.35, 4, 8)}
+      />
       <group ref={bodyDetail}>
         {npc.build === 'stout' && (
-          <mesh position={[0, 0.26, 0.2]} castShadow>
-            <sphereGeometry args={[0.13, 12, 12]} />
-            <meshStandardMaterial color={bodyColor} />
-          </mesh>
+          <mesh position={[0, 0.26, 0.2]} castShadow material={stdMat(bodyColor)} geometry={sphereGeo(0.13, 12, 12)} />
         )}
         {isChaser && (
-          <mesh position={[0, 0.15, -0.12]} rotation={[0.25, 0, 0]}>
-            <boxGeometry args={[0.32, 0.08, 0.14]} />
-            <meshStandardMaterial color="#c03020" />
-          </mesh>
+          <mesh position={[0, 0.15, -0.12]} rotation={[0.25, 0, 0]} material={stdMat('#c03020')} geometry={boxGeo(0.32, 0.08, 0.14)} />
         )}
       </group>
 
       <group ref={head} position={[0, HEAD_Y, 0]}>
         {/* Cranium — lower half cut by mouth plane visually */}
-        <mesh castShadow position={[0, 0.06, 0]}>
-          <sphereGeometry args={[0.34, 18, 18]} />
-          <meshStandardMaterial color="#f2d2b0" />
-        </mesh>
+        <mesh castShadow position={[0, 0.06, 0]} material={stdMat('#f2d2b0')} geometry={sphereGeo(0.34, 18, 18)} />
 
         <group ref={faceDetail}>
-        <mesh position={[-0.12, 0.1, 0.28]}>
-          <sphereGeometry args={[0.055, 8, 8]} />
-          <meshStandardMaterial color="#1a1a1a" />
-        </mesh>
-        <mesh position={[0.12, 0.1, 0.28]}>
-          <sphereGeometry args={[0.055, 8, 8]} />
-          <meshStandardMaterial color="#1a1a1a" />
-        </mesh>
+        <mesh position={[-0.12, 0.1, 0.28]} material={stdMat('#1a1a1a')} geometry={sphereGeo(0.055, 8, 8)} />
+        <mesh position={[0.12, 0.1, 0.28]} material={stdMat('#1a1a1a')} geometry={sphereGeo(0.055, 8, 8)} />
 
-        <mesh ref={cheekL} position={[-0.28, -0.02, 0.1]}>
-          <sphereGeometry args={[0.11, 8, 8]} />
-          <meshStandardMaterial color="#e8b89a" />
-        </mesh>
-        <mesh ref={cheekR} position={[0.28, -0.02, 0.1]}>
-          <sphereGeometry args={[0.11, 8, 8]} />
-          <meshStandardMaterial color="#e8b89a" />
-        </mesh>
+        <mesh ref={cheekL} position={[-0.28, -0.02, 0.1]} material={stdMat('#e8b89a')} geometry={sphereGeo(0.11, 8, 8)} />
+        <mesh ref={cheekR} position={[0.28, -0.02, 0.1]} material={stdMat('#e8b89a')} geometry={sphereGeo(0.11, 8, 8)} />
 
         {/* Deep oral cavity — half-face scale */}
-        <mesh position={[0, -0.08, 0.22]} rotation={[0.25, 0, 0]}>
-          <boxGeometry args={[0.32, 0.28, 0.16]} />
-          <meshStandardMaterial color="#3a0808" />
-        </mesh>
-        <mesh position={[0, -0.02, 0.18]}>
-          <boxGeometry args={[0.28, 0.04, 0.06]} />
-          <meshStandardMaterial color="#f5efe4" />
-        </mesh>
+        <mesh position={[0, -0.08, 0.22]} rotation={[0.25, 0, 0]} material={stdMat('#3a0808')} geometry={boxGeo(0.32, 0.28, 0.16)} />
+        <mesh position={[0, -0.02, 0.18]} material={stdMat('#f5efe4')} geometry={boxGeo(0.28, 0.04, 0.06)} />
 
-        <mesh ref={tongue} position={[0, -0.12, 0.1]} visible={false}>
-          <boxGeometry args={[0.12, 0.05, 0.16]} />
-          <meshStandardMaterial color="#c45a6a" />
-        </mesh>
-        <mesh ref={foodBit} position={[0, -0.05, 0.12]} visible={false}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshStandardMaterial color="#d4a017" />
-        </mesh>
+        <mesh ref={tongue} position={[0, -0.12, 0.1]} visible={false} material={stdMat('#c45a6a')} geometry={boxGeo(0.12, 0.05, 0.16)} />
+        <mesh ref={foodBit} position={[0, -0.05, 0.12]} visible={false} material={stdMat('#d4a017')} geometry={sphereGeo(0.06, 8, 8)} />
 
         {/* Upper lip */}
-        <mesh ref={upperLip} position={[0, 0.02, 0.34]}>
-          <boxGeometry args={[0.3, 0.06, 0.07]} />
-          <meshStandardMaterial color="#c46a6a" />
-        </mesh>
+        <mesh ref={upperLip} position={[0, 0.02, 0.34]} material={stdMat('#c46a6a')} geometry={boxGeo(0.3, 0.06, 0.07)} />
 
         {/* Jaw + lower lip */}
         <group ref={jaw} position={[0, -0.06, 0.05]}>
-          <mesh position={[0, -0.14, 0.14]} castShadow>
-            <boxGeometry args={[0.3, 0.16, 0.22]} />
-            <meshStandardMaterial color="#e6c4a4" />
-          </mesh>
-          <mesh ref={lowerLip} position={[0, -0.08, 0.28]}>
-            <boxGeometry args={[0.28, 0.07, 0.07]} />
-            <meshStandardMaterial color="#b85a5a" />
-          </mesh>
-          <mesh position={[0, -0.05, 0.22]}>
-            <boxGeometry args={[0.24, 0.04, 0.04]} />
-            <meshStandardMaterial color={faceLocked ? '#888' : '#f7f2e8'} />
-          </mesh>
+          <mesh position={[0, -0.14, 0.14]} castShadow material={stdMat('#e6c4a4')} geometry={boxGeo(0.3, 0.16, 0.22)} />
+          <mesh ref={lowerLip} position={[0, -0.08, 0.28]} material={stdMat('#b85a5a')} geometry={boxGeo(0.28, 0.07, 0.07)} />
+          <mesh
+            position={[0, -0.05, 0.22]}
+            material={stdMat(faceLocked ? '#888' : '#f7f2e8')}
+            geometry={boxGeo(0.24, 0.04, 0.04)}
+          />
 
           {npc.sealProp === 'tape' && (
-            <mesh position={[0, -0.02, 0.32]} rotation={[0.1, 0, 0]}>
-              <boxGeometry args={[0.36, 0.1, 0.05]} />
-              <meshStandardMaterial color="#d0d0d0" metalness={0.35} roughness={0.45} />
-            </mesh>
+            <mesh
+              position={[0, -0.02, 0.32]}
+              rotation={[0.1, 0, 0]}
+              material={stdMat('#d0d0d0', { metalness: 0.35, roughness: 0.45 })}
+              geometry={boxGeo(0.36, 0.1, 0.05)}
+            />
           )}
           {npc.sealProp === 'gag' && (
-            <mesh position={[0, -0.06, 0.36]} rotation={[0.5, 0, 0]}>
-              <capsuleGeometry args={[0.07, 0.16, 4, 6]} />
-              <meshStandardMaterial color="#7a4fd1" />
-            </mesh>
+            <mesh
+              position={[0, -0.06, 0.36]}
+              rotation={[0.5, 0, 0]}
+              material={stdMat('#7a4fd1')}
+              geometry={capsuleGeo(0.07, 0.16, 4, 6)}
+            />
           )}
         </group>
         </group>

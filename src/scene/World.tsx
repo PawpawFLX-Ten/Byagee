@@ -41,6 +41,14 @@ import {
 } from '../game/hideLatch'
 import { t } from '../game/i18n'
 import { useGameStore, HIT_FX_MS } from '../game/store'
+import { stdMat } from './materials'
+import {
+  boxGeo,
+  circleGeo,
+  cylinderGeo,
+  planeGeo,
+  sphereGeo,
+} from './geometries'
 import { useInputStore } from '../game/inputStore'
 import type { SkillId, SpaceStairs } from '../game/types'
 import { CABINET_POSITIONS } from './Atmosphere'
@@ -186,15 +194,15 @@ export function WallArt() {
       {pieces.map((piece, i) => (
         <group key={i} position={piece.pos} rotation={[0, piece.rotY, 0]}>
           {/* Frame */}
-          <mesh userData={{ fadeWall: true }} position={[0, 0, -0.02]}>
-            <boxGeometry args={[0.9, 1.2, 0.04]} />
+          <mesh userData={{ fadeWall: true }} position={[0, 0, -0.02]} geometry={boxGeo(0.9, 1.2, 0.04)}>
             <meshStandardMaterial color="#3d2817" />
           </mesh>
           {/* Canvas backing */}
-          <mesh position={[0, 0, 0.01]}>
-            <planeGeometry args={[0.78, 1.08]} />
-            <meshStandardMaterial color="#efe6d8" />
-          </mesh>
+          <mesh
+            position={[0, 0, 0.01]}
+            material={stdMat('#efe6d8')}
+            geometry={planeGeo(0.78, 1.08)}
+          />
           {/* Calligraphy character(s) */}
           <Text
             position={[0, 0, 0.03]}
@@ -318,9 +326,8 @@ export function Room() {
         const floorColor = room.floor === 0 ? '#c4b8a8' : '#b8a898'
         return (
           <group key={room.id} position={[cx, y, cz]}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow material={stdMat(floorColor)}>
               <planeGeometry args={[w + 0.3, d + 0.3]} />
-              <meshStandardMaterial color={floorColor} />
             </mesh>
             <RoomWalls room={room} layout={layout} />
             {room.id === 'r0' && <WallArt />}
@@ -357,10 +364,13 @@ export function Room() {
         const cx = (obs.min[0] + obs.max[0]) / 2
         const cz = (obs.min[1] + obs.max[1]) / 2
         return (
-          <mesh key={obs.id} position={[cx, 0.75, cz]} castShadow>
-            <boxGeometry args={[w, 1.5, d]} />
-            <meshStandardMaterial color="#6a5a4a" />
-          </mesh>
+          <mesh
+            key={obs.id}
+            position={[cx, 0.75, cz]}
+            castShadow
+            material={stdMat('#6a5a4a')}
+            geometry={boxGeo(w, 1.5, d)}
+          />
         )
       })}
       {layout.stairs.map((st) => (
@@ -392,10 +402,13 @@ function Stairs({ layout, st }: { layout: SpaceLayoutState; st: SpaceStairs }) {
   return (
     <group>
       {steps.map((s, i) => (
-        <mesh key={i} position={[s.x, s.y, s.z]} castShadow receiveShadow>
-          <boxGeometry args={along} />
-          <meshStandardMaterial color="#7a6a58" />
-        </mesh>
+        <mesh
+          key={i}
+          position={[s.x, s.y, s.z]}
+          receiveShadow
+          material={stdMat('#7a6a58')}
+          geometry={boxGeo(along[0], along[1], along[2])}
+        />
       ))}
     </group>
   )
@@ -444,16 +457,22 @@ export function Tables() {
         return (
           <group key={t.id} position={t.position}>
             {t.shape === 'round' && (
-              <mesh position={[0, t.topY, 0]} castShadow receiveShadow>
-                <cylinderGeometry args={[t.half.x, t.half.x, 0.12, 24]} />
-                <meshStandardMaterial color="#5c3d2e" />
-              </mesh>
+              <mesh
+                position={[0, t.topY, 0]}
+                castShadow
+                receiveShadow
+                material={stdMat('#5c3d2e')}
+                geometry={cylinderGeo(t.half.x, t.half.x, 0.12, 24)}
+              />
             )}
             {t.shape === 'rect' && (
-              <mesh position={[0, t.topY, 0]} castShadow receiveShadow>
-                <boxGeometry args={[t.half.x * 2, 0.12, t.half.z * 2]} />
-                <meshStandardMaterial color="#4a3728" />
-              </mesh>
+              <mesh
+                position={[0, t.topY, 0]}
+                castShadow
+                receiveShadow
+                material={stdMat('#4a3728')}
+                geometry={boxGeo(t.half.x * 2, 0.12, t.half.z * 2)}
+              />
             )}
             {t.shape === 'oval' && (
               <mesh
@@ -461,16 +480,17 @@ export function Tables() {
                 castShadow
                 receiveShadow
                 scale={[1, 1, t.half.z / t.half.x]}
-              >
-                <cylinderGeometry args={[t.half.x, t.half.x, 0.12, 24]} />
-                <meshStandardMaterial color="#6a4530" />
-              </mesh>
+                material={stdMat('#6a4530')}
+                geometry={cylinderGeo(t.half.x, t.half.x, 0.12, 24)}
+              />
             )}
             {legPositions.map((pos, i) => (
-              <mesh key={i} position={pos} castShadow>
-                <cylinderGeometry args={[0.08, 0.1, t.topY, 8]} />
-                <meshStandardMaterial color="#3d2817" />
-              </mesh>
+              <mesh
+                key={i}
+                position={pos}
+                material={stdMat('#3d2817')}
+                geometry={cylinderGeo(0.08, 0.1, t.topY, 8)}
+              />
             ))}
           </group>
         )
@@ -481,49 +501,47 @@ export function Tables() {
         const kind = i % 4
         return (
           <group key={food.id} position={food.plate}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-              <circleGeometry args={[0.2, 16]} />
-              <meshStandardMaterial color="#efe6d8" />
-            </mesh>
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[0, -0.02, 0]}
+              material={stdMat('#efe6d8')}
+              geometry={circleGeo(0.2, 16)}
+            />
             {kind === 0 && (
               <>
-                <mesh position={[0, 0.07, 0]} castShadow>
-                  <sphereGeometry args={[0.09, 10, 10]} />
-                  <meshStandardMaterial color={FOOD_COLORS[i % FOOD_COLORS.length]} />
-                </mesh>
-                <mesh position={[0.07, 0.05, 0.04]}>
-                  <sphereGeometry args={[0.045, 8, 8]} />
-                  <meshStandardMaterial color="#f0d090" />
-                </mesh>
+                <mesh
+                  position={[0, 0.07, 0]}
+                  material={stdMat(FOOD_COLORS[i % FOOD_COLORS.length])}
+                  geometry={sphereGeo(0.09, 10, 10)}
+                />
+                <mesh
+                  position={[0.07, 0.05, 0.04]}
+                  material={stdMat('#f0d090')}
+                  geometry={sphereGeo(0.045, 8, 8)}
+                />
               </>
             )}
             {kind === 1 && (
-              <mesh position={[0, 0.05, 0]} castShadow rotation={[0.2, 0.4, 0]}>
-                <boxGeometry args={[0.16, 0.05, 0.1]} />
-                <meshStandardMaterial color={FOOD_COLORS[i % FOOD_COLORS.length]} />
-              </mesh>
+              <mesh
+                position={[0, 0.05, 0]}
+                rotation={[0.2, 0.4, 0]}
+                material={stdMat(FOOD_COLORS[i % FOOD_COLORS.length])}
+                geometry={boxGeo(0.16, 0.05, 0.1)}
+              />
             )}
             {kind === 2 && (
               <>
-                <mesh position={[-0.05, 0.04, 0]}>
-                  <sphereGeometry args={[0.04, 8, 8]} />
-                  <meshStandardMaterial color="#6aaa5a" />
-                </mesh>
-                <mesh position={[0.05, 0.045, 0.02]}>
-                  <sphereGeometry args={[0.045, 8, 8]} />
-                  <meshStandardMaterial color="#d4543c" />
-                </mesh>
-                <mesh position={[0, 0.04, -0.05]}>
-                  <sphereGeometry args={[0.035, 8, 8]} />
-                  <meshStandardMaterial color="#e8b84a" />
-                </mesh>
+                <mesh position={[-0.05, 0.04, 0]} material={stdMat('#6aaa5a')} geometry={sphereGeo(0.04, 8, 8)} />
+                <mesh position={[0.05, 0.045, 0.02]} material={stdMat('#d4543c')} geometry={sphereGeo(0.045, 8, 8)} />
+                <mesh position={[0, 0.04, -0.05]} material={stdMat('#e8b84a')} geometry={sphereGeo(0.035, 8, 8)} />
               </>
             )}
             {kind === 3 && (
-              <mesh position={[0, 0.06, 0]} castShadow>
-                <cylinderGeometry args={[0.07, 0.08, 0.08, 10]} />
-                <meshStandardMaterial color={FOOD_COLORS[i % FOOD_COLORS.length]} />
-              </mesh>
+              <mesh
+                position={[0, 0.06, 0]}
+                material={stdMat(FOOD_COLORS[i % FOOD_COLORS.length])}
+                geometry={cylinderGeo(0.07, 0.08, 0.08, 10)}
+              />
             )}
           </group>
         )
@@ -572,19 +590,10 @@ function DoorModel({
       {/* Door sits flush against the wall: visuals offset 0.4 into the room. */}
       <group position={[0, 0, 0.4]}>
       {/* Door frame �?side pillars */}
-      <mesh position={[-0.62, 1.1, -0.35]} castShadow>
-        <boxGeometry args={[0.08, 2.2, 0.14]} />
-        <meshStandardMaterial color="#8b6914" />
-      </mesh>
-      <mesh position={[0.62, 1.1, -0.35]} castShadow>
-        <boxGeometry args={[0.08, 2.2, 0.14]} />
-        <meshStandardMaterial color="#8b6914" />
-      </mesh>
+      <mesh position={[-0.62, 1.1, -0.35]} castShadow material={stdMat('#8b6914')} geometry={boxGeo(0.08, 2.2, 0.14)} />
+      <mesh position={[0.62, 1.1, -0.35]} castShadow material={stdMat('#8b6914')} geometry={boxGeo(0.08, 2.2, 0.14)} />
       {/* Top lintel */}
-      <mesh position={[0, 2.18, -0.35]} castShadow>
-        <boxGeometry args={[1.32, 0.08, 0.14]} />
-        <meshStandardMaterial color="#8b6914" />
-      </mesh>
+      <mesh position={[0, 2.18, -0.35]} castShadow material={stdMat('#8b6914')} geometry={boxGeo(1.32, 0.08, 0.14)} />
       {/* Hinged door panel: pivots on the left post; swings shut while the
           opening is latched and back open when the latch expires. */}
       <group
@@ -592,10 +601,7 @@ function DoorModel({
         position={[-0.58, 0, -0.38]}
         rotation={[0, DOOR_OPEN_YAW * swingSign, 0]}
       >
-        <mesh position={[0.58, 1.1, 0]} castShadow>
-          <boxGeometry args={[1.16, 2.08, 0.08]} />
-          <meshStandardMaterial color="#a67c52" />
-        </mesh>
+        <mesh position={[0.58, 1.1, 0]} castShadow material={stdMat('#a67c52')} geometry={boxGeo(1.16, 2.08, 0.08)} />
         {/* Door handle */}
         <mesh position={[1.02, 1.1, 0.03]}>
           <sphereGeometry args={[0.06, 8, 8]} />

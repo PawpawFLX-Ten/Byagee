@@ -20,6 +20,64 @@ function GameLoop() {
   return null
 }
 
+export interface ThreeGameDiagnostics {
+  /** Live THREE.WebGLInfo — read `.render.calls`, `.render.triangles`, `.memory`. */
+  renderer: object
+  fps: number
+  dpr: number
+  npcCount: number
+  game: ReturnType<typeof useGameStore.getState>
+}
+
+/**
+ * Devtools handle: `window.__THREE_GAME_DIAGNOSTICS__`.
+ * Zero per-frame cost — getters evaluate lazily, FPS sampled at 2Hz.
+ */
+function Diagnostics() {
+  const gl = useThree((s) => s.gl)
+  const frames = useRef(0)
+
+  useEffect(() => {
+    let windowStart = performance.now()
+    let fps = 0
+    const w = window as unknown as {
+      __THREE_GAME_DIAGNOSTICS__?: ThreeGameDiagnostics
+    }
+    w.__THREE_GAME_DIAGNOSTICS__ = {
+      renderer: gl.info,
+      get fps() {
+        return fps
+      },
+      get dpr() {
+        return gl.getPixelRatio()
+      },
+      get npcCount() {
+        return useGameStore.getState().npcs.length
+      },
+      get game() {
+        return useGameStore.getState()
+      },
+    }
+    const timer = window.setInterval(() => {
+      const now = performance.now()
+      if (now > windowStart) {
+        fps = Math.round((frames.current * 1000) / (now - windowStart))
+      }
+      frames.current = 0
+      windowStart = now
+    }, 500)
+    return () => {
+      window.clearInterval(timer)
+      delete w.__THREE_GAME_DIAGNOSTICS__
+    }
+  }, [gl])
+
+  useFrame(() => {
+    frames.current++
+  })
+  return null
+}
+
 const _camDesired = new Vector3(0, 1.1, 2.4)
 const _camOffset = new Vector3()
 const _camToNpc = new Vector3()
@@ -124,6 +182,7 @@ export function GameCanvas() {
       <Selection>
         <PostProcessing />
         <GameLoop />
+        <Diagnostics />
         <AudioDirector />
         <Atmosphere />
         <CameraFollow />

@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import type { Group } from 'three'
 import { useGameStore } from '../game/store'
+import { stdMat } from './materials'
+import { boxGeo, capsuleGeo, coneGeo, sphereGeo } from './geometries'
 import { t } from '../game/i18n'
 import type { PropState } from '../game/types'
 
@@ -10,20 +12,19 @@ function HealProp() {
   return (
     <group>
       {/* Red capsule body */}
-      <mesh castShadow>
-        <capsuleGeometry args={[0.12, 0.2, 4, 8]} />
-        <meshStandardMaterial color="#d44" />
-      </mesh>
+      <mesh castShadow material={stdMat('#d44')} geometry={capsuleGeo(0.12, 0.2, 4, 8)} />
       {/* Green cross — vertical bar */}
-      <mesh position={[0, 0.22, 0]}>
-        <boxGeometry args={[0.06, 0.16, 0.06]} />
-        <meshStandardMaterial color="#5ecf7a" emissive="#2a6a3a" emissiveIntensity={0.3} />
-      </mesh>
+      <mesh
+        position={[0, 0.22, 0]}
+        material={stdMat('#5ecf7a', { emissive: '#2a6a3a', emissiveIntensity: 0.3 })}
+        geometry={boxGeo(0.06, 0.16, 0.06)}
+      />
       {/* Green cross — horizontal bar */}
-      <mesh position={[0, 0.22, 0]}>
-        <boxGeometry args={[0.16, 0.06, 0.06]} />
-        <meshStandardMaterial color="#5ecf7a" emissive="#2a6a3a" emissiveIntensity={0.3} />
-      </mesh>
+      <mesh
+        position={[0, 0.22, 0]}
+        material={stdMat('#5ecf7a', { emissive: '#2a6a3a', emissiveIntensity: 0.3 })}
+        geometry={boxGeo(0.16, 0.06, 0.06)}
+      />
       {/* Glow ring */}
       <Billboard position={[0, -0.3, 0]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -40,15 +41,18 @@ function SilenceProp() {
   return (
     <group>
       {/* Bell body — sphere bottom */}
-      <mesh castShadow position={[0, -0.05, 0]}>
-        <sphereGeometry args={[0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.4} roughness={0.3} />
-      </mesh>
+      <mesh
+        castShadow
+        position={[0, -0.05, 0]}
+        material={stdMat('#ffd700', { metalness: 0.4, roughness: 0.3 })}
+        geometry={sphereGeo(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)}
+      />
       {/* Bell top — cone */}
-      <mesh position={[0, 0.08, 0]}>
-        <coneGeometry args={[0.1, 0.1, 8]} />
-        <meshStandardMaterial color="#e6c200" metalness={0.4} roughness={0.3} />
-      </mesh>
+      <mesh
+        position={[0, 0.08, 0]}
+        material={stdMat('#e6c200', { metalness: 0.4, roughness: 0.3 })}
+        geometry={coneGeo(0.1, 0.1, 8)}
+      />
       {/* "静" text above */}
       <Text position={[0, 0.35, 0]} fontSize={0.18} color="#6ec0ff" anchorX="center" anchorY="middle">
          {t('silenceChar')}
