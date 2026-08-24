@@ -763,6 +763,11 @@ body,
   filter: brightness(1.05);
 }
 
+.briefing-resume {
+  margin-top: 8px;
+  background: #6ec0ff;
+}
+
 .briefing-foot {
   margin: 12px 0 0;
   font-size: 12px;

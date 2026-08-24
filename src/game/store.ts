@@ -199,6 +199,10 @@ export interface GameStore {
   setHideState: (hidden: boolean, now?: number) => void
   applyLatch: (openingId: string, now?: number) => boolean
   cycleTarget: () => void
+  /** True when a refresh-safe snapshot of an active run is available and fresh. */
+  hasResumableRun: () => boolean
+  /** Restore the last snapshot; returns false when missing/expired. */
+  tryResumeRun: (now?: number) => boolean
   useSkill: (skillId: SkillId, now?: number) => void
   tick: (dt: number, now: number) => void
   clearToast: () => void
@@ -216,6 +220,95 @@ let lastTickAtMs = 0
 let nextBossAtElapsed = CONFIG.boss.intervalSec
 let nextChaserAtElapsed = CONFIG.chaser.firstAtSec
 let chaserRound = 0
+
+// --- Mid-run snapshot (refresh-safe resume) --------------------------------
+
+const RESUME_KEY = 'civicman.run'
+const RESUME_MAX_AGE_MS = 2 * 60 * 60 * 1000
+const RESUME_SAVE_INTERVAL_MS = 5000
+let lastRunSaveAt = 0
+
+function snapshotState(s: GameStore): object {
+  return {
+    hp: s.hp,
+    alive: s.alive,
+    briefingDone: s.briefingDone,
+    startedAt: s.startedAt,
+    elapsedSec: s.elapsedSec,
+    npcs: s.npcs,
+    playerPos: s.playerPos,
+    playerYaw: s.playerYaw,
+    targetId: s.targetId,
+    cooldownReadyAt: s.cooldownReadyAt,
+    threat: s.threat,
+    selfNoise: s.selfNoise,
+    selfNoiseUntil: s.selfNoiseUntil,
+    hitFx: s.hitFx,
+    toast: s.toast,
+    skillAction: s.skillAction,
+    shoutBannerUntil: s.shoutBannerUntil,
+    xp: s.xp,
+    level: s.level,
+    plungerUntil: s.plungerUntil,
+    levelUpAt: s.levelUpAt,
+    props: s.props,
+    nextPropAt: s.nextPropAt,
+    propSeq: s.propSeq,
+    layout: s.layout,
+    playerRoomId: s.playerRoomId,
+    bossesCleared: s.bossesCleared,
+    stats: s.stats,
+    unlockedThisRun: s.unlockedThisRun,
+    achievementQueue: s.achievementQueue,
+    pendingSpaceEventAt: s.pendingSpaceEventAt,
+    pendingMinorOnly: s.pendingMinorOnly,
+    queuedSpaceEventId: s.queuedSpaceEventId,
+    lastSpaceEventAt: s.lastSpaceEventAt,
+    minorMorphsSinceBoss: s.minorMorphsSinceBoss,
+    runtimeTables: s.runtimeTables,
+    runtimeSeats: s.runtimeSeats,
+    runtimeFoodSpots: s.runtimeFoodSpots,
+    maxNpcs: s.maxNpcs,
+    spaceEventToast: s.spaceEventToast,
+    spaceEventAt: s.spaceEventAt,
+    playerHidden: s.playerHidden,
+    hideStartedAt: s.hideStartedAt,
+  }
+}
+
+function saveRun(now: number): void {
+  const s = useGameStore.getState()
+  if (!s.alive || !s.briefingDone || !s.startedAt) return
+  if (now < lastRunSaveAt) lastRunSaveAt = 0 // clock moved backwards (synthetic/test clocks)
+  if (now - lastRunSaveAt < RESUME_SAVE_INTERVAL_MS) return
+  lastRunSaveAt = now
+  try {
+    const payload = JSON.stringify({
+      v: 1,
+      savedAt: now,
+      state: snapshotState(s),
+      module: {
+        lastDoorEventAt,
+        nextBossAtElapsed,
+        nextChaserAtElapsed,
+        chaserRound,
+        npcSeq,
+        fxSeq,
+      },
+    })
+    localStorage.setItem(RESUME_KEY, payload)
+  } catch {
+    /* quota/private-mode — snapshot is best-effort */
+  }
+}
+
+function clearSavedRun(): void {
+  try {
+    localStorage.removeItem(RESUME_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Cross-run unlocked achievements — persists across missions. */
 const unlockedAchievements = loadUnlockedAchievements()
@@ -429,6 +522,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   beginMission: (now = performance.now()) => {
     resetRuntimeSpace()
+    clearSavedRun()
     const runtime = initialRuntime()
     syncRuntimeFromStore(runtime.tables, runtime.seatPositions, runtime.foodSpots, runtime.maxNpcs)
     const npcs = createNpcs(now)
@@ -546,6 +640,89 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   togglePause: () =>
     set((s) => ({ paused: !s.paused, pausedAt: s.paused ? 0 : performance.now() })),
+
+  hasResumableRun: () => {
+    try {
+      const raw = localStorage.getItem(RESUME_KEY)
+      if (!raw) return false
+      const data = JSON.parse(raw) as { savedAt?: number; state?: { alive?: boolean; briefingDone?: boolean } }
+      return (
+        typeof data.savedAt === 'number' &&
+        performance.now() - data.savedAt < RESUME_MAX_AGE_MS &&
+        data.state?.alive === true &&
+        data.state?.briefingDone === true
+      )
+    } catch {
+      return false
+    }
+  },
+
+  tryResumeRun: (now = performance.now()) => {
+    try {
+      const raw = localStorage.getItem(RESUME_KEY)
+      if (!raw) return false
+      const data = JSON.parse(raw) as {
+        v: number
+        savedAt: number
+        state: Record<string, unknown>
+        module?: {
+          lastDoorEventAt: number
+          nextBossAtElapsed: number
+          nextChaserAtElapsed: number
+          chaserRound: number
+          npcSeq: number
+          fxSeq: number
+        }
+      }
+      if (typeof data.savedAt !== 'number' || !data.state) return false
+      if (now - data.savedAt > RESUME_MAX_AGE_MS) {
+        clearSavedRun()
+        return false
+      }
+
+      // All stored stamps are in the pre-refresh wall-clock domain — shift
+      // the whole snapshot forward by the gap so timers resume realistically.
+      const shiftMs = now - data.savedAt
+      const state = data.state as unknown as GameStore
+      state.npcs = (state.npcs as NpcState[]).map((n) => shiftNpcClock(n, shiftMs))
+      state.props = (state.props as PropState[]).map((p) => shiftPropClock(p, shiftMs))
+      state.layout = shiftLayoutClock(state.layout as SpaceLayoutState, shiftMs)
+      state.cooldownReadyAt = shiftCooldownClock(
+        state.cooldownReadyAt as Record<string, number>,
+        shiftMs,
+      ) as Record<SkillId, number>
+      state.selfNoiseUntil += shiftMs
+      state.startedAt += shiftMs
+      state.levelUpAt = shiftStamp(state.levelUpAt, shiftMs)
+      state.shoutBannerUntil = shiftStamp(state.shoutBannerUntil, shiftMs)
+      state.pendingSpaceEventAt =
+        state.pendingSpaceEventAt !== null ? state.pendingSpaceEventAt + shiftMs : null
+      state.lastSpaceEventAt = shiftStamp(state.lastSpaceEventAt, shiftMs)
+      state.spaceEventAt = state.spaceEventAt !== null ? state.spaceEventAt + shiftMs : null
+      if (data.module) {
+        lastDoorEventAt = data.module.lastDoorEventAt + shiftMs
+        nextBossAtElapsed = data.module.nextBossAtElapsed
+        nextChaserAtElapsed = data.module.nextChaserAtElapsed
+        chaserRound = data.module.chaserRound
+        npcSeq = data.module.npcSeq
+        fxSeq = data.module.fxSeq
+      } else {
+        lastDoorEventAt = 0
+      }
+
+      set({
+        ...state,
+        paused: false,
+        pausedAt: 0,
+        briefingDone: true,
+      })
+      lastTickAtMs = 0 // stamps already shifted; no double-shift on first tick
+      clearSavedRun()
+      return true
+    } catch {
+      return false
+    }
+  },
 
   useSkill: (skillId, now = performance.now()) => {
     const state = get()
@@ -1162,6 +1339,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         chaserKnockbacks: stats.chaserKnockbacks,
         level,
       })
+      clearSavedRun()
       if (!best || lastScore > best.score) {
         isNewBest = true
         best = { score: lastScore, survivalSec: Math.floor(elapsedSec), bossesCleared }
@@ -1235,6 +1413,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastSpaceEventAt,
       minorMorphsSinceBoss,
     })
+
+    if (alive) saveRun(now)
   },
 }))
 
@@ -1245,5 +1425,13 @@ syncRuntimeFromStore(
   bootRuntime.foodSpots,
   bootRuntime.maxNpcs,
 )
+
+// Refresh-safe runs: snapshot on tab close so a mid-run reload can resume.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    const s = useGameStore.getState()
+    if (s.alive && s.briefingDone && s.startedAt) saveRun(performance.now())
+  })
+}
 
 export { SKILL_ORDER }

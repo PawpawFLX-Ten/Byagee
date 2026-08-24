@@ -86,6 +86,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_nausea: '降低恶心音效（吧唧更闷、更礼貌）',
     vol_sfx: '音效',
     vol_voice: '喊话语音',
+    resume_run: '继续上局',
     briefing_go: '出警 · 开始制裁',
     briefing_foot: 'WASD 移动 · 短按空格跳跃 · 长按空格躲桌下/闩门 · 拖拽转镜 · Tab 换目标 · 噪音越大掉血越狠',
 
@@ -267,6 +268,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_nausea: 'Wearing headset so you don\'t hear Byagee',
     vol_sfx: 'SFX',
     vol_voice: 'Shout voice',
+    resume_run: 'Resume run',
     briefing_go: 'Yo yo yo!',
     briefing_foot: 'WASD movement · Tap Space to jump · Hold Space to hide under table / latch door · Drag camera · Tab to aim · Louder = more HP damage',
 
@@ -448,6 +450,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_nausea: 'Koptelefoon zodat je Byageee niet hoort',
     vol_sfx: 'Geluidseffecten',
     vol_voice: 'Schreeuwstem',
+    resume_run: 'Hervat',
     briefing_go: 'Yo yo yo!',
     briefing_foot: 'WASD bewegen · Spatie tik = sprong · Spatie vasthouden = verstoppen/sluiten · Sleep camera · Tab richting · Hoe luider, hoe destructiever',
 

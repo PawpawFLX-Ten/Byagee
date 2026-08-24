@@ -147,6 +147,7 @@ export function Briefing() {
   const setLang = useGameStore((s) => s.setLang)
   const best = useGameStore((s) => s.best)
   const [showDonation, setShowDonation] = useState(false)
+  const [resumable] = useState(() => useGameStore.getState().hasResumableRun())
 
   if (briefingDone) return null
 
@@ -228,6 +229,18 @@ export function Briefing() {
         >
           {t('briefing_go')}
         </button>
+        {resumable && (
+          <button
+            type="button"
+            className="briefing-go briefing-resume"
+            onClick={() => {
+              void unlockAudio()
+              useGameStore.getState().tryResumeRun()
+            }}
+          >
+            {t('resume_run')}
+          </button>
+        )}
         <p className="briefing-foot">
           {t('briefing_foot')}
         </p>
