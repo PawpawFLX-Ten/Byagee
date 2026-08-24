@@ -51,7 +51,7 @@ import {
 } from './geometries'
 import { useInputStore } from '../game/inputStore'
 import type { SkillId, SpaceStairs } from '../game/types'
-import { CABINET_POSITIONS } from './Atmosphere'
+import { CABINET_POSITIONS } from './placements'
 
 const WALL_LAYER_NAME = 'fade-wall'
 /** Vertical drop when hiding under furniture (with Y-scale 0.55). */

@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { unlockAudio } from '../game/audio'
+import {
+  unlockAudio,
+  getSfxVolume,
+  getVoiceVolume,
+  setSfxVolume,
+  setVoiceVolume,
+} from '../game/audio'
 import { useGameStore } from '../game/store'
 import { t } from '../game/i18n'
 import type { Lang } from '../game/i18n'
@@ -8,6 +14,62 @@ import { DonationModal } from './DonationModal'
 
 type SkillKey = '1' | '2' | '3' | '4' | 'Q' | 'E'
 type SkillIdSlug = 'slap' | 'tape' | 'megaphone' | 'gag' | 'poop' | 'civility'
+
+/** Collapsible SFX/voice sliders — hidden by default to keep mobile layout tight. */
+function VolumeControl() {
+  const [open, setOpen] = useState(false)
+  const [sfx, setSfx] = useState(getSfxVolume)
+  const [voice, setVoice] = useState(getVoiceVolume)
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="vol-toggle"
+        onClick={() => setOpen(true)}
+        aria-label={t('vol_sfx')}
+      >
+        🔊
+      </button>
+    )
+  }
+  return (
+    <div className="vol-row">
+      <label>
+        <span>{t('vol_sfx')}</span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={sfx}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setSfx(v)
+            setSfxVolume(v)
+          }}
+        />
+        <em>{Math.round(sfx * 100)}%</em>
+      </label>
+      <label>
+        <span>{t('vol_voice')}</span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={voice}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setVoice(v)
+            setVoiceVolume(v)
+          }}
+        />
+        <em>{Math.round(voice * 100)}%</em>
+      </label>
+    </div>
+  )
+}
 
 function getSkills(): {
   key: SkillKey
@@ -153,6 +215,8 @@ export function Briefing() {
           />
           {t('briefing_nausea')}
         </label>
+
+        <VolumeControl />
 
         <button
           type="button"

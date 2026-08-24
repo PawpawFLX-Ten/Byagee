@@ -126,21 +126,24 @@ function NpcMeshImpl({
   const pulseRing = useRef<Group>(null)
 
   // Static per-NPC config captured at render; per-frame data read live below.
-  const npc = useGameStore.getState().npcs.find((n) => n.id === id)!
+  // On despawn frames the snapshot can be briefly gone — every hook here runs
+  // unconditionally (stable hook order) and we bail out before rendering.
+  const npc = useGameStore.getState().npcs.find((n) => n.id === id)
   // Re-render only when display-relevant state changes, never per-frame.
   useGameStore((s) => renderKeyFor(s, id))
-
-  const isChaser = npc.role === 'chaser'
-  const variance = isChaser ? 1 : 0.94 + (npc.seatIndex % 5) * 0.035
-  const bodyColor = isChaser ? CHASER_COLOR : COLORS[npc.seatIndex % COLORS.length]
-  const buildScale = npc.build === 'slim' ? 0.85 : npc.build === 'stout' ? 1.15 : 1
-  const torsoWidth =
-    (isChaser ? 0.28 : 0.24 + (npc.seatIndex % 3) * 0.02) * buildScale
-  const phase = useMemo(
-    () => (isChaser ? npc.id.length * 1.3 : npc.seatIndex * 1.7),
-    [npc.id, npc.seatIndex, isChaser],
-  )
   useGameStore((s) => s.lang) // re-render on language change
+
+  const isChaser = npc?.role === 'chaser'
+  const seatIndex = npc?.seatIndex ?? 0
+  const variance = isChaser ? 1 : 0.94 + (seatIndex % 5) * 0.035
+  const bodyColor = isChaser ? CHASER_COLOR : COLORS[seatIndex % COLORS.length]
+  const buildScale = npc?.build === 'slim' ? 0.85 : npc?.build === 'stout' ? 1.15 : 1
+  const torsoWidth =
+    (isChaser ? 0.28 : 0.24 + (seatIndex % 3) * 0.02) * buildScale
+  const phase = useMemo(
+    () => (isChaser ? (npc?.id.length ?? 0) * 1.3 : seatIndex * 1.7),
+    [npc?.id, seatIndex, isChaser],
+  )
 
   useFrame(({ clock }) => {
     const live = useGameStore.getState().npcs.find((n) => n.id === id)
@@ -302,6 +305,9 @@ function NpcMeshImpl({
       }
     }
   })
+
+  // Despawn frame — every hook has run, so it is safe to render nothing.
+  if (!npc) return null
 
   const faceLocked = npc.status === 'sealed' || npc.status === 'silenced'
   const quietLabel =

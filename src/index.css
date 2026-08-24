@@ -703,6 +703,50 @@ body,
   cursor: pointer;
 }
 
+.vol-toggle {
+  width: 34px;
+  height: 30px;
+  margin: 0 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.vol-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.vol-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.vol-row span {
+  min-width: 62px;
+}
+
+.vol-row input[type='range'] {
+  flex: 1;
+  accent-color: #f0c14a;
+}
+
+.vol-row em {
+  min-width: 38px;
+  text-align: right;
+  font-style: normal;
+  color: #6b5d4a;
+}
+
 .briefing-go {
   width: 100%;
   padding: 12px 16px;

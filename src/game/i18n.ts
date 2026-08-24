@@ -84,6 +84,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_lede: '吧唧嘴亵渎了公共秩序，是对人类的终极犯罪。你将在食堂维护正义，用无情铁手让每个人吃饭闭嘴！',
     briefing_tools: '执法工具（请务必读完再丢人）',
     briefing_nausea: '降低恶心音效（吧唧更闷、更礼貌）',
+    vol_sfx: '音效',
+    vol_voice: '喊话语音',
     briefing_go: '出警 · 开始制裁',
     briefing_foot: 'WASD 移动 · 短按空格跳跃 · 长按空格躲桌下/闩门 · 拖拽转镜 · Tab 换目标 · 噪音越大掉血越狠',
 
@@ -263,6 +265,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_lede: 'Byagee Mouth greatly supplements cultural diversity and is the ultimate crime to humanity. You are going to shut everyone\'s lips while they are chewing and maintain the ultimate justice!',
     briefing_tools: 'Toolsets - Please act with no shame after reading',
     briefing_nausea: 'Wearing headset so you don\'t hear Byagee',
+    vol_sfx: 'SFX',
+    vol_voice: 'Shout voice',
     briefing_go: 'Yo yo yo!',
     briefing_foot: 'WASD movement · Tap Space to jump · Hold Space to hide under table / latch door · Drag camera · Tab to aim · Louder = more HP damage',
 
@@ -442,6 +446,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     briefing_lede: 'Byageee Mouth schendt de culturele diversiteit en is de ultieme misdaad tegen de mensheid. Je gaat ieders lippen sluiten terwijl ze kauwen en de ultieme rechtvaardigheid handhaven!',
     briefing_tools: 'Gereedschap - Schaam je niet na het lezen',
     briefing_nausea: 'Koptelefoon zodat je Byageee niet hoort',
+    vol_sfx: 'Geluidseffecten',
+    vol_voice: 'Schreeuwstem',
     briefing_go: 'Yo yo yo!',
     briefing_foot: 'WASD bewegen · Spatie tik = sprong · Spatie vasthouden = verstoppen/sluiten · Sleep camera · Tab richting · Hoe luider, hoe destructiever',
 

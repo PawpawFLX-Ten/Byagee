@@ -7,14 +7,7 @@ import { detectDevice } from '../game/deviceDetect'
 import { stdMat } from './materials'
 import { boxGeo, planeGeo, sphereGeo } from './geometries'
 import { useGameStore } from '../game/store'
-
-/** Wall cabinets — hide targets wired into hideLatch proximity. */
-export const CABINET_POSITIONS: [number, number, number][] = [
-  [3.6, 0, -4.75],
-  [-3.6, 0, 4.75],
-  [-4.75, 0, -3.6],
-  [4.75, 0, 3.6],
-]
+import { CABINET_POSITIONS } from './placements'
 
 const WALL_SCREENS: { pos: [number, number, number]; rotY: number }[] = [
   { pos: [-4.55, 1.1, 0.5], rotY: Math.PI / 2 },

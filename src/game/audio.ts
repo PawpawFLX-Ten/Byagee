@@ -34,6 +34,45 @@ let unlocked = false
 let ttsWarmedUp = false
 let reduceNausea = false
 
+// User volume factors (1 = the designed mix). SFX rides the master gain,
+// voice scales each TTS utterance. Persisted per browser.
+const VOL_SFX_KEY = 'civicman.vol.sfx'
+const VOL_VOICE_KEY = 'civicman.vol.voice'
+const SFX_BASE = 0.35
+
+function loadVolumeFactor(key: string): number {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw === null) return 1
+    const v = Number(raw)
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1
+  } catch {
+    return 1
+  }
+}
+
+let sfxFactor = loadVolumeFactor(VOL_SFX_KEY)
+let voiceFactor = loadVolumeFactor(VOL_VOICE_KEY)
+
+export function setSfxVolume(factor: number) {
+  sfxFactor = Math.min(1, Math.max(0, factor))
+  if (ctx && master) master.gain.value = SFX_BASE * sfxFactor
+  try { localStorage.setItem(VOL_SFX_KEY, String(sfxFactor)) } catch { /* ignore */ }
+}
+
+export function setVoiceVolume(factor: number) {
+  voiceFactor = Math.min(1, Math.max(0, factor))
+  try { localStorage.setItem(VOL_VOICE_KEY, String(voiceFactor)) } catch { /* ignore */ }
+}
+
+export function getSfxVolume() {
+  return sfxFactor
+}
+
+export function getVoiceVolume() {
+  return voiceFactor
+}
+
 function ac(): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!ctx) {
@@ -43,7 +82,7 @@ function ac(): AudioContext | null {
         .webkitAudioContext
     ctx = new Ctx()
     master = ctx.createGain()
-    master.gain.value = 0.35
+    master.gain.value = SFX_BASE * sfxFactor
     master.connect(ctx.destination)
     chewBus = ctx.createGain()
     chewBus.gain.value = 1
@@ -125,12 +164,20 @@ export function getReduceNausea() {
   return reduceNausea
 }
 
+// Reusable per-length noise buffers — AudioBuffer is context-bound but
+// safe to share across one-shot sources; recreating the Float32Array for
+// every click was a steady GC churn source.
+const noiseCache = new Map<number, AudioBuffer>()
+
 function noiseBuffer(c: AudioContext, seconds: number): AudioBuffer {
-  const rate = c.sampleRate
-  const len = Math.floor(rate * seconds)
-  const buf = c.createBuffer(1, len, rate)
-  const data = buf.getChannelData(0)
-  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
+  const len = Math.floor(c.sampleRate * Math.max(seconds, 0.05))
+  let buf = noiseCache.get(len)
+  if (!buf) {
+    buf = c.createBuffer(1, len, c.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
+    noiseCache.set(len, buf)
+  }
   return buf
 }
 
@@ -375,7 +422,7 @@ export function playShoutVoice(line = t('shoutLine'), rate = 1.45) {
         u.lang = lang === 'zh' ? 'zh-CN' : 'en-US'
         u.rate = rate
         u.pitch = 0.65
-        u.volume = 1
+        u.volume = voiceFactor
 
         const voices = window.speechSynthesis.getVoices()
         const maleHint = lang === 'zh' ? /male|男|kangkang|yunyang|yunjian|yunxi|hanhan|xiaomu/i : /male|david|alex|daniel|fred/i
