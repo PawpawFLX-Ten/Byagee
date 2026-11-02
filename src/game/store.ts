@@ -32,6 +32,8 @@ import {
 import { createNpcs, tickNpcs } from './npcFsm'
 import { shouldSpawnProp, sampleFloorPosition, pickPropType, checkPickup, applyPropEffect, createProp } from './props'
 import { levelForXp, isMaxLevel, isQUnlocked, isEUnlocked, XP_PER_SKILL_HIT_NORMAL, XP_PER_SKILL_HIT_BOSS, XP_PER_SURVIVAL_SEC, cdMultiplier } from './progression'
+import { isCommercial, getSessionConfig } from './commercial/runtime'
+import { feedPowerForSkill, resolveCommercialOutcome, servedDishLabel, type CommercialOutcome } from './commercial/session'
 import { cycleTarget, tryUseSkill } from './skills'
 import {
   createInitialLayout,
@@ -191,6 +193,11 @@ export interface GameStore {
   playerHidden: boolean
   hideStartedAt: number | null
   bossEtaSec: number | null
+  /** Commercial dining round: fullness served so far. */
+  fedPoints: number
+  feedTarget: number
+  roundLimitSec: number
+  commercialOutcome: CommercialOutcome
   lang: Lang
   setLang: (lang: Lang) => void
   start: (now?: number) => void
@@ -274,6 +281,10 @@ function snapshotState(s: GameStore): object {
     spaceEventAt: s.spaceEventAt,
     playerHidden: s.playerHidden,
     hideStartedAt: s.hideStartedAt,
+    fedPoints: s.fedPoints,
+    feedTarget: s.feedTarget,
+    roundLimitSec: s.roundLimitSec,
+    commercialOutcome: s.commercialOutcome,
     dailySeed: getDailySeed(),
   }
 }
@@ -339,6 +350,27 @@ function obstaclesForLayout(layout: SpaceLayoutState): ObstacleCollider[] {
     obstacleCache.set(layout, cached)
   }
   return cached
+}
+
+function seatForService(npcs: NpcState[], now: number): NpcState[] {
+  if (!isCommercial()) return npcs
+  return npcs.map((n) => ({
+    ...n,
+    status: 'smacking' as const,
+    statusUntil: now + 5000,
+    smackingSince: now,
+    foodId: n.foodId,
+  }))
+}
+
+function freshCommercialRun() {
+  const cfg = getSessionConfig()
+  return {
+    fedPoints: 0,
+    feedTarget: cfg.feedTarget,
+    roundLimitSec: cfg.roundLimitSec,
+    commercialOutcome: 'playing' as const,
+  }
 }
 
 function failText(reason: string): string {
@@ -448,6 +480,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerHidden: false,
   hideStartedAt: null,
   bossEtaSec: null,
+  ...freshCommercialRun(),
   lang: getLang(),
 
   setLang: (lang) => {
@@ -459,7 +492,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     resetRuntimeSpace()
     const runtime = initialRuntime()
     syncRuntimeFromStore(runtime.tables, runtime.seatPositions, runtime.foodSpots, runtime.maxNpcs)
-    const npcs = createNpcs(now)
+    const npcs = seatForService(createNpcs(now), now)
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
     lastTickAtMs = 0
@@ -519,6 +552,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerHidden: false,
       hideStartedAt: null,
       bossEtaSec: null,
+      ...freshCommercialRun(),
     })
   },
 
@@ -527,7 +561,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     clearSavedRun()
     const runtime = initialRuntime()
     syncRuntimeFromStore(runtime.tables, runtime.seatPositions, runtime.foodSpots, runtime.maxNpcs)
-    const npcs = createNpcs(now)
+    const npcs = seatForService(createNpcs(now), now)
     npcSeq = CONFIG.npcCount
     lastDoorEventAt = 0
     lastTickAtMs = 0
@@ -586,6 +620,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerHidden: false,
       hideStartedAt: null,
       bossEtaSec: null,
+      ...freshCommercialRun(),
     })
   },
 
@@ -717,6 +752,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         lastDoorEventAt = 0
       }
 
+      const session = getSessionConfig()
+      state.fedPoints = state.fedPoints ?? 0
+      state.feedTarget = state.feedTarget || session.feedTarget
+      state.roundLimitSec = state.roundLimitSec || session.roundLimitSec
+      state.commercialOutcome = state.commercialOutcome ?? 'playing'
       set({
         ...state,
         paused: false,
@@ -733,9 +773,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   useSkill: (skillId, now = performance.now()) => {
     const state = get()
+    const dining = isCommercial()
     if (!state.alive || !state.briefingDone || state.paused) return
-    if (skillId === 'poop' && !isQUnlocked(state.level)) return
-    if (skillId === 'civility' && !isEUnlocked(state.level)) return
+    if (!dining && skillId === 'poop' && !isQUnlocked(state.level)) return
+    if (!dining && skillId === 'civility' && !isEUnlocked(state.level)) return
     if (state.skillAction) return
 
     // Pre-check without applying — lock windup then apply at end
@@ -782,16 +823,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
         [skillId]: now + CONFIG.skills[skillId].cooldown * cdMultiplier(state.level) * 1000,
       },
       lastSkillOk: true,
+      // Score and the served plate land on the click. The windup still
+      // plays, but a slow frame must not swallow a plate that already
+      // connected — the preview is the accepted serve.
+      ...(dining
+        ? {
+            npcs: preview.npcs,
+            fedPoints: state.fedPoints + feedPowerForSkill(skillId, preview.hitIds.length),
+            hitFx: {
+              id: fxSeq++,
+              npcIds: preview.hitIds,
+              skillId,
+              until: now + HIT_FX_MS[skillId],
+              playerPos: state.playerPos,
+            },
+          }
+        : {}),
       toast: {
         id: fxSeq++,
-        text:
-          skillId === 'megaphone'
+        text: dining
+          ? servedDishLabel(skillId, getLang())
+          : skillId === 'megaphone'
             ? t('shoutLine')
             : skillId === 'poop'
-            ? t('poopShoutLine')
-            : skillId === 'civility'
-            ? t('civilityShoutLine')
-            : t(`skill_${skillId}`) + '！',
+              ? t('poopShoutLine')
+              : skillId === 'civility'
+                ? t('civilityShoutLine')
+                : t(`skill_${skillId}`) + '！',
         until: now + Math.max(700, windup * 1000 + 200),
       },
       shoutBannerUntil:
@@ -832,6 +890,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let maxNpcs = state.maxNpcs
     let spaceEventToast = state.spaceEventToast
     let spaceEventAt = state.spaceEventAt
+    let fedPoints = state.fedPoints
+    let commercialOutcome = state.commercialOutcome
 
     // Pause / tab-away: shift every absolute-ms stamp forward by the wall
     // gap so timers resume exactly where they froze (no free cooldowns,
@@ -931,10 +991,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
               )
             }).length,
         }
-        // Keep original reserved cooldown, don't reset from tryUseSkill
-        selfNoise = result.selfNoise
-        selfNoiseUntil =
-          result.selfNoise > 0 ? now + 1200 : selfNoiseUntil
+        // Keep original reserved cooldown, don't reset from tryUseSkill.
+        // Dining points were already awarded when the serve was accepted.
+        if (isCommercial()) {
+          selfNoise = 0
+        } else {
+          selfNoise = result.selfNoise
+          selfNoiseUntil = result.selfNoise > 0 ? now + 1200 : selfNoiseUntil
+        }
         hitFx = {
           id: fxSeq++,
           npcIds: result.hitIds,
@@ -1042,7 +1106,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let bossSpawnThisBeat = false
     if (elapsedSec >= nextBossAtElapsed) {
       nextBossAtElapsed += CONFIG.boss.intervalSec
-      if (!npcs.some((n) => n.role === 'boss')) {
+      if (!isCommercial() && !npcs.some((n) => n.role === 'boss')) {
         // If at cap, evict a non-critical NPC first — it walks out, boss takes its seat.
         if (npcs.filter((n) => !n.exiting).length >= maxNpcs) {
           const admission = planBossAdmission(npcs, now)
@@ -1095,6 +1159,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextChaserAtElapsed += CONFIG.chaser.roundGapSec
     }
     if (
+      !isCommercial() &&
       shouldSpawnChaser({
         phase,
         roomCount: layout.rooms.length,
@@ -1195,7 +1260,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       props = props.filter((p) => p.fadingSince === null || now - p.fadingSince < fadeDuration)
     }
 
-    const alive = hp > 0
+    const aliveFromHp = hp > 0
+    let alive = aliveFromHp
+    if (isCommercial()) {
+      commercialOutcome = resolveCommercialOutcome({
+        fedPoints,
+        feedTarget: state.feedTarget,
+        elapsedSec,
+        roundLimitSec: state.roundLimitSec,
+        hp,
+      })
+      if (commercialOutcome !== 'playing') alive = false
+    }
     const bossEtaSec = npcs.some((n) => n.role === 'boss')
       ? null
       : Math.max(0, nextBossAtElapsed - elapsedSec)
@@ -1423,6 +1499,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       queuedSpaceEventId,
       lastSpaceEventAt,
       minorMorphsSinceBoss,
+      fedPoints: Math.max(fedPoints, get().fedPoints),
+      commercialOutcome,
     })
 
     if (alive) saveRun(now)

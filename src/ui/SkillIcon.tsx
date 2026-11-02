@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { dishForSkill } from '../game/commercial/session'
+import { isCommercial } from '../game/commercial/runtime'
 import type { SkillId } from '../game/types'
 
 const svgProps = {
@@ -21,6 +23,13 @@ export function SkillIcon({
   id: SkillId
   className?: string
 }) {
+  if (isCommercial()) {
+    return (
+      <span className={className} aria-hidden>
+        {dishForSkill(id).emoji}
+      </span>
+    )
+  }
   let glyph: ReactNode
   switch (id) {
     case 'slap':

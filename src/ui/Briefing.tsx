@@ -8,10 +8,15 @@ import {
 } from '../game/audio'
 import { todaySeed, installDailyRandom, restoreRandom, loadDailyBest } from '../game/daily'
 import { useGameStore } from '../game/store'
-import { t } from '../game/i18n'
+import { dishLabel } from '../game/commercial/dishes'
+import { getFeaturedDishId, isCommercial, selectSkin } from '../game/commercial/runtime'
+import { dishForSkill, feedPowerForSkill } from '../game/commercial/session'
+import { getLang, t } from '../game/i18n'
 import type { Lang } from '../game/i18n'
 import { SkillIcon } from './SkillIcon'
 import { DonationModal } from './DonationModal'
+import { LeadForm } from './LeadForm'
+import { useBrandSkin } from './useBrandSkin'
 
 type SkillKey = '1' | '2' | '3' | '4' | 'Q' | 'E'
 type SkillIdSlug = 'slap' | 'tape' | 'megaphone' | 'gag' | 'poop' | 'civility'
@@ -72,7 +77,7 @@ function VolumeControl() {
   )
 }
 
-function getSkills(): {
+type SkillCard = {
   key: SkillKey
   id: SkillIdSlug
   name: string
@@ -80,8 +85,10 @@ function getSkills(): {
   pro: string
   con: string
   perks: string
-}[] {
-  return [
+}
+
+function getSkills(): SkillCard[] {
+  const rows: SkillCard[] = [
     {
       key: '1',
       id: 'slap',
@@ -137,6 +144,18 @@ function getSkills(): {
       perks: t('civility_perks'),
     },
   ]
+  if (!isCommercial()) return rows
+  const lang = getLang()
+  const featured = getFeaturedDishId()
+  return rows.map((row) => {
+    const dish = dishForSkill(row.id)
+    const mark = featured && row.id === 'gag' ? ` · ${t('brand_dish')}` : ''
+    return {
+      ...row,
+      unlock: t('unlock_ready'),
+      perks: `${dish.emoji} ${dishLabel(dish, lang)} · +${feedPowerForSkill(row.id, 1)}${mark}`,
+    }
+  })
 }
 
 export function Briefing() {
@@ -148,14 +167,24 @@ export function Briefing() {
   const setLang = useGameStore((s) => s.setLang)
   const best = useGameStore((s) => s.best)
   const [showDonation, setShowDonation] = useState(false)
+  const [showLead, setShowLead] = useState(false)
   const [resumable] = useState(() => useGameStore.getState().hasResumableRun())
   const dailyBest = loadDailyBest()
+  const skin = useBrandSkin()
+  const commercial = isCommercial()
 
   if (briefingDone) return null
 
   const skills = getSkills()
+  const title = commercial
+    ? (skin.titleOverride ?? (lang === 'zh' ? skin.titleZh : skin.titleEn))
+    : t('briefing_h1')
 
   const toggleLang = () => {
+    if (commercial) {
+      setLang(lang === 'zh' ? 'en' : 'zh')
+      return
+    }
     const next: Lang = lang === 'zh' ? 'en' : lang === 'en' ? 'nl' : 'zh'
     setLang(next)
   }
@@ -169,17 +198,34 @@ export function Briefing() {
             className="lang-btn"
             onClick={toggleLang}
           >
-            {lang === 'zh' ? 'EN' : lang === 'en' ? 'NL' : 'ZH'}
+            {commercial
+              ? (lang === 'zh' ? 'EN' : 'ZH')
+              : (lang === 'zh' ? 'EN' : lang === 'en' ? 'NL' : 'ZH')}
           </button>
-          <h1>{t('briefing_h1')}</h1>
-          <button
-            type="button"
-            className="donation-btn"
-            onClick={() => setShowDonation(true)}
-          >
-            {t('briefing_donation')}
-          </button>
+          <h1>{title}</h1>
+          {commercial ? (
+            <button
+              type="button"
+              className="inquiry-btn"
+              onClick={() => setShowLead(true)}
+            >
+              {t('lead_inquiry')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="donation-btn"
+              onClick={() => setShowDonation(true)}
+            >
+              {t('briefing_donation')}
+            </button>
+          )}
         </div>
+        {commercial && (
+          <p className="value-prop">
+            {t('value_prop').replace('{sec}', String(skin.roundLimitSec))}
+          </p>
+        )}
         <p className="lede">
           {t('briefing_lede')}
           {best && (
@@ -188,6 +234,25 @@ export function Briefing() {
             </em>
           )}
         </p>
+
+        {commercial && (
+          <div className="skin-switch" role="group" aria-label={t('skin_switch')}>
+            <button
+              type="button"
+              className={skin.id === 'hearth' ? 'on' : ''}
+              onClick={() => selectSkin('hearth')}
+            >
+              {t('skin_hearth')}
+            </button>
+            <button
+              type="button"
+              className={skin.id === 'popup' ? 'on' : ''}
+              onClick={() => selectSkin('popup')}
+            >
+              {t('skin_popup')}
+            </button>
+          </div>
+        )}
 
         <h2>{t('briefing_tools')}</h2>
         <ul className="skill-list">
@@ -232,6 +297,7 @@ export function Briefing() {
         >
           {t('briefing_go')}
         </button>
+        {!commercial && (
         <button
           type="button"
           className="briefing-go briefing-daily"
@@ -246,7 +312,8 @@ export function Briefing() {
             <em className="daily-best">{t('daily_best')} {dailyBest}</em>
           )}
         </button>
-        {resumable && (
+        )}
+        {!commercial && resumable && (
           <button
             type="button"
             className="briefing-go briefing-resume"
@@ -261,7 +328,27 @@ export function Briefing() {
         <p className="briefing-foot">
           {t('briefing_foot')}
         </p>
+        {commercial && (
+          <button
+            type="button"
+            className="sponsor-link"
+            onClick={() => setShowDonation(true)}
+          >
+            {t('briefing_donation')}
+          </button>
+        )}
         {showDonation && <DonationModal onClose={() => setShowDonation(false)} />}
+        {showLead && (
+          <div className="donation-modal" onClick={() => setShowLead(false)}>
+            <div className="donation-card" onClick={(e) => e.stopPropagation()}>
+              <h2>{t('lead_inquiry')}</h2>
+              <LeadForm outcome="inquiry" fedPoints={0} feedTarget={skin.feedTarget} />
+              <button type="button" className="donation-close" onClick={() => setShowLead(false)}>
+                {t('donation_close')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

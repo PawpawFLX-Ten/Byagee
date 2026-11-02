@@ -1,9 +1,11 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Briefing } from './ui/Briefing'
 import { Hud } from './ui/Hud'
 import { TouchControls } from './ui/TouchControls'
 import { useGameStore } from './game/store'
 import { t } from './game/i18n'
+import { setBrandLang } from './game/commercial/runtime'
+import { useBrandSkin } from './ui/useBrandSkin'
 
 // The whole three.js stack (fiber/drei/postprocessing) rides in this async
 // chunk, so first paint only waits for the DOM shell — the briefing screen
@@ -13,7 +15,11 @@ const GameCanvas = lazy(() =>
 )
 
 export default function App() {
-  useGameStore((s) => s.lang) // re-render on language change
+  const lang = useGameStore((s) => s.lang) // re-render on language change
+  const skin = useBrandSkin()
+  useEffect(() => {
+    setBrandLang(lang)
+  }, [lang, skin])
   return (
     <div className="app">
       <Suspense fallback={null}>

@@ -1,3 +1,6 @@
+import { commercialString } from './commercial/copy'
+import { isCommercial } from './commercial/runtime'
+
 export type Lang = 'zh' | 'en' | 'nl'
 
 const LANG_STORAGE_KEY = 'civicman.lang'
@@ -586,5 +589,9 @@ const DICT: Record<Lang, Record<string, string>> = {
 }
 
 export function t(key: string): string {
+  if (isCommercial()) {
+    const overlay = commercialString(currentLang === 'zh' ? 'zh' : 'en', key)
+    if (overlay !== undefined) return overlay
+  }
   return DICT[currentLang]?.[key] ?? DICT.zh[key] ?? key
 }
