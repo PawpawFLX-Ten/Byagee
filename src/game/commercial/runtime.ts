@@ -3,6 +3,9 @@ import { DISHES, dishById } from './dishes'
 export const DEFAULT_FEED_TARGET = 8
 export const DEFAULT_ROUND_SEC = 60
 
+/** Business inbox for inquiry and end-of-round leads. `?mailto=` replaces it. */
+export const DEFAULT_BUSINESS_EMAIL = 'llzlty1@pawpawmaster.com'
+
 export type SkinId = 'hearth' | 'popup'
 
 export interface BrandPreset {
@@ -110,7 +113,7 @@ function brandFromPreset(id: SkinId, base?: ResolvedBrand): ResolvedBrand {
     wall: preset.wall,
     wallAccent: preset.wallAccent,
     webhookUrl: base?.webhookUrl ?? '',
-    mailto: base?.mailto ?? '',
+    mailto: base?.mailto || DEFAULT_BUSINESS_EMAIL,
     featuredDishId: base?.featuredDishId ?? null,
     feedTarget: base?.feedTarget ?? DEFAULT_FEED_TARGET,
     roundLimitSec: base?.roundLimitSec ?? DEFAULT_ROUND_SEC,

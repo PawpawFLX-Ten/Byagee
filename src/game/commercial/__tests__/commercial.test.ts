@@ -1,8 +1,9 @@
-import { describe, expect, it, afterEach } from 'vitest'
+import { describe, expect, it, afterEach, vi } from 'vitest'
 import { DISHES, SKILL_DISH, dishById } from '../dishes'
 import { commercialCopyKeys, commercialString } from '../copy'
 import {
   applyCommercialQuery,
+  DEFAULT_BUSINESS_EMAIL,
   getResolvedSkin,
   parseCommercialQuery,
   resetCommercialRuntime,
@@ -15,6 +16,7 @@ import {
   resolveCommercialOutcome,
 } from '../session'
 import { setLang, t } from '../../i18n'
+import { submitLead } from '../lead'
 import { useGameStore } from '../../store'
 
 const BANNED = /byagee|phook|dildo|poopwave|shit|fuck|吧唧|塞嘴|泼屎|闭嘴|制裁|他妈|吃屎|抽脸|恶心/i
@@ -156,6 +158,44 @@ describe('commercial round', () => {
     expect(skin.feedTarget).toBe(6)
     expect(skin.roundLimitSec).toBe(30)
     expect(skin.webhookUrl).toBe('https://example.com/lead')
+    expect(skin.mailto).toBe(DEFAULT_BUSINESS_EMAIL)
     expect(skin.tablecloth).toBe('#f4fbf7')
+  })
+
+  it('keeps the business inbox unless ?mailto= overrides it', async () => {
+    applyCommercialQuery(parseCommercialQuery('?skin=popup'))
+    expect(getResolvedSkin().mailto).toBe('llzlty1@pawpawmaster.com')
+    const opened: string[] = []
+    vi.stubGlobal('window', {
+      location: {
+        set href(value: string) {
+          opened.push(value)
+        },
+        get href() {
+          return opened.at(-1) ?? ''
+        },
+      },
+    })
+    const result = await submitLead({
+      name: '测试',
+      contact: 'guest@example.com',
+      privacy: true,
+      skinId: 'popup',
+      title: '品牌快闪餐桌',
+      lang: 'zh',
+      fedPoints: 0,
+      feedTarget: 8,
+      outcome: 'inquiry',
+      page: 'http://localhost/',
+      createdAt: '2026-11-02T00:00:00.000Z',
+    })
+    expect(result.via).toBe('mailto')
+    expect(opened[0]).toContain('mailto:llzlty1@pawpawmaster.com')
+    vi.unstubAllGlobals()
+
+    applyCommercialQuery(parseCommercialQuery('?mailto=hello@brand.com'))
+    expect(getResolvedSkin().mailto).toBe('hello@brand.com')
+    expect(commercialString('zh', 'lead_business')).toBe('商务联系')
+    expect(commercialString('en', 'lead_business')).toBe('Business contact')
   })
 })

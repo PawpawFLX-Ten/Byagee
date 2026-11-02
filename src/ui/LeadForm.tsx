@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { submitLead } from '../game/commercial/lead'
 import { displayTitle, getResolvedSkin } from '../game/commercial/runtime'
+import { useBrandSkin } from './useBrandSkin'
 import { commercialTitle, type CommercialOutcome } from '../game/commercial/session'
 import { t } from '../game/i18n'
 import { useGameStore } from '../game/store'
@@ -21,6 +22,7 @@ export function LeadForm({
   feedTarget: number
 }) {
   const lang = useGameStore((s) => s.lang)
+  const mailto = useBrandSkin().mailto
   const [name, setName] = useState('')
   const [contact, setContact] = useState('')
   const [privacy, setPrivacy] = useState(false)
@@ -90,8 +92,12 @@ export function LeadForm({
         <span>{t('lead_privacy')}</span>
       </label>
       {error && <p className="lead-error">{error}</p>}
+      <p className="business-email">
+        {t('lead_business')}{' '}
+        <a href={`mailto:${mailto}`}>{mailto}</a>
+      </p>
       <button type="submit" className="lead-cta" disabled={pending}>
-        {t('lead_cta')}
+        {t('lead_cta')} · {mailto}
       </button>
       <p className="lead-note">{t('lead_demo_note')}</p>
     </form>

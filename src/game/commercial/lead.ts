@@ -18,10 +18,10 @@ export interface LeadPayload {
 export type LeadVia = 'webhook' | 'mailto' | 'local'
 
 /**
- * Demo lead capture. Always logs locally. Posts when `webhook` is set
- * (`?webhook=` or the skin config). Opens a mailto draft when `mailto` is
- * set and no webhook answered. A failed post still counts as received so
- * the demo is not blocked on a missing backend.
+ * Demo lead capture. Always logs locally. Posts when `webhook` is set.
+ * Otherwise opens a mailto draft to the skin address, which defaults to
+ * the business inbox and can be replaced with `?mailto=`. A failed post
+ * still counts as received so the demo is not blocked on a missing backend.
  */
 export async function submitLead(payload: LeadPayload): Promise<{ ok: true; via: LeadVia }> {
   console.log('[commercial-lead]', payload)

@@ -226,6 +226,12 @@ export function Briefing() {
             {t('value_prop').replace('{sec}', String(skin.roundLimitSec))}
           </p>
         )}
+        {commercial && (
+          <p className="business-email">
+            {t('lead_business')}{' '}
+            <a href={`mailto:${skin.mailto}`}>{skin.mailto}</a>
+          </p>
+        )}
         <p className="lede">
           {t('briefing_lede')}
           {best && (

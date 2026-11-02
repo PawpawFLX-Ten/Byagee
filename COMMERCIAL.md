@@ -41,7 +41,7 @@ Or use the two buttons on the start screen. They swap palette, tablecloth, wall 
 | `seconds` | `30` | Round length (15–180). |
 | `lang` | `en` | `zh` (default when nothing is saved), `en`, or `nl`. |
 | `webhook` | `https://example.com/lead` | POST lead JSON here. |
-| `mailto` | `hello@brand.com` | Open a mail draft if no webhook answers. |
+| `mailto` | `hello@brand.com` | Replaces the default business inbox. With no webhook, submit opens a draft to this address. |
 
 Example:
 
@@ -49,7 +49,7 @@ Example:
 /?skin=popup&color=1A73E8&logoText=Acme&title=Acme%20Table&dish=brand-special&seconds=30&goal=6
 ```
 
-A lead form is on the start screen (询价) and again when the round ends, win or lose. The sponsor link stays, under the main action. With no webhook, submit writes `[commercial-lead]` to the console and shows a success message. Nothing is stored on a server.
+A lead form is on the start screen (询价) and again when the round ends, win or lose. The sponsor link stays, under the main action. The default business email is **llzlty1@pawpawmaster.com**. It is shown on the start screen and on the form button in Chinese and English. With no webhook, submit still logs `[commercial-lead]` and opens a mail draft to that address. `?mailto=` replaces it for the session. Nothing is stored on a server.
 
 ## Round
 

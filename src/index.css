@@ -1341,6 +1341,21 @@ body.commercial .briefing-card {
   border: 1px solid color-mix(in srgb, var(--brand) 55%, transparent);
 }
 
+body.commercial .business-email {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+body.commercial .business-email a {
+  color: var(--brand-soft);
+  text-decoration: underline;
+}
+
+body.commercial .lead-form .business-email {
+  margin: 2px 0 0;
+}
+
 body.commercial .value-prop {
   margin: 0 0 8px;
   color: var(--brand-soft);
