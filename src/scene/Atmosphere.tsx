@@ -7,6 +7,7 @@ import { detectDevice } from '../game/deviceDetect'
 import { stdMat } from './materials'
 import { boxGeo, planeGeo, sphereGeo } from './geometries'
 import { useGameStore } from '../game/store'
+import { isCommercial } from '../game/commercial/runtime'
 import { CABINET_POSITIONS } from './placements'
 
 const WALL_SCREENS: { pos: [number, number, number]; rotY: number }[] = [
@@ -77,7 +78,10 @@ export function Atmosphere() {
   const warmRef = useRef<PointLight>(null)
   const fogColor = useMemo(() => new Color(), [])
   const keyColor = useMemo(() => new Color(), [])
+  const diningBg = useMemo(() => new Color('#f6efe4'), [])
+  const classicBg = useMemo(() => new Color('#d9cfc0'), [])
   useFrame(() => {
+    scene.background = isCommercial() ? diningBg : classicBg
     const { npcs, playerRoomId, playerPos, threat, spaceEventAt } =
       useGameStore.getState()
     const roomSmackers = npcs.filter(
@@ -87,14 +91,18 @@ export function Atmosphere() {
       (n) => n.role === 'chaser' && inFaceRadius(n, playerPos),
     )
 
-    const murk = Math.min(
-      9,
-      roomSmackers * 1.4 + threat * 3.2 + (faceChase ? 2.8 : 0),
-    )
+    const dining = isCommercial()
+    const murk = dining
+      ? Math.min(3, roomSmackers * 0.35 + threat * 0.8)
+      : Math.min(
+          9,
+          roomSmackers * 1.4 + threat * 3.2 + (faceChase ? 2.8 : 0),
+        )
     const fogNear = Math.max(5.5, 14 - murk * 0.85)
     const fogFar = Math.max(17, 32 - murk * 1.45)
 
-    threatColor(threat, fogColor)
+    if (dining) fogColor.set('#f4e7d4')
+    else threatColor(threat, fogColor)
     if (!scene.fog) {
       scene.fog = new Fog(fogColor.getHex(), fogNear, fogFar)
     } else {
@@ -104,7 +112,7 @@ export function Atmosphere() {
       fog.far = fogFar
     }
 
-    const amb = 0.42 - threat * 0.18
+    const amb = dining ? 0.62 - threat * 0.08 : 0.42 - threat * 0.18
     if (ambientRef.current) ambientRef.current.intensity = amb
 
     if (hemiRef.current) {

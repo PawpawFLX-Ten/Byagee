@@ -1,4 +1,5 @@
 import { CONFIG } from './config'
+import { isCommercial } from './commercial/runtime'
 import { applyChaserKnockback, isKnockbackTarget } from './chaser'
 import { scaledSilence } from './difficulty'
 import { resolveBossHit } from './bossModules'
@@ -119,7 +120,9 @@ export function tryUseSkill(
   reason?: string
 } {
   const skill = CONFIG.skills[skillId]
-  const effectiveRange = skill.range * rangeMultiplier(level)
+  // Dining demo: a little extra reach so a first-time host can land a plate.
+  const reach = isCommercial() ? 1.6 : 1
+  const effectiveRange = skill.range * rangeMultiplier(level) * reach
   const effectiveCd = skill.cooldown * cdMultiplier(level)
   if (now < (cooldownReadyAt[skillId] ?? 0)) {
     return {
@@ -223,8 +226,9 @@ export function tryUseSkill(
     }
   } else if (skill.tags.includes('aoe') && skill.aoeRadius) {
     let hit = false
+    const aoeRadius = skill.aoeRadius * reach
     next = next.map((npc) => {
-      if (distance3(npc.position, playerPos) <= skill.aoeRadius!) {
+      if (distance3(npc.position, playerPos) <= aoeRadius) {
         hit = true
         hitIds.push(npc.id)
         const others = npcs

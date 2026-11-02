@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import {
@@ -7,7 +7,9 @@ import {
   type Mesh,
   type MeshStandardMaterial,
   Raycaster,
+  TextureLoader,
   Vector3,
+  type Texture,
 } from 'three'
 import {
   CHAR_RADIUS,
@@ -19,6 +21,11 @@ import {
   type ObstacleCollider,
 } from '../game/collision'
 import { CONFIG } from '../game/config'
+import { DISHES, dishById } from '../game/commercial/dishes'
+import { getFeaturedDishId, isCommercial } from '../game/commercial/runtime'
+import { dishForSkill } from '../game/commercial/session'
+import { DishMesh } from './DishMesh'
+import { useBrandSkin } from '../ui/useBrandSkin'
 import { inFaceRadius } from '../game/chaser'
 import { playLatch } from '../game/audio'
 import {
@@ -230,6 +237,8 @@ function RoomWalls({
   room: { id: string; min: [number, number]; max: [number, number]; floor: number }
   layout: SpaceLayoutState
 }) {
+  const skin = useBrandSkin()
+  const commercial = isCommercial()
   const { min, max } = room
   const cx = (min[0] + max[0]) / 2
   const cz = (min[1] + max[1]) / 2
@@ -262,8 +271,8 @@ function RoomWalls({
       key: `n-${s}`,
       position: [s + len / 2 - cx, 1.2, min[1] - 0.14 - cz],
       args: [len + 0.3, 2.4, 0.18],
-      color: '#9a8268',
-      accentColor: '#6b5a45',
+      color: commercial ? skin.wall : '#9a8268',
+      accentColor: commercial ? skin.wallAccent : '#6b5a45',
     })
   }
   for (const [s, e] of splitSegments(min[0], max[0], southDoorX, DOOR_GAP_HALF)) {
@@ -272,8 +281,8 @@ function RoomWalls({
       key: `s-${s}`,
       position: [s + len / 2 - cx, 1.2, max[1] + 0.14 - cz],
       args: [len + 0.3, 2.4, 0.18],
-      color: '#9a8268',
-      accentColor: '#6b5a45',
+      color: commercial ? skin.wall : '#9a8268',
+      accentColor: commercial ? skin.wallAccent : '#6b5a45',
     })
   }
   for (const [s, e] of splitSegments(min[1], max[1], westDoorZ, DOOR_GAP_HALF)) {
@@ -282,8 +291,8 @@ function RoomWalls({
       key: `w-${s}`,
       position: [min[0] - 0.14 - cx, 1.2, s + len / 2 - cz],
       args: [0.18, 2.4, len + 0.3],
-      color: '#8a7560',
-      accentColor: '#5e4f3d',
+      color: commercial ? skin.wall : '#8a7560',
+      accentColor: commercial ? skin.wallAccent : '#5e4f3d',
     })
   }
   for (const [s, e] of splitSegments(min[1], max[1], eastDoorZ, DOOR_GAP_HALF)) {
@@ -292,8 +301,8 @@ function RoomWalls({
       key: `e-${s}`,
       position: [max[0] + 0.14 - cx, 1.2, s + len / 2 - cz],
       args: [0.18, 2.4, len + 0.3],
-      color: '#8a7560',
-      accentColor: '#5e4f3d',
+      color: commercial ? skin.wall : '#8a7560',
+      accentColor: commercial ? skin.wallAccent : '#5e4f3d',
     })
   }
 
@@ -312,8 +321,62 @@ function RoomWalls({
   )
 }
 
+function LogoPlane({ url }: { url: string }) {
+  const [map, setMap] = useState<Texture | null>(null)
+  useEffect(() => {
+    let alive = true
+    const loader = new TextureLoader()
+    loader.load(
+      url,
+      (tex) => {
+        if (alive) setMap(tex)
+      },
+      undefined,
+      () => {
+        if (alive) setMap(null)
+      },
+    )
+    return () => {
+      alive = false
+    }
+  }, [url])
+  if (!map) return null
+  return (
+    <mesh position={[0.52, 0, 0.05]}>
+      <planeGeometry args={[0.38, 0.38]} />
+      <meshBasicMaterial map={map} transparent />
+    </mesh>
+  )
+}
+
+/** Wall plaque: logo text, optional image, brand color. */
+function BrandMark() {
+  const skin = useBrandSkin()
+  return (
+    <group position={[0, 2.15, -4.35]}>
+      <mesh>
+        <boxGeometry args={[1.7, 0.48, 0.06]} />
+        <meshStandardMaterial color={skin.primary} />
+      </mesh>
+      <Text
+        position={[skin.logoUrl ? -0.22 : 0, 0, 0.05]}
+        fontSize={0.2}
+        color="#fffaf3"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={1.3}
+      >
+        {skin.logoText}
+      </Text>
+      {skin.logoUrl && <LogoPlane url={skin.logoUrl} />}
+    </group>
+  )
+}
+
 export function Room() {
   const layout = useGameStore((s) => s.layout)
+  const skin = useBrandSkin()
+  const commercial = isCommercial()
   const hasUpstairs = layout.rooms.some((r) => r.floor > 0)
   return (
     <group>
@@ -323,7 +386,11 @@ export function Room() {
         const cx = (room.min[0] + room.max[0]) / 2
         const cz = (room.min[1] + room.max[1]) / 2
         const y = room.floor * 1.5
-        const floorColor = room.floor === 0 ? '#c4b8a8' : '#b8a898'
+        const floorColor = commercial
+          ? skin.floor
+          : room.floor === 0
+            ? '#c4b8a8'
+            : '#b8a898'
         return (
           <group key={room.id} position={[cx, y, cz]}>
             <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow material={stdMat(floorColor)}>
@@ -331,6 +398,7 @@ export function Room() {
             </mesh>
             <RoomWalls room={room} layout={layout} />
             {room.id === 'r0' && <WallArt />}
+            {commercial && room.id === 'r0' && <BrandMark />}
             {room.floor === 0 && room.id === 'r0' && !hasUpstairs && (
               <mesh position={[0, 2.45, 0]}>
                 <boxGeometry args={[w - 0.11, 0.08, d - 0.11]} />
@@ -431,6 +499,9 @@ export function Tables() {
   const foodSpots = useGameStore((s) => s.runtimeFoodSpots)
   const hitFx = useGameStore((s) => s.hitFx)
   const foodGroup = useRef<Group>(null)
+  const skin = useBrandSkin()
+  const commercial = isCommercial()
+  const featuredId = getFeaturedDishId()
 
   useFrame(() => {
     if (!foodGroup.current) return
@@ -492,6 +563,23 @@ export function Tables() {
                 geometry={cylinderGeo(0.08, 0.1, t.topY, 8)}
               />
             ))}
+            {commercial && (
+              <mesh
+                position={[0, t.topY + 0.07, 0]}
+                scale={t.shape === 'oval' ? [1, 1, t.half.z / t.half.x] : [1, 1, 1]}
+                material={stdMat(skin.tablecloth)}
+                geometry={
+                  t.shape === 'rect'
+                    ? boxGeo(t.half.x * 2.05, 0.012, t.half.z * 2.05)
+                    : cylinderGeo(
+                        t.half.x * 1.02,
+                        t.half.x * 1.02,
+                        0.015,
+                        24,
+                      )
+                }
+              />
+            )}
           </group>
         )
       })}
@@ -499,6 +587,9 @@ export function Tables() {
       <group ref={foodGroup}>
       {foodSpots.map((food, i) => {
         const kind = i % 4
+        const served = commercial
+          ? (i === 0 && featuredId ? dishById(featuredId) : DISHES[i % DISHES.length])
+          : undefined
         return (
           <group key={food.id} position={food.plate}>
             <mesh
@@ -507,7 +598,17 @@ export function Tables() {
               material={stdMat('#efe6d8')}
               geometry={circleGeo(0.2, 16)}
             />
-            {kind === 0 && (
+            {served && (
+              <group position={[0, 0.02, 0]}>
+                <DishMesh dish={served} scale={1.35} />
+                {featuredId && served.id === featuredId && (
+                  <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} material={stdMat(skin.primary)}>
+                    <ringGeometry args={[0.14, 0.17, 20]} />
+                  </mesh>
+                )}
+              </group>
+            )}
+            {!served && kind === 0 && (
               <>
                 <mesh
                   position={[0, 0.07, 0]}
@@ -521,7 +622,7 @@ export function Tables() {
                 />
               </>
             )}
-            {kind === 1 && (
+            {!served && kind === 1 && (
               <mesh
                 position={[0, 0.05, 0]}
                 rotation={[0.2, 0.4, 0]}
@@ -529,14 +630,14 @@ export function Tables() {
                 geometry={boxGeo(0.16, 0.05, 0.1)}
               />
             )}
-            {kind === 2 && (
+            {!served && kind === 2 && (
               <>
                 <mesh position={[-0.05, 0.04, 0]} material={stdMat('#6aaa5a')} geometry={sphereGeo(0.04, 8, 8)} />
                 <mesh position={[0.05, 0.045, 0.02]} material={stdMat('#d4543c')} geometry={sphereGeo(0.045, 8, 8)} />
                 <mesh position={[0, 0.04, -0.05]} material={stdMat('#e8b84a')} geometry={sphereGeo(0.035, 8, 8)} />
               </>
             )}
-            {kind === 3 && (
+            {!served && kind === 3 && (
               <mesh
                 position={[0, 0.06, 0]}
                 material={stdMat(FOOD_COLORS[i % FOOD_COLORS.length])}
@@ -734,6 +835,7 @@ function HandClapper({ swing }: { swing: number }) {
 }
 
 export function Player() {
+  const skin = useBrandSkin()
   const ref = useRef<Group>(null)
   const arm = useRef<Group>(null)
   const { camera } = useThree()
@@ -1022,6 +1124,10 @@ export function Player() {
     skillId === 'slap' ||
     (hitFx?.skillId === 'slap' && performance.now() < hitFx.until)
   const shouting = performance.now() < shoutBannerUntil
+  const commercial = isCommercial()
+  const shirt = commercial ? skin.primary : '#3a6ea5'
+  const pants = commercial ? '#6a4630' : '#2e5580'
+  const heldSkill = skillId ?? (showSlapArm ? 'slap' : null)
 
   return (
     <group
@@ -1032,15 +1138,15 @@ export function Player() {
       {/* Legs */}
       <mesh position={[-0.12, 0.22, 0]} castShadow>
         <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
-        <meshStandardMaterial color="#2e5580" />
+        <meshStandardMaterial color={pants} />
       </mesh>
       <mesh position={[0.12, 0.22, 0]} castShadow>
         <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
-        <meshStandardMaterial color="#2e5580" />
+        <meshStandardMaterial color={pants} />
       </mesh>
       <mesh position={[0, 0.5, 0]} castShadow>
         <capsuleGeometry args={[0.28, 0.45, 4, 8]} />
-        <meshStandardMaterial color="#3a6ea5" />
+        <meshStandardMaterial color={shirt} />
       </mesh>
       <mesh position={[0, 1.28, 0]} castShadow>
         <sphereGeometry args={[0.3, 16, 16]} />
@@ -1049,7 +1155,7 @@ export function Player() {
       {/* Idle left arm */}
       <mesh position={[-0.38, 0.88, 0.05]} rotation={[0.15, 0, 0.25]} castShadow>
         <capsuleGeometry args={[0.07, 0.32, 4, 8]} />
-        <meshStandardMaterial color="#3a6ea5" />
+        <meshStandardMaterial color={shirt} />
       </mesh>
       <mesh position={[-0.1, 1.32, 0.24]}>
         <sphereGeometry args={[0.045, 8, 8]} />
@@ -1071,28 +1177,33 @@ export function Player() {
       <group ref={arm} position={[0.32, 0.95, 0]}>
         <mesh position={[0, -0.12, 0]} rotation={[0.1, 0, -0.35]} castShadow>
           <capsuleGeometry args={[0.07, 0.34, 4, 8]} />
-          <meshStandardMaterial color="#3a6ea5" />
+          <meshStandardMaterial color={shirt} />
         </mesh>
-        {showSlapArm && <HandClapper swing={0.2} />}
-        {skillId === 'tape' && (
+        {commercial && heldSkill && (
+          <group position={[0.28, 1.05, 0.32]}>
+            <DishMesh dish={dishForSkill(heldSkill)} scale={1.3} />
+          </group>
+        )}
+        {!commercial && showSlapArm && <HandClapper swing={0.2} />}
+        {!commercial && skillId === 'tape' && (
           <mesh position={[0.4, 1.1, 0.3]} rotation={[0.5, 0, 0.4]}>
             <boxGeometry args={[0.28, 0.08, 0.08]} />
             <meshStandardMaterial color="#d8d8d8" />
           </mesh>
         )}
-        {skillId === 'gag' && (
+        {!commercial && skillId === 'gag' && (
           <mesh position={[0.35, 1.15, 0.35]} rotation={[0.8, 0.2, 0]}>
             <capsuleGeometry args={[0.06, 0.22, 4, 8]} />
             <meshStandardMaterial color="#9b6bff" />
           </mesh>
         )}
-        {skillId === 'poop' && (
+        {!commercial && skillId === 'poop' && (
           <mesh position={[0.35, 1.1, 0.35]} rotation={[0.5, 0, 0.4]}>
             <sphereGeometry args={[0.12, 8, 8]} />
             <meshStandardMaterial color="#6b4a2b" />
           </mesh>
         )}
-        {skillId === 'civility' && (
+        {!commercial && skillId === 'civility' && (
           <group position={[0, 0, 0]}>
             <mesh position={[0.4, 1.3, 0.2]} rotation={[0, 0, -0.3]}>
               <capsuleGeometry args={[0.06, 0.35, 4, 8]} />
@@ -1110,7 +1221,7 @@ export function Player() {
         <Billboard position={[0, 2.1, 0]}>
           <Text
             fontSize={0.22}
-            color="#ff5533"
+            color={commercial ? skin.primary : '#ff5533'}
             anchorX="center"
             anchorY="middle"
             outlineWidth={0.015}

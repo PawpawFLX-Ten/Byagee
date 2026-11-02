@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group, Mesh } from 'three'
 import { useGameStore, HIT_FX_MS } from '../game/store'
+import { isCommercial } from '../game/commercial/runtime'
+import { dishForSkill } from '../game/commercial/session'
+import { dishById } from '../game/commercial/dishes'
 import { stdMat } from './materials'
+import { DishMesh } from './DishMesh'
 import type { SkillId } from '../game/types'
 
 const FX_COLOR: Record<SkillId, string> = {
@@ -56,13 +60,17 @@ export function SkillFx() {
         ;(ring.current.material as unknown as { opacity: number; color: { set: (c: string) => void } }).opacity =
           0.55 * (1 - t)
         ;(ring.current.material as unknown as { color: { set: (c: string) => void } }).color.set(
-          isCivility ? '#ffd700' : '#ff6644',
+          isCommercial()
+            ? dishForSkill(hitFx.skillId).color
+            : isCivility
+              ? '#ffd700'
+              : '#ff6644',
         )
       } else if (ring.current) {
         ring.current.visible = false
       }
 
-      if (hitFx.skillId === 'poop' && cone.current) {
+      if (!isCommercial() && hitFx.skillId === 'poop' && cone.current) {
         cone.current.visible = true
         cone.current.position.set(
           hitFx.playerPos[0],
@@ -76,7 +84,18 @@ export function SkillFx() {
         cone.current.visible = false
       }
 
-      if (hitFx.skillId === 'slap' && hand.current && liveTargets[0]) {
+      if (isCommercial() && hand.current && liveTargets[0]) {
+        hand.current.visible = true
+        const p = liveTargets[0].position
+        const origin = hitFx.playerPos
+        hand.current.position.set(
+          origin[0] + (p[0] - origin[0]) * t,
+          1.05 + Math.sin(t * Math.PI) * 0.55,
+          origin[2] + (p[2] - origin[2]) * t,
+        )
+        hand.current.rotation.set(0, t * 2, 0)
+        hand.current.scale.setScalar(1.15)
+      } else if (hitFx.skillId === 'slap' && hand.current && liveTargets[0]) {
         hand.current.visible = true
         const p = liveTargets[0].position
         hand.current.position.set(p[0], p[1] + 1.35 + t * 0.2, p[2])
@@ -87,7 +106,7 @@ export function SkillFx() {
       }
 
       // Gag projectile: flies from player to target in an arc
-      if (hitFx.skillId === 'gag' && projectile.current && liveTargets[0]) {
+      if (!isCommercial() && hitFx.skillId === 'gag' && projectile.current && liveTargets[0]) {
         projectile.current.visible = true
         const dur = HIT_FX_MS.gag
         const progress = Math.max(0, Math.min(1, 1 - (hitFx.until - performance.now()) / dur))
@@ -164,10 +183,14 @@ export function SkillFx() {
           </mesh>
 
           <group ref={hand} visible={false}>
-            <mesh>
-              <boxGeometry args={[0.35, 0.12, 0.45]} />
-              <meshBasicMaterial color={FX_COLOR.slap} />
-            </mesh>
+            {isCommercial() ? (
+              <DishMesh dish={dishForSkill(hitFx.skillId)} />
+            ) : (
+              <mesh>
+                <boxGeometry args={[0.35, 0.12, 0.45]} />
+                <meshBasicMaterial color={FX_COLOR.slap} />
+              </mesh>
+            )}
           </group>
 
           <group ref={projectile} visible={false}>
@@ -213,21 +236,30 @@ function Burst({
 
   return (
     <group ref={ref} position={[position[0], 1.2, position[2]]}>
-      <mesh>
-        <sphereGeometry args={[0.12, 8, 8]} />
-        <meshBasicMaterial
-          color={FX_COLOR[skillId]}
-          transparent
-          opacity={0.85}
-        />
-      </mesh>
-      {skillId === 'tape' && (
+      {isCommercial() ? (
+        <DishMesh dish={dishForSkill(skillId)} scale={1.15} />
+      ) : (
+        <mesh>
+          <sphereGeometry args={[0.12, 8, 8]} />
+          <meshBasicMaterial
+            color={FX_COLOR[skillId]}
+            transparent
+            opacity={0.85}
+          />
+        </mesh>
+      )}
+      {isCommercial() && skillId === 'civility' && dishById('drink') && (
+        <group position={[0.2, 0, 0.05]}>
+          <DishMesh dish={dishById('drink')!} scale={0.75} />
+        </group>
+      )}
+      {!isCommercial() && skillId === 'tape' && (
         <mesh position={[0, 0, 0.2]} rotation={[0.3, 0, 0.2]}>
           <boxGeometry args={[0.35, 0.06, 0.04]} />
           <meshBasicMaterial color="#dddddd" />
         </mesh>
       )}
-      {skillId === 'gag' && (
+      {!isCommercial() && skillId === 'gag' && (
         <mesh position={[0, -0.05, 0.15]}>
           <capsuleGeometry args={[0.06, 0.14, 4, 6]} />
           <meshBasicMaterial color="#9b6bff" />
@@ -275,6 +307,7 @@ function Plungers() {
     return () => window.clearTimeout(id)
   }, [plungerUntil])
 
+  if (isCommercial()) return null
   const now = performance.now()
   if (plungerUntil <= 0 || now > plungerUntil) return null
   const idList = ids.length ? ids.split(',') : []

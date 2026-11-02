@@ -1,7 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { bootCommercial } from './game/commercial'
+import { getLang } from './game/i18n'
+import { useGameStore } from './game/store'
 import App from './App.tsx'
+
+bootCommercial()
+useGameStore.setState({ lang: getLang() })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

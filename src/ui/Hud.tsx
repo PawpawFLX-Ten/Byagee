@@ -9,6 +9,8 @@ import type { SkillId } from '../game/types'
 import { titleForTime } from '../game/titles'
 import { getLastDailySeed, loadDailyBest } from '../game/daily'
 import { xpForNextLevel, MAX_LEVEL, isQUnlocked, isEUnlocked } from '../game/progression'
+import { isCommercial } from '../game/commercial/runtime'
+import { CommercialEndScreen } from './LeadForm'
 
 function formatTime(sec: number): string {
   const m = Math.floor(sec / 60)
@@ -62,6 +64,8 @@ export function Hud() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       void unlockAudio()
       if (!briefingDone) return
       if (e.code === 'Digit1' || e.code === 'Numpad1') fireSkill('slap')
@@ -105,6 +109,10 @@ export function Hud() {
   const isNewBest = s.isNewBest
   const lastScore = s.lastScore
   const unlockedThisRun = s.unlockedThisRun
+  const fedPoints = s.fedPoints
+  const feedTarget = s.feedTarget
+  const roundLimitSec = s.roundLimitSec
+  const commercial = isCommercial()
 
   if (!briefingDone) return null
 
@@ -176,23 +184,44 @@ export function Hud() {
           </div>
         </div>
         <div className="meter">
-          <span>LV{level}</span>
-          <div className="bar">
-            {level < MAX_LEVEL ? (
-              <div className="fill xp" style={{ width: `${Math.min(100, (xp / (xpForNextLevel(level) ?? 1)) * 100)}%` }} />
-            ) : (
-              <div className="fill xp" style={{ width: '100%' }} />
-            )}
-          </div>
+          {commercial ? (
+            <>
+              <span>{t('hud_fed')}</span>
+              <div className="bar">
+                <div
+                  className="fill xp"
+                  style={{ width: `${Math.min(100, (fedPoints / Math.max(1, feedTarget)) * 100)}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <span>LV{level}</span>
+              <div className="bar">
+                {level < MAX_LEVEL ? (
+                  <div className="fill xp" style={{ width: `${Math.min(100, (xp / (xpForNextLevel(level) ?? 1)) * 100)}%` }} />
+                ) : (
+                  <div className="fill xp" style={{ width: '100%' }} />
+                )}
+              </div>
+            </>
+          )}
         </div>
         <div className="meta">
-          <span>{formatTime(elapsedSec)}</span>
-          <span className="phase">{phase}</span>
+          <span>
+            {commercial
+              ? formatTime(Math.max(0, roundLimitSec - elapsedSec))
+              : formatTime(elapsedSec)}
+          </span>
+          <span className="phase">{commercial ? t('phase_service') : phase}</span>
+          {commercial && (
+            <span className="population">{fedPoints}/{feedTarget}</span>
+          )}
           {selfNoise > 0 && <span className="self-noise">{t('hud_selfNoise')}</span>}
           <span className="population">{population}/{maxNpcs}</span>
-          <span className="score-chip" title={t('score_label')}>{liveScore}</span>
-          {hasBoss && <span className="boss-cue">BOSS</span>}
-          {bossInbound && <span className="boss-eta">{t('hud_bossEta')} {Math.ceil(bossEtaSec!)}s</span>}
+          {!commercial && <span className="score-chip" title={t('score_label')}>{liveScore}</span>}
+          {!commercial && hasBoss && <span className="boss-cue">BOSS</span>}
+          {!commercial && bossInbound && <span className="boss-eta">{t('hud_bossEta')} {Math.ceil(bossEtaSec!)}s</span>}
         </div>
         <label className="hud-nausea">
           <input
@@ -212,7 +241,7 @@ export function Hud() {
           const readyAt = cooldownReadyAt[id as SkillId] ?? 0
           const left = Math.max(0, (readyAt - now) / 1000)
           const ready = left <= 0
-          const locked = (id === 'poop' && !isQUnlocked(level)) || (id === 'civility' && !isEUnlocked(level))
+          const locked = !commercial && ((id === 'poop' && !isQUnlocked(level)) || (id === 'civility' && !isEUnlocked(level)))
           return (
             <button
               key={id}
@@ -278,7 +307,11 @@ export function Hud() {
         </div>
       )}
 
-      {!alive && (
+      {!alive && commercial && (
+        <CommercialEndScreen onRestart={() => restart()} />
+      )}
+
+      {!alive && !commercial && (
         <div className="death">
           <h1>{t('hud_deathTitle')}</h1>
           <p>

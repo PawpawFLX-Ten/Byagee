@@ -14,6 +14,7 @@ import {
   sphereGeo,
 } from './geometries'
 import { CONFIG } from '../game/config'
+import { isCommercial } from '../game/commercial/runtime'
 import { smackDamageDelayFor } from '../game/threat'
 import type { NpcArchetype, NpcState, SkillId } from '../game/types'
 
@@ -310,6 +311,8 @@ function NpcMeshImpl({
   if (!npc) return null
 
   const faceLocked = npc.status === 'sealed' || npc.status === 'silenced'
+  const commercial = isCommercial()
+  const satisfied = commercial && faceLocked
   const quietLabel =
     isChaser && npc.status === 'walking'
       ? t('npc_chaser')
@@ -353,7 +356,16 @@ function NpcMeshImpl({
         <mesh ref={cheekR} position={[0.28, -0.02, 0.1]} material={stdMat('#e8b89a')} geometry={sphereGeo(0.11, 8, 8)} />
 
         {/* Deep oral cavity — half-face scale */}
-        <mesh position={[0, -0.08, 0.22]} rotation={[0.25, 0, 0]} material={stdMat('#3a0808')} geometry={boxGeo(0.32, 0.28, 0.16)} />
+        <mesh
+          position={[0, -0.08, 0.22]}
+          rotation={[0.25, 0, 0]}
+          scale={satisfied ? [0.35, 0.18, 0.35] : [1, 1, 1]}
+          material={stdMat('#3a0808')}
+          geometry={boxGeo(0.32, 0.28, 0.16)}
+        />
+        {satisfied && (
+          <mesh position={[0, -0.16, 0.32]} material={stdMat('#c45a5a')} geometry={boxGeo(0.16, 0.028, 0.02)} />
+        )}
         <mesh position={[0, -0.02, 0.18]} material={stdMat('#f5efe4')} geometry={boxGeo(0.28, 0.04, 0.06)} />
 
         <mesh ref={tongue} position={[0, -0.12, 0.1]} visible={false} material={stdMat('#c45a6a')} geometry={boxGeo(0.12, 0.05, 0.16)} />
@@ -426,7 +438,7 @@ function NpcMeshImpl({
         <Billboard>
           <Text
             fontSize={0.22}
-            color="#ff3333"
+            color={commercial ? '#e08a3c' : '#ff3333'}
             anchorX="center"
             anchorY="middle"
             outlineWidth={0.012}

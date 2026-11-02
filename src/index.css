@@ -1330,3 +1330,170 @@ body.force-mobile-hud .score-box {
 body.force-mobile-hud .score-total strong {
   font-size: 28px;
 }
+
+body.commercial {
+  --brand: #c46a2d;
+  --brand-soft: #f3d2a4;
+}
+
+body.commercial .briefing-card {
+  background: linear-gradient(165deg, #3c2c24 0%, #241912 100%);
+  border: 1px solid color-mix(in srgb, var(--brand) 55%, transparent);
+}
+
+body.commercial .business-email {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+body.commercial .business-email a {
+  color: var(--brand-soft);
+  text-decoration: underline;
+}
+
+body.commercial .lead-form .business-email {
+  margin: 2px 0 0;
+}
+
+body.commercial .value-prop {
+  margin: 0 0 8px;
+  color: var(--brand-soft);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+body.commercial .briefing-go,
+body.commercial .lead-cta,
+body.commercial .end-restart {
+  background: var(--brand);
+  color: #fffaf3;
+}
+
+body.commercial .inquiry-btn {
+  color: var(--brand-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+body.commercial .skin-switch {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+body.commercial .skin-switch button {
+  flex: 1;
+  color: #fff8f0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+body.commercial .skin-switch button.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fffaf3;
+}
+
+body.commercial .sponsor-link {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  color: rgba(255, 248, 240, 0.62);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+body.commercial .skill-icon-wrap {
+  background: var(--brand);
+  color: #fffaf3;
+  font-size: 16px;
+}
+
+body.commercial .meter span {
+  width: auto;
+  min-width: 32px;
+}
+
+body.commercial .commercial-end {
+  gap: 6px;
+}
+
+body.commercial .end-stat,
+body.commercial .end-sub {
+  margin: 0;
+  max-width: 460px;
+  text-align: center;
+}
+
+body.commercial .lead-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 100%);
+  margin-top: 8px;
+  text-align: left;
+}
+
+body.commercial .lead-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+body.commercial .lead-form input[type='text'],
+body.commercial .lead-form input:not([type='checkbox']) {
+  color: #1a1510;
+  background: #fffaf3;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+body.commercial .lead-privacy {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+body.commercial .lead-cta,
+body.commercial .end-restart {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+body.commercial .lead-note,
+body.commercial .lead-error,
+body.commercial .lead-success {
+  margin: 0;
+  font-size: 12px;
+}
+
+body.commercial .lead-error {
+  color: #ffb4a2;
+}
+
+body.commercial .lead-success {
+  color: #b7e7c2;
+  font-size: 16px;
+  text-align: center;
+}
